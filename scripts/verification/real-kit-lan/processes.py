@@ -65,7 +65,10 @@ def prepare(out, deadline):
 
 
 SCENARIOS = {'admission': 'MultiProcessEndpoint', 'resume': 'ResumeProcessEndpoint',
-             'party-resume': 'ResumeProcessEndpoint', 'invite-resume': 'ResumeProcessEndpoint'}
+             'party-resume': 'ResumeProcessEndpoint', 'invite-resume': 'ResumeProcessEndpoint',
+             'party-invite-resume': 'ResumeProcessEndpoint'}
+PARTY_SCENARIOS = {'party-resume', 'party-invite-resume'}
+PINNED_SCENARIOS = {'invite-resume', 'party-invite-resume'}
 RESUME_MARKERS = {
     'host': (b'FROZEN_ROSTER_PASS\n', b'PHYSICAL_CLOSE_PASS\n', b'REJOIN_SAME_SEAT_PASS\n'),
     'peer': (b'SELECTED_GAME_REJECTION_PASS\n', b'SELECTED_VERSION_REJECTION_PASS\n',
@@ -76,7 +79,8 @@ RESUME_MARKERS = {
 def endpoint_command(role, namespace, classpath, scenario='admission'):
     probe.require(scenario in SCENARIOS, 'Unsupported process scenario')
     args = ['java', '-Xmx512m', '-cp', classpath, 'com.parlor.transport.p2p.' + SCENARIOS[scenario], role, namespace]
-    mode = {'party-resume': 'party', 'invite-resume': 'invite'}.get(scenario)
+    mode = {'party-resume': 'party', 'invite-resume': 'invite',
+            'party-invite-resume': 'party-invite'}.get(scenario)
     return args if mode is None else args + [mode]
 
 
@@ -125,7 +129,7 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
 
         host = spawn('host')
         entry_input = None
-        advertised = advertised_invite if scenario == 'invite-resume' else advertised_code
+        advertised = advertised_invite if scenario in PINNED_SCENARIOS else advertised_code
         while time.monotonic() < min(deadline, started + 40):
             probe.require(host.poll() is None, 'Host ended before advertisement')
             entry_input = advertised(bounded_log(directory / 'host.log'))
@@ -165,7 +169,7 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
             probe.require(all(marker in data for marker in expected), 'Required endpoint assertions missing')
             if scenario != 'admission':
                 probe.require(all(marker in data for marker in RESUME_MARKERS[role]), 'Required resume assertions missing')
-            if scenario == 'party-resume':
+            if scenario in PARTY_SCENARIOS:
                 marker = b'PARTY_SAME_ROOM_REOPEN_PASS\n' if role == 'host' else b'EXACT_PARTY_SCOPE_PASS\n'
                 probe.require(marker in data, 'Required party continuation assertion missing')
                 if role == 'peer':
@@ -173,7 +177,7 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
                                   'Required match-end membership assertion missing')
                     probe.require(b'PARTY_SWITCHED_GAME_SAME_CHANNEL_PASS\n' in data,
                                   'Required switched-game channel assertion missing')
-            if scenario == 'invite-resume' and role == 'peer':
+            if scenario in PINNED_SCENARIOS and role == 'peer':
                 probe.require(b'PINNED_INVITE_JOIN_PASS\n' in data, 'Pinned invitation assertion missing')
         successful = True
     except BaseException as failure:

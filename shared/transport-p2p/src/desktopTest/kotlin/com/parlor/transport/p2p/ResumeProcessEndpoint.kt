@@ -66,7 +66,7 @@ object ResumeProcessEndpoint {
     fun main(args: Array<String>) {
         try {
             check(args.size in 2..3 && args[0] in setOf("host", "peer"))
-            check(args.getOrNull(2)?.let { it in setOf("party", "invite") } ?: true)
+            check(args.getOrNull(2)?.let { it in setOf("party", "invite", "party-invite") } ?: true)
             check(args[1].matches(Regex("[a-f0-9]{32}")))
             Executors.newFixedThreadPool(4).asCoroutineDispatcher().use { dispatcher ->
                 executeEndpoint(args, dispatcher)
@@ -83,12 +83,12 @@ object ResumeProcessEndpoint {
     private fun executeEndpoint(args: Array<String>, dispatcher: CoroutineDispatcher) = runBlocking {
         val scope = CoroutineScope(dispatcher + SupervisorJob())
         var room: LocalRoom? = null
-        val party = if (args.getOrNull(2) == "party") {
+        val party = if (args.getOrNull(2) in setOf("party", "party-invite")) {
             HostedPartyProtocol(PartyId(args[1]), game)
         } else {
             null
         }
-        val inviteMode = args.getOrNull(2) == "invite"
+        val inviteMode = args.getOrNull(2) in setOf("invite", "party-invite")
         try {
             withTimeout(90_000) {
                 val fixture = LoopbackDeviceFixture(dispatcher)
@@ -141,6 +141,15 @@ object ResumeProcessEndpoint {
             return JoinConfig(
                 raw, "process-peer", expectedGameProtocol = game.takeIf { party == null },
                 party = party?.let { PartyAdmissionContext(it.id, listOf(game.ref(), secondGame.ref())) },
+            )
+        }
+        if (party != null) {
+            val invitation = checkNotNull(JoinLinkCodec.decodeParty(raw))
+            check(invitation.partyId == party.id)
+            return JoinConfig(
+                invitation.code, "process-peer",
+                party = PartyAdmissionContext(supportedGames = listOf(game.ref(), secondGame.ref())),
+                partyInvitation = invitation,
             )
         }
         val decoded = JoinLinkCodec.decode(raw)
