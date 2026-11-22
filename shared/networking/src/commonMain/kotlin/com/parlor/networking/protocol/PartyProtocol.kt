@@ -68,3 +68,19 @@ data class PublicPartyLobby(
         const val MAX_PARTY_SEATS = 16
     }
 }
+
+
+/** Explicit Party entry. A single-game request cannot stand in for this capability list. */
+@Serializable
+data class PartyAdmissionContext(
+    val expectedPartyId: PartyId? = null,
+    val supportedGames: List<GameProtocolRef>,
+) {
+    fun isValid(): Boolean = supportedGames.size in 1..MAX_GAME_CAPABILITIES &&
+        supportedGames.all(GameProtocolRef::isValid) &&
+        supportedGames.map(GameProtocolRef::gameId).distinct().size == supportedGames.size
+
+    private companion object {
+        const val MAX_GAME_CAPABILITIES = 16
+    }
+}

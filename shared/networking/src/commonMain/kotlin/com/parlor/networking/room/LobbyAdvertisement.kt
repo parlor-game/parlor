@@ -48,6 +48,11 @@ object LobbyAdvertisement {
         return name.takeIf { parse(it) is Entry.GameRoom }
     }
 
+    fun encodeParty(roomTag: String, protocol: ProtocolVersion): String? {
+        val name = "$PREFIX|$SCHEMA|${protocol.major}.${protocol.minor}|p|-|-|$roomTag"
+        return name.takeIf { parse(it) is Entry.PartyRoom }
+    }
+
     fun parse(name: String): Entry {
         if (name.startsWith(LEGACY_PREFIX)) return Entry.Legacy
         if (name.length > MAX_LENGTH || !name.startsWith("$PREFIX|")) return Entry.Unrecognized

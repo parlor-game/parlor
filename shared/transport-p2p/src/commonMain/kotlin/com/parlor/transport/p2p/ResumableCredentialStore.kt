@@ -1,6 +1,7 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.core.serialization.requireBoundedJsonNesting
@@ -40,6 +41,7 @@ internal data class ResumableSessionCredential(
     val gameId: String? = null,
     val gameVersion: Int? = null,
     val roomId: RoomId? = null,
+    val partyId: PartyId? = null,
 ) {
     fun requireValid(): ResumableSessionCredential = apply {
         require(schemaVersion == CREDENTIAL_SCHEMA_VERSION)
@@ -59,6 +61,7 @@ internal data class ResumableSessionCredential(
         require(gameId == null || GameId.isCanonical(gameId))
         require((gameId == null) == (gameVersion == null))
         require(gameVersion == null || gameVersion > 0)
+        require(partyId == null || (roomId != null && gameId == null))
     }
 }
 
@@ -127,6 +130,7 @@ internal fun ResumableSessionCredential.ownsSameMembershipAs(
     membershipId == other.membershipId &&
         roomCode == other.roomCode &&
         roomId == other.roomId &&
+        partyId == other.partyId &&
         playerId == other.playerId &&
         hostPeerId == other.hostPeerId &&
         hostFingerprint == other.hostFingerprint

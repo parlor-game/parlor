@@ -1,8 +1,10 @@
 package com.parlor.networking.room
 
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
@@ -27,6 +29,8 @@ interface LocalRoom {
     val info: StateFlow<RoomInfo>
     val members: StateFlow<List<RoomMember>>
     val isHost: Boolean
+    /** Reversible roster transactions are available only for an authoritative party room. */
+    val partyMatches: PartyMatchAdmission? get() = null
     val incoming: Flow<RoomMessage>
 
     /** Logical session lifecycle; game commands are legal only while active. */
@@ -234,6 +238,7 @@ data class RoomInfo(
     val status: Status,
     val roomId: RoomId? = null,
     val roomTag: String? = null,
+    val partyId: PartyId? = null,
 ) {
     enum class Status { Idle, Hosting, Joined, Lost }
 }
@@ -248,6 +253,7 @@ data class PendingAdmission(
     val playerId: PlayerId,
     val displayName: String,
     val isRejoin: Boolean,
+    val partySupportedGames: List<GameProtocolRef> = emptyList(),
 )
 
 /** Network/transport errors. */

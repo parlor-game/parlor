@@ -24,6 +24,7 @@ import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
@@ -42,6 +43,7 @@ import com.parlor.networking.room.SessionEndCommitStatus
 import com.parlor.networking.transport.LocalNetworkAccess
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.HostedPartyProtocol
 import com.parlor.networking.transport.JoinConfig
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
@@ -123,6 +125,8 @@ import kotlin.time.TestTimeSource
  *    session is gone, instead of silently dropping bytes.
  */
 class P2pKitRoomTransportLifecycleTest {
+    private val partyTestGame = HostedGameProtocol(GameId("fixture-party-game"), 1)
+
 
     // Unconfined so child coroutines start their `collect` blocks synchronously
     // — `kit.incomingSessions` is a SharedFlow with replay=0, and emissions made
@@ -717,6 +721,55 @@ class P2pKitRoomTransportLifecycleTest {
     }
 
     @Test
+    fun party_advertisement_and_admission_are_distinct_from_its_selected_game_room() = runBlocking {
+        val partyId = PartyId("a".repeat(32))
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        var advertisement = ""
+        val transport = P2pKitRoomTransport(
+            appId = AppId("com.parlor.test"),
+            deviceName = "fixture",
+            scope = testScope,
+            kitFactory = object : P2pKitFactory {
+                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit {
+                    advertisement = deviceName
+                    return kit
+                }
+            },
+        )
+        val room = (transport.host(HostConfig("Host", partyProtocol = HostedPartyProtocol(partyId, partyTestGame)))
+            as Result.Success).data as HostP2pRoom
+        try {
+            val info = room.info.value
+            assertThat(LobbyAdvertisement.parse(advertisement))
+                .isEqualTo(LobbyAdvertisement.Entry.PartyRoom(PARTY_WIRE_VERSION, checkNotNull(info.roomTag)))
+            assertThat(advertisement.contains(info.code) || advertisement.contains(partyTestGame.gameId.raw)).isFalse()
+
+            val game = GameProtocolRef(partyTestGame.gameId, 1)
+            val gamePeer = FakeP2pSession(peer("game-peer", "Guest"))
+            emitScopedRequest(kit, gamePeer, game, code = info.code, protocol = PARTY_WIRE_VERSION)
+            assertRejectedWithoutApproval(room, gamePeer, AdmissionRejection.InvalidRequest)
+
+            val wrongParty = FakeP2pSession(peer("other-party", "Guest"))
+            emitScopedRequest(kit, wrongParty, null, code = info.code, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(PartyId("b".repeat(32)), listOf(game)))
+            assertRejectedWithoutApproval(room, wrongParty, AdmissionRejection.StaleRoom)
+
+            val wrongVersion = FakeP2pSession(peer("wrong-game-version", "Guest"))
+            emitScopedRequest(kit, wrongVersion, null, code = info.code, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(game.copy(gameVersion = 2))))
+            assertRejectedWithoutApproval(room, wrongVersion, AdmissionRejection.WrongGame)
+
+            val partyPeer = FakeP2pSession(peer("matching-party", "Guest"))
+            emitScopedRequest(kit, partyPeer, null, code = info.code, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(game)))
+            awaitCondition { room.pendingAdmissions.value.singleOrNull()?.displayName == "Guest" }
+            assertThat(room.members.value).isEmpty()
+        } finally {
+            room.leave()
+        }
+    }
+
+    @Test
     fun party_controls_require_the_exact_party_and_use_the_authenticated_actor() = runBlocking {
         val kit = FakeP2pKit(P2pPeerId("host-pid"))
         val partyId = PartyId("a".repeat(32))
@@ -728,7 +781,7 @@ class P2pKitRoomTransportLifecycleTest {
             maxRemotePlayers = 3,
             scope = testScope,
             codec = codec,
-            partyId = partyId,
+            partyProtocol = HostedPartyProtocol(partyId, partyTestGame),
         )
         try {
             val alice = FakeP2pSession(peer("alice-pid", "Alice"))
@@ -762,7 +815,7 @@ class P2pKitRoomTransportLifecycleTest {
             maxRemotePlayers = 3,
             scope = testScope,
             codec = codec,
-            partyId = PartyId("a".repeat(32)),
+            partyProtocol = HostedPartyProtocol(PartyId("a".repeat(32)), partyTestGame),
         )
         try {
             val alice = FakeP2pSession(peer("alice-pid", "Alice"))
@@ -5537,6 +5590,7 @@ class P2pKitRoomTransportLifecycleTest {
         code: String = "ABCDEF",
         protocol: ProtocolVersion = ProtocolVersion(),
         expectedRoomId: RoomId? = null,
+        party: PartyAdmissionContext? = null,
     ) {
         attachSession(kit, session)
         val request = PeerMessage.AdmissionRequest(
@@ -5546,6 +5600,7 @@ class P2pKitRoomTransportLifecycleTest {
             displayName = session.peer.name,
             expectedGame = expectedGame,
             expectedRoomId = expectedRoomId,
+            party = party,
         )
         session.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
     }
@@ -5610,7 +5665,15 @@ class P2pKitRoomTransportLifecycleTest {
         kit: FakeP2pKit,
         session: FakeP2pSession,
     ): String {
-        requestAdmission(room, kit, session)
+        val partyId = room.info.value.partyId
+        if (partyId == null) {
+            requestAdmission(room, kit, session)
+        } else {
+            val game = GameProtocolRef(partyTestGame.gameId, partyTestGame.gameVersion)
+            emitScopedRequest(kit, session, null, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(game)))
+            awaitCondition { room.pendingAdmissions.value.any { it.playerId.raw == session.peer.id.value } }
+        }
         assertThat(room.approveAdmission(PlayerId(session.peer.id.value)))
             .isInstanceOf(Result.Success::class)
         awaitCondition {
@@ -5643,12 +5706,14 @@ class P2pKitRoomTransportLifecycleTest {
             P2pMessage.Binary(
                 codec.encode(
                     PeerMessage.ResumeRequested(
-                        protocol = ProtocolVersion(),
+                        protocol = if (room.info.value.partyId == null) ProtocolVersion() else PARTY_WIRE_VERSION,
                         actor = PlayerId("forged-body-id"),
                         roomCode = "ABCDEF",
                         displayName = session.peer.name,
                         secret = secret,
                         generation = generation,
+                        roomId = if (room.info.value.partyId != null) room.info.value.roomId else null,
+                        partyId = room.info.value.partyId,
                     ),
                 ),
             ),

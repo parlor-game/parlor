@@ -2,8 +2,10 @@ package com.parlor.networking.transport
 
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.room.DiscoveredRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
@@ -43,7 +45,7 @@ interface RoomTransport {
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
         if (config.expectedGameProtocol != null || config.expectedRoomId != null ||
-            config.discoveredRoom != null || config.invitation != null
+            config.discoveredRoom != null || config.invitation != null || config.party != null
         ) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
@@ -53,6 +55,15 @@ interface RoomTransport {
     /** Non-secret metadata for an encrypted resumable membership, if present. */
     suspend fun resumableSession(): Result<ResumableSessionInfo?, NetError> =
         Result.Success(null)
+
+    /** Party resume has a separate target and never resolves through a game binding. */
+    suspend fun resumablePartySession(): Result<ResumablePartySessionInfo?, NetError> =
+        Result.Success(null)
+
+    suspend fun resumeParty(
+        expectedPartyId: PartyId,
+        selection: ResumableSessionSelection,
+    ): Result<LocalRoom, NetError> = Result.Failure(NetError.IncompatibleProtocol)
 
     /** Resume the last protected membership on a fresh physical connection. */
     suspend fun resumeLastSession(): Result<LocalRoom, NetError> =
@@ -170,11 +181,16 @@ data class HostConfig(
     val maxRemotePlayers: Int = 17,
     /** Shipping game identity persisted into resumable membership credentials. */
     val gameProtocol: HostedGameProtocol? = null,
+    /** A group is a separate room scope. Its initial selection does not identify the group. */
+    val partyProtocol: HostedPartyProtocol? = null,
 ) {
     init {
+        require(gameProtocol == null || partyProtocol == null) { "A physical room has exactly one configured scope" }
         require(maxRemotePlayers in 1..17) { "maxRemotePlayers must be in 1..17" }
     }
 }
+
+data class HostedPartyProtocol(val id: PartyId, val initialGame: HostedGameProtocol)
 
 data class HostedGameProtocol(
     val gameId: GameId,
@@ -200,6 +216,7 @@ data class JoinConfig(
     val expectedRoomId: RoomId? = null,
     val discoveredRoom: DiscoveredRoomSelection? = null,
     val invitation: JoinInvitation? = null,
+    val party: PartyAdmissionContext? = null,
 )
 
 data class ResumableSessionInfo(
@@ -209,6 +226,13 @@ data class ResumableSessionInfo(
     val expiresAtEpochMillis: Long,
     /** Opaque, non-secret ownership capability; never reconstructed from presentation fields. */
     val deletionSelection: ResumableSessionSelection? = null,
+)
+
+data class ResumablePartySessionInfo(
+    val partyId: PartyId,
+    val displayName: String,
+    val expiresAtEpochMillis: Long,
+    val selection: ResumableSessionSelection,
 )
 
 /** Non-persistent implementation-owned membership handle; never a credential or serialized identity. */

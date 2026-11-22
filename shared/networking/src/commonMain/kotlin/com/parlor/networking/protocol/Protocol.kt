@@ -1,6 +1,7 @@
 package com.parlor.networking.protocol
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.SessionId
@@ -107,6 +108,9 @@ data class ResumableCredentialOffer(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val roomId: RoomId? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val partyId: PartyId? = null,
 )
 
 @Serializable
@@ -308,6 +312,9 @@ sealed interface PeerMessage : RoomMessage {
         @OptIn(ExperimentalSerializationApi::class)
         @EncodeDefault(EncodeDefault.Mode.NEVER)
         val expectedRoomId: RoomId? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val party: PartyAdmissionContext? = null,
     ) : PeerMessage
 
     /** Confirms that the initial credential offer is durably staged. */
@@ -345,6 +352,7 @@ sealed interface PeerMessage : RoomMessage {
         val generation: Long,
         @EncodeDefault(EncodeDefault.Mode.NEVER) val roomId: RoomId? = null,
         @EncodeDefault(EncodeDefault.Mode.NEVER) val game: GameProtocolRef? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val partyId: PartyId? = null,
     ) : PeerMessage
 
     /** Confirms durable staging of the rotated resume offer. */
