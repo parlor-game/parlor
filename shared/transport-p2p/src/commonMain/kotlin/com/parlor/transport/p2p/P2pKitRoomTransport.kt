@@ -1334,6 +1334,10 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     displayName = credential.displayName,
                     secret = credential.secret,
                     generation = credential.generation,
+                    roomId = credential.roomId,
+                    game = credential.gameId?.let {
+                        GameProtocolRef(GameId(it), checkNotNull(credential.gameVersion))
+                    },
                 ),
                 timeoutMs = FIRST_ADMISSION_RESPONSE_TIMEOUT_MS,
                 accepts = { response ->
@@ -1468,6 +1472,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 expiresAtEpochMillis = expiresAtEpochMillis,
                 gameId = gameId,
                 gameVersion = gameVersion,
+                roomId = roomId,
             ).requireValid()
         } catch (@Suppress("TooGenericExceptionCaught") _: Exception) {
             null
@@ -1488,7 +1493,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             hostFingerprint == current.hostFingerprint
         val rotationMatches = generation > current.generation &&
             gameId == current.gameId &&
-            gameVersion == current.gameVersion
+            gameVersion == current.gameVersion && roomId == current.roomId
         if (!playerMatches || !authenticatedHostMatches || !offeredHostMatches || !rotationMatches) {
             return null
         }
@@ -2543,7 +2548,9 @@ internal class HostP2pRoom(
         }
         val displayName = transportDisplayName.trim()
         val protocolMatches = request.protocol.isCompatibleWith(ProtocolVersion())
-        val roomMatches = request.roomCode == roomCode
+        val roomMatches = request.roomCode == roomCode &&
+            (gameProtocol == null && request.roomId == null || request.roomId == roomId) &&
+            request.game == gameProtocol?.toGameProtocolRef()
         val displayNameMatches = RoomInputPolicy.isValidDisplayName(displayName) &&
             request.displayName.trim() == displayName
         val secretShapeMatches = request.secret.length == REJOIN_SECRET_HEX_LENGTH &&
@@ -3936,6 +3943,7 @@ internal class PeerP2pRoom(
             hostDisplayName = hostDisplayName,
             hostPlayerId = PlayerId(hostPeer.id.value),
             status = RoomInfo.Status.Joined,
+            roomId = initialCredential?.roomId,
         ),
     )
     private val _members = MutableStateFlow<List<RoomMember>>(

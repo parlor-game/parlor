@@ -378,6 +378,60 @@ class P2pKitRoomTransportLifecycleTest {
         }
     }
 
+    @Test
+    fun resume_rejects_the_wrong_room_and_game_without_spending_a_valid_credential() = runBlocking {
+        val targets: List<(PeerMessage.ResumeRequested) -> PeerMessage.ResumeRequested> = listOf(
+            { request ->
+                val otherId = if (request.roomId?.raw?.first() == 'a') 'b' else 'a'
+                request.copy(roomId = RoomId(otherId.toString().repeat(32)))
+            },
+            { it.copy(roomId = null) },
+            { it.copy(game = GameProtocolRef(GameId("mafia"), 2)) },
+            { it.copy(game = GameProtocolRef(GameId("ghamza"), 1)) },
+        )
+        for (wrongTarget in targets) {
+            val kit = FakeP2pKit(P2pPeerId("host-pid"))
+            val game = HostedGameProtocol(GameId("mafia"), 1)
+            val room = newHostRoom(kit, gameProtocol = game)
+            try {
+                val expectedGame = GameProtocolRef(game.gameId, game.gameVersion)
+                val alice = FakeP2pSession(peer("alice-pid", "Alice"))
+                emitScopedRequest(kit, alice, expectedGame)
+                awaitCondition { room.pendingAdmissions.value.isNotEmpty() }
+                assertThat(room.approveAdmission(PlayerId("alice-pid"))).isInstanceOf(Result.Success::class)
+                awaitCondition { room.members.value.singleOrNull()?.connected == true }
+                val offer = alice.sent.filterIsInstance<P2pMessage.Binary>()
+                    .map { codec.decode(it.bytes) }.filterIsInstance<HostMessage.AdmissionOffered>().single().offer
+                alice.stateFlow.value = ConnectionState.Closed
+                awaitCondition { room.members.value.singleOrNull()?.connected == false }
+
+                val request = PeerMessage.ResumeRequested(
+                    protocol = ProtocolVersion(),
+                    actor = PlayerId("alice-pid"),
+                    roomCode = "ABCDEF",
+                    displayName = "Alice",
+                    secret = offer.secret,
+                    generation = offer.generation,
+                    roomId = checkNotNull(room.info.value.roomId),
+                    game = expectedGame,
+                )
+                val rejected = FakeP2pSession(peer("alice-pid", "Alice"))
+                attachSession(kit, rejected)
+                rejected.incomingFlow.emit(P2pMessage.Binary(codec.encode(wrongTarget(request))))
+                awaitCondition { rejected.admissionRejections().isNotEmpty() }
+                assertThat(rejected.admissionRejections()).containsExactly(AdmissionRejection.InvalidCredential)
+                assertThat(room.members.value.single().connected).isFalse()
+
+                val returning = FakeP2pSession(peer("alice-pid", "Alice"))
+                attachSession(kit, returning)
+                returning.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
+                awaitCondition { room.members.value.singleOrNull()?.connected == true }
+            } finally {
+                room.leave()
+            }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun an_expired_pending_approval_cannot_be_reopened_on_the_same_connection() = runTest {

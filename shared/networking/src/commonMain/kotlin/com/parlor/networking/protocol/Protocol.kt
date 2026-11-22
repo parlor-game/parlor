@@ -317,6 +317,8 @@ sealed interface PeerMessage : RoomMessage {
         val displayName: String,
         val secret: String,
         val generation: Long,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val roomId: RoomId? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val game: GameProtocolRef? = null,
     ) : PeerMessage
 
     /** Confirms durable staging of the rotated resume offer. */

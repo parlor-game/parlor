@@ -3,6 +3,7 @@ package com.parlor.transport.p2p
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
@@ -16,10 +17,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
@@ -141,7 +140,7 @@ class ResumableCredentialStoreTest {
     @Test
     fun excessiveJsonNestingIsCorruptedInputAndDoesNotPoisonLaterStorageAccess() = runTest {
         val payload = ("[".repeat(2_048) + "0" + "]".repeat(2_048)).encodeToByteArray()
-        storage.put("p2p-resumable-session-v1", payload)
+        storage.put("p2p-resumable-session-v2", payload)
         assertThat(store.loadResumeCandidate()).isEqualTo(Result.Failure(CredentialStoreError.Corrupted))
         store.clear()
         val offered = credential(offerId = "offer-after-malformed", generation = 1)
@@ -225,7 +224,7 @@ class ResumableCredentialStoreTest {
     @Test
     fun malformed_or_unknown_schema_record_is_rejected() = runTest {
         storage.put(
-            "p2p-resumable-session-v1",
+            "p2p-resumable-session-v2",
             """{"schemaVersion":99,"active":null,"pending":null}""".encodeToByteArray(),
         )
 
@@ -245,7 +244,7 @@ class ResumableCredentialStoreTest {
 
         invalidCredentials.forEach { invalid ->
             val record = buildJsonObject {
-                put("schemaVersion", JsonPrimitive(1))
+                put("schemaVersion", JsonPrimitive(2))
                 put(
                     "active",
                     Json.encodeToJsonElement(
@@ -256,7 +255,7 @@ class ResumableCredentialStoreTest {
                 put("pending", JsonNull)
             }
             storage.put(
-                "p2p-resumable-session-v1",
+                "p2p-resumable-session-v2",
                 record.toString().encodeToByteArray(),
             )
 
@@ -277,7 +276,7 @@ class ResumableCredentialStoreTest {
     @Test
     fun malformed_utf8_record_is_rejected_without_replacement_decoding() = runTest {
         storage.put(
-            "p2p-resumable-session-v1",
+            "p2p-resumable-session-v2",
             byteArrayOf('{'.code.toByte(), 0xC3.toByte(), '}'.code.toByte()),
         )
 
@@ -327,27 +326,16 @@ class ResumableCredentialStoreTest {
     }
 
     @Test
-    fun schema_one_record_without_membership_id_upgrades_to_offer_identity() = runTest {
-        val legacyCredential = credential(offerId = "legacy-offer", generation = 1)
-        val encodedCredential = Json.encodeToJsonElement(
-            ResumableSessionCredential.serializer(),
-            legacyCredential,
-        ).jsonObject
-        val legacyRecord = buildJsonObject {
-            put("schemaVersion", JsonPrimitive(1))
-            put("active", JsonObject(encodedCredential - "membershipId"))
-            put("pending", JsonNull)
-        }
-        storage.put(
-            "p2p-resumable-session-v1",
-            legacyRecord.toString().encodeToByteArray(),
-        )
+    fun obsolete_v1_membership_is_removed_without_inventing_a_room_identity() = runTest {
+        val legacyKey = "p2p-resumable-session-v1"
+        storage.put(legacyKey, """{"schemaVersion":1,"active":null,"pending":null}""".encodeToByteArray())
 
-        val loaded = store.loadResumeCandidate()
-        assertThat(loaded).isInstanceOf(Result.Success::class)
-        val upgraded = (loaded as Result.Success).data
-        assertThat(upgraded?.membershipId).isEqualTo(legacyCredential.offerId)
-        assertThat(upgraded?.offerId).isEqualTo(legacyCredential.offerId)
+        assertThat(store.loadResumeCandidate()).isEqualTo(Result.Success(null))
+        assertThat(storage.get(legacyKey)).isEqualTo(Result.Success(null))
+
+        val current = credential("offer-2", 1).copy(roomId = RoomId("a".repeat(32)))
+        assertThat(store.stage(current)).isEqualTo(Result.Success(Unit))
+        assertThat(ResumableCredentialStore(storage).loadResumeCandidate()).isEqualTo(Result.Success(current))
     }
 
     @Test
