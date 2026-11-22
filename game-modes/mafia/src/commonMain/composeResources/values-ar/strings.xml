@@ -246,6 +246,7 @@
     <string name="md_net_error_timeout">انتهت مهلة الاتصال.</string>
     <string name="md_net_error_payload_too_large">أرسلت الغرفة بيانات أكبر من الحد الآمن للمعالجة.</string>
     <string name="md_net_error_wrong_code">لم يتم العثور على غرفة مطابقة. تحقق من رمز الغرفة وحاول مجددًا.</string>
+    <string name="md_net_error_wrong_game">الغرفة دي للعبة تانية أو لإصدار مختلف منها. اختر اللعبة المطابقة وتحقق من الرمز.</string>
     <string name="md_net_error_host_declined">رفض المضيف طلب الانضمام هذا.</string>
     <string name="md_net_error_room_full">هذه الغرفة ممتلئة.</string>
     <string name="md_net_error_session_started">بدأت هذه اللعبة بالفعل ولم تعد تقبل لاعبين جددًا.</string>

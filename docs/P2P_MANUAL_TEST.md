@@ -94,10 +94,10 @@ separate 60-second human-approval state.
 
 ### Wire and authority
 
-Runtime protocol: `4.2`.
+Runtime protocol: `4.3`.
 
 Parlor serializes `RoomMessage` as strict CBOR inside `P2pMessage.Binary`.
-Protocol compatibility is exact: a 4.2 binary fails closed when paired with a
+Protocol compatibility is exact: a 4.3 binary fails closed when paired with a
 different major or minor schema. Admission is transactional:
 
 ```text

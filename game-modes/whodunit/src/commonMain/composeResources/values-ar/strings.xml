@@ -75,6 +75,7 @@
     <string name="net_error_transport">حدثت مشكلة في الاتصال.</string>
     <string name="net_error_unauthorized">غير مصرح لك بالانضمام.</string>
     <string name="net_error_wrong_code">لم يتم العثور على غرفة مطابقة. تحقق من رمز الغرفة وحاول مجددًا.</string>
+    <string name="net_error_wrong_game">الغرفة دي للعبة تانية أو لإصدار مختلف منها. اختر اللعبة المطابقة وتحقق من الرمز.</string>
     <string name="network_open_settings">فتح إعدادات التطبيق</string>
     <string name="network_open_settings_description">افتح إعدادات Parlor لمراجعة صلاحية الشبكة المحلية.</string>
     <string name="network_recovery_help">تعذّر على Parlor تأكيد الوصول إلى الشبكة المحلية. تحقّق من Wi-Fi، وعلى iPhone تحقّق من إعداد الشبكة المحلية لـ Parlor. قد يكون السبب أيضًا التوجيه أو Bonjour أو عدم توفر المضيف.</string>

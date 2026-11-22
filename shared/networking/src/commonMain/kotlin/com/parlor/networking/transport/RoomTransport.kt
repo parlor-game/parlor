@@ -172,6 +172,7 @@ data class HostedGameProtocol(
     val gameVersion: Int,
 ) {
     init {
+        gameId.requireCanonical()
         require(gameVersion > 0) { "gameVersion must be positive" }
     }
 }
@@ -181,10 +182,10 @@ data class JoinConfig(
     val displayName: String,
     val rejoinToken: String? = null,
     /**
-     * Selected game binding, checked against authenticated admission metadata
-     * before confirming membership. Null is reserved for game-agnostic callers;
+     * Selected game binding, sent in the authenticated admission request and
+     * checked again against the offer before confirming membership. Null is reserved for game-agnostic callers;
      * shipping game join flows must supply this. Transports without binding
-     * support must reject before opening a room. This is not a wire field.
+     * support must reject before opening a room. The wire request carries the validated tuple.
      */
     val expectedGameProtocol: HostedGameProtocol? = null,
 )

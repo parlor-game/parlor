@@ -181,6 +181,7 @@
     <string name="room_game_error">Could not continue</string>
     <string name="room_game_error_body">Check that everyone has the same app version and is on the same Wi-Fi. Retry the connection; no game action will be replayed.</string>
     <string name="room_game_incompatible">This room belongs to another game or app version.</string>
+    <string name="room_game_wrong_game">This room uses a different game or game version. Select the matching game and check the code.</string>
     <string name="room_game_ended">This table has ended</string>
     <string name="room_game_ended_body">A required player or the host left. No new points were awarded and no unfinished secrets were revealed.</string>
     <string name="room_game_private_cover">Your private screen is covered</string>

@@ -189,6 +189,7 @@
     <string name="room_game_error">مش قادرين نكمّل</string>
     <string name="room_game_error_body">اتأكدوا إن عندكم نفس نسخة التطبيق وعلى نفس الواي فاي. جرّب الاتصال تاني؛ مفيش خطوة هتتكرر تلقائيًا.</string>
     <string name="room_game_incompatible">الأوضة دي للعبة تانية أو نسخة تطبيق مختلفة.</string>
+    <string name="room_game_wrong_game">الغرفة دي للعبة تانية أو لإصدار مختلف منها. اختر اللعبة المطابقة وتحقق من الرمز.</string>
     <string name="room_game_ended">الترابيزة دي خلصت</string>
     <string name="room_game_ended_body">لاعب أساسي أو المضيف خرج. مفيش نقط جديدة اتحسبت ولا أسرار جولة ناقصة اتكشفت.</string>
     <string name="room_game_private_cover">شاشتك الخاصة متغطية</string>

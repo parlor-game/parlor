@@ -250,6 +250,7 @@ sealed interface NetError {
     data object Timeout : NetError
     data object PayloadTooLarge : NetError
     data object WrongCode : NetError
+    data object WrongGame : NetError
     data object HostDeclined : NetError
     data object RoomFull : NetError
     data object SessionStarted : NetError

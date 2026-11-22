@@ -73,6 +73,7 @@ internal enum class P2pDiagnosticReason {
     NATIVE_DNS,
     PERMISSION,
     WRONG_ROOM,
+    WRONG_GAME,
     ROOM_FULL,
     SESSION_STARTED,
     INCOMPATIBLE_PROTOCOL,

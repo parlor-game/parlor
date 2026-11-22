@@ -18,6 +18,7 @@ import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.CommandStatus
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
 import com.parlor.networking.protocol.PeerMessage
@@ -35,6 +36,8 @@ import com.parlor.networking.room.SendTarget
 import com.parlor.networking.room.SessionEndCommitStatus
 import com.parlor.networking.transport.LocalNetworkAccess
 import com.parlor.networking.transport.HostConfig
+import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.JoinConfig
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
 import dev.p2pkit.core.P2pKit
@@ -293,6 +296,61 @@ class P2pKitRoomTransportLifecycleTest {
             .isInstanceOf(Result.Success::class)
         awaitCondition { room.members.value.singleOrNull()?.connected == true }
         assertThat(room.pendingAdmissions.value).isEmpty()
+    }
+
+    @Test
+    fun each_game_only_publishes_approval_for_its_exact_game_and_version() = runBlocking {
+        val games = listOf("mafia", "whodunit", "last-light", "word-impostor", "ghamza", "egyptian-dominoes")
+            .map(::GameId)
+        games.forEach { hosted ->
+            val kit = FakeP2pKit(P2pPeerId("host-pid"))
+            val room = newHostRoom(kit, gameProtocol = HostedGameProtocol(hosted, 1))
+            try {
+                val wrongGames = games.filterNot { it == hosted }.map { GameProtocolRef(it, 1) }
+                wrongGames.forEachIndexed { index, expected ->
+                    val session = FakeP2pSession(peer("wrong-peer-$index", "Alice"))
+                    emitScopedRequest(kit, session, expected)
+                    assertRejectedWithoutApproval(room, session, AdmissionRejection.WrongGame)
+                }
+
+                val exact = FakeP2pSession(peer("matching-peer", "Alice"))
+                emitScopedRequest(kit, exact, GameProtocolRef(hosted, 1))
+                awaitCondition { room.pendingAdmissions.value.singleOrNull()?.playerId == PlayerId("matching-peer") }
+                assertThat(room.members.value).isEmpty()
+            } finally {
+                room.leave()
+            }
+        }
+    }
+
+    @Test
+    fun scoped_admission_checks_protocol_context_and_code_before_announcing_a_mismatch() = runBlocking {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val room = newHostRoom(kit, gameProtocol = HostedGameProtocol(GameId("mafia"), 1))
+        try {
+            val wrongGame = GameProtocolRef(GameId("whodunit"), 1)
+            val oldPeer = FakeP2pSession(peer("legacy-peer", "Alice"))
+            emitScopedRequest(kit, oldPeer, null, protocol = ProtocolVersion(4, 2))
+            assertRejectedWithoutApproval(room, oldPeer, AdmissionRejection.IncompatibleProtocol)
+
+            val missing = FakeP2pSession(peer("missing-peer", "Alice"))
+            emitScopedRequest(kit, missing, null)
+            assertRejectedWithoutApproval(room, missing, AdmissionRejection.InvalidRequest)
+
+            val malformed = FakeP2pSession(peer("malformed-peer", "Alice"))
+            emitScopedRequest(kit, malformed, wrongGame.copy(gameVersion = 0))
+            assertRejectedWithoutApproval(room, malformed, AdmissionRejection.InvalidRequest)
+
+            val wrongCode = FakeP2pSession(peer("wrong-code-peer", "Alice"))
+            emitScopedRequest(kit, wrongCode, wrongGame, code = "ZZZZZZ")
+            assertRejectedWithoutApproval(room, wrongCode, AdmissionRejection.WrongCode)
+
+            val wrongVersion = FakeP2pSession(peer("wrong-version-peer", "Alice"))
+            emitScopedRequest(kit, wrongVersion, GameProtocolRef(GameId("mafia"), 2))
+            assertRejectedWithoutApproval(room, wrongVersion, AdmissionRejection.WrongGame)
+        } finally {
+            room.leave()
+        }
     }
 
     @Test
@@ -3651,6 +3709,36 @@ class P2pKitRoomTransportLifecycleTest {
     }
 
     @Test
+    fun scoped_join_sends_the_selected_game_and_stops_on_wrong_game() = runBlocking {
+        val kit = FakeP2pKit(P2pPeerId("self-pid"))
+        val hostPeer = peer("host-pid", "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host")
+        val session = FakeP2pSession(hostPeer)
+        val selected = HostedGameProtocol(GameId("mafia"), 2)
+        session.sendHandler = { message ->
+            val request = codec.decode((message as P2pMessage.Binary).bytes) as PeerMessage.AdmissionRequest
+            assertThat(request.expectedGame).isEqualTo(GameProtocolRef(selected.gameId, selected.gameVersion))
+            session.incomingFlow.emit(
+                P2pMessage.Binary(codec.encode(HostMessage.AdmissionRejected(AdmissionRejection.WrongGame))),
+            )
+        }
+        kit.connectHandler = { session }
+        kit.peersFlow.value = listOf(hostPeer)
+        val transport = P2pKitRoomTransport(
+            appId = AppId("com.parlor.test"),
+            deviceName = "self-device",
+            scope = testScope,
+            kitFactory = object : P2pKitFactory {
+                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit = kit
+            },
+            joinTimeoutMs = 2_000L,
+        )
+
+        assertThat(transport.join(JoinConfig("ABCDEF", "Alice", expectedGameProtocol = selected)))
+            .isEqualTo(Result.Failure(NetError.WrongGame))
+        assertThat(kit.stopCalls).isEqualTo(1)
+    }
+
+    @Test
     fun join_surfaces_display_name_conflict_and_cleans_up() = runBlocking {
         val kit = FakeP2pKit(P2pPeerId("self-pid"))
         val hostPeer = peer(
@@ -5187,16 +5275,49 @@ class P2pKitRoomTransportLifecycleTest {
         kit: FakeP2pKit,
         maxRemotePlayers: Int = 17,
         diagnostics: P2pDiagnostics = NoOpP2pDiagnostics,
+        gameProtocol: HostedGameProtocol? = null,
     ): HostP2pRoom = HostP2pRoom(
         kit = kit,
         roomCode = "ABCDEF",
         hostDisplayName = "Parlor Room",
         hostPlayerId = PlayerId(kit.localPeerId.value),
         maxRemotePlayers = maxRemotePlayers,
+        gameProtocol = gameProtocol,
         scope = testScope,
         codec = codec,
         diagnostics = diagnostics,
     )
+
+    private suspend fun emitScopedRequest(
+        kit: FakeP2pKit,
+        session: FakeP2pSession,
+        expectedGame: GameProtocolRef?,
+        code: String = "ABCDEF",
+        protocol: ProtocolVersion = ProtocolVersion(),
+    ) {
+        attachSession(kit, session)
+        val request = PeerMessage.AdmissionRequest(
+            protocol = protocol,
+            actor = PlayerId("forged-body-id"),
+            roomCode = code,
+            displayName = session.peer.name,
+            expectedGame = expectedGame,
+        )
+        session.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
+    }
+
+    private suspend fun assertRejectedWithoutApproval(
+        room: HostP2pRoom,
+        session: FakeP2pSession,
+        rejection: AdmissionRejection,
+    ) {
+        awaitCondition { session.admissionRejections().isNotEmpty() }
+        assertThat(session.admissionRejections()).containsExactly(rejection)
+        assertThat(room.pendingAdmissions.value).isEmpty()
+        assertThat(room.members.value).isEmpty()
+        val sent = session.sent.filterIsInstance<P2pMessage.Binary>().map { codec.decode(it.bytes) }
+        assertThat(sent.filterIsInstance<HostMessage.AdmissionPending>()).isEmpty()
+    }
 
     private suspend fun requestAdmission(
         room: HostP2pRoom,

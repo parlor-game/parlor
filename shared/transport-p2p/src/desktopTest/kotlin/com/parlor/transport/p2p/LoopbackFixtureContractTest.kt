@@ -1,13 +1,12 @@
 package com.parlor.transport.p2p
 
-import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PendingAdmission
 import com.parlor.networking.transport.HostConfig
-import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.ResumableSessionInfo
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
@@ -71,7 +70,7 @@ class LoopbackFixtureContractTest {
         try {
             val host = network.host()
             val peer = network.peer(host, "alice")
-            val joining = async { peer.transport.join(host.info.value.code, "alice") }
+            val joining = async { peer.transport.join(JoinConfig(host.info.value.code, "alice", expectedGameProtocol = loopbackGameProtocol)) }
             try {
                 runCurrent()
                 assertFalse(joining.isCompleted)
@@ -105,7 +104,7 @@ class LoopbackFixtureContractTest {
                 val membership = requireNotNull(assertIs<Result.Success<ResumableSessionInfo?>>(
                     device.transport.resumableSession(),
                 ).data)
-                assertEquals(GameId("loopback-test-game"), membership.gameId)
+                assertEquals(loopbackGameProtocol.gameId, membership.gameId)
                 assertEquals(name, membership.displayName)
                 // Capabilities remain inside the device store, not the public room/UI contract.
                 assertNull(room.rejoinToken)
@@ -180,7 +179,7 @@ class LoopbackFixtureContractTest {
 
         suspend fun host(): LocalRoom = assertIs<Result.Success<LocalRoom>>(
             device(hostKit).transport(appId, "host", scope.backgroundScope).host(
-                HostConfig("Fixture Host", gameProtocol = HostedGameProtocol(GameId("loopback-test-game"), 1)),
+                HostConfig("Fixture Host", gameProtocol = loopbackGameProtocol),
             ),
         ).data.also(::own)
 

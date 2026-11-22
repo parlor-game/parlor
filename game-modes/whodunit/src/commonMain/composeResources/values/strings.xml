@@ -75,6 +75,7 @@
     <string name="net_error_transport">A connection problem happened.</string>
     <string name="net_error_unauthorized">Not authorised to join.</string>
     <string name="net_error_wrong_code">No matching room was found. Check the room code and try again.</string>
+    <string name="net_error_wrong_game">This room uses a different game or game version. Select the matching game and check the code.</string>
     <string name="network_open_settings">Open app settings</string>
     <string name="network_open_settings_description">Open Parlor's system settings to review Local Network access.</string>
     <string name="network_recovery_help">Parlor could not confirm local-network access. Check Wi-Fi and, on iPhone, Parlor's Local Network setting. This failure can also be caused by routing, Bonjour, or the host being unavailable.</string>

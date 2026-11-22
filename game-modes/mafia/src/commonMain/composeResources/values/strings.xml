@@ -246,6 +246,7 @@
     <string name="md_net_error_timeout">The connection timed out.</string>
     <string name="md_net_error_payload_too_large">The room sent data that is too large to process safely.</string>
     <string name="md_net_error_wrong_code">No matching room was found. Check the room code and try again.</string>
+    <string name="md_net_error_wrong_game">This room uses a different game or game version. Select the matching game and check the code.</string>
     <string name="md_net_error_host_declined">The host declined this join request.</string>
     <string name="md_net_error_room_full">This room is full.</string>
     <string name="md_net_error_session_started">This game has already started and is not accepting new players.</string>

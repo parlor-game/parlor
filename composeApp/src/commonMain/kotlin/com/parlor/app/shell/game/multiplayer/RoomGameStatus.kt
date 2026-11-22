@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error_body
+import com.parlor.app.resources.room_game_wrong_game
 import com.parlor.app.resources.room_game_incompatible
 import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_new_room
@@ -68,5 +69,9 @@ internal fun RoomButton(label: String, onClick: () -> Unit, enabled: Boolean = t
 
 @Composable
 internal fun roomGameError(error: NetError): String = stringResource(
-    if (error == NetError.IncompatibleProtocol) Res.string.room_game_incompatible else Res.string.room_game_error_body,
+    when (error) {
+        NetError.WrongGame -> Res.string.room_game_wrong_game
+        NetError.IncompatibleProtocol -> Res.string.room_game_incompatible
+        else -> Res.string.room_game_error_body
+    },
 )

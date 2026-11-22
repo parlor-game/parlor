@@ -352,6 +352,12 @@ with physical evidence of dial cost (§14).
 
 ## 6. Admission (protocol 4.3)
 
+The initial wire slice sends and checks the selected game and version before
+approval. It reports a reason-only `WrongGame` and the peer keeps its selected
+game. The remaining 4.3 work includes room identity, approval expiration,
+credential migration, and the discovery dependency in ADR-0003. This initial
+slice is not independently release-qualified.
+
 ### 6.1 Wire changes
 
 ```kotlin

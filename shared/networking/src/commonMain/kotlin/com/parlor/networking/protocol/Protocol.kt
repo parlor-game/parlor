@@ -4,6 +4,8 @@ import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.state.Player
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -24,10 +26,11 @@ sealed interface RoomMessage
 // and adds an actionable duplicate-name admission result. v4.2 carries the
 // host's next expected client-command sequence in every player snapshot so a
 // recreated peer runtime can resume without sacrificing its first action to a
-// false duplicate rejection. Exact compatibility keeps any of these schemas
+// false duplicate rejection. v4.3 checks the selected game before host
+// approval. Exact compatibility keeps any of these schemas
 // from decoding another version's required fields or enum values.
 const val PARLOR_PROTOCOL_MAJOR: Int = 4
-const val PARLOR_PROTOCOL_MINOR: Int = 2
+const val PARLOR_PROTOCOL_MINOR: Int = 3
 const val MAX_COMMAND_PAYLOAD_BYTES: Int = 32 * 1024
 const val MAX_SNAPSHOT_PAYLOAD_BYTES: Int = 256 * 1024
 const val MAX_CONTROL_PAYLOAD_BYTES: Int = 8 * 1024
@@ -63,9 +66,16 @@ data class SessionEnvelopeHeader(
     val connectionEpoch: Long = 1L,
 )
 
+/** Game context claimed by a peer. The host validates it before publishing an approval. */
+@Serializable
+data class GameProtocolRef(val gameId: GameId, val gameVersion: Int) {
+    fun isValid(): Boolean = GameId.isCanonical(gameId.raw) && gameVersion > 0
+}
+
 @Serializable
 enum class AdmissionRejection {
     WrongCode,
+    WrongGame,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -259,6 +269,10 @@ sealed interface PeerMessage : RoomMessage {
         val roomCode: String,
         val displayName: String,
         val rejoinToken: String? = null,
+        // Absent for legacy frames and unscoped fixtures. Game rooms require an exact match.
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val expectedGame: GameProtocolRef? = null,
     ) : PeerMessage
 
     /** Confirms that the initial credential offer is durably staged. */

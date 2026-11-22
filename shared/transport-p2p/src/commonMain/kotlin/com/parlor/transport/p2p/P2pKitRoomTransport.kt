@@ -7,6 +7,7 @@ import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.CommandStatus
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
 import com.parlor.networking.protocol.PeerMessage
@@ -1011,6 +1012,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     actor = selfPlayerId,
                     roomCode = code,
                     displayName = displayName,
+                    expectedGame = expectedGameProtocol?.toGameProtocolRef(),
                 ),
                 timeoutMs = firstResponseTimeoutMs,
                 accepts = { response ->
@@ -1624,6 +1626,7 @@ private fun NetError.toDiagnosticResult(): P2pDiagnosticResult = when (this) {
 
 private fun NetError.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
     NetError.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
+    NetError.WrongGame -> P2pDiagnosticReason.WRONG_GAME
     NetError.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     NetError.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     NetError.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1645,6 +1648,7 @@ private fun NetError.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
 
 private fun AdmissionRejection.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
     AdmissionRejection.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
+    AdmissionRejection.WrongGame -> P2pDiagnosticReason.WRONG_GAME
     AdmissionRejection.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     AdmissionRejection.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     AdmissionRejection.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1762,8 +1766,11 @@ private suspend inline fun attemptCleanup(
     }
 }
 
+private fun HostedGameProtocol.toGameProtocolRef() = GameProtocolRef(gameId, gameVersion)
+
 private fun AdmissionRejection.toNetError(): NetError = when (this) {
     AdmissionRejection.WrongCode -> NetError.WrongCode
+    AdmissionRejection.WrongGame -> NetError.WrongGame
     AdmissionRejection.HostDeclined -> NetError.HostDeclined
     AdmissionRejection.RoomFull -> NetError.RoomFull
     AdmissionRejection.SessionStarted -> NetError.SessionStarted
@@ -2347,8 +2354,17 @@ internal class HostP2pRoom(
             rejectSession(session, AdmissionRejection.IncompatibleProtocol)
             return
         }
+        val expectedGame = request.expectedGame
+        if (expectedGame?.isValid() == false || (gameProtocol != null && expectedGame == null)) {
+            rejectSession(session, AdmissionRejection.InvalidRequest)
+            return
+        }
         if (request.roomCode != roomCode) {
             rejectSession(session, AdmissionRejection.WrongCode)
+            return
+        }
+        if (expectedGame != gameProtocol?.toGameProtocolRef()) {
+            rejectSession(session, AdmissionRejection.WrongGame)
             return
         }
         if (request.rejoinToken != null) {

@@ -36,6 +36,22 @@ class RoomMessageCodecTest {
     }
 
     @Test
+    fun `admission preserves the selected game and decodes a missing legacy field`() {
+        val request = PeerMessage.AdmissionRequest(
+            protocol = ProtocolVersion(),
+            actor = PlayerId("test-peer"),
+            roomCode = "ABCDEF",
+            displayName = "Alice",
+            expectedGame = GameProtocolRef(GameId("mafia"), 1),
+        )
+        assertEquals(request, codec.decode(codec.encode(request)))
+        val legacy = request.copy(protocol = ProtocolVersion(4, 2), expectedGame = null)
+        val encodedLegacy = codec.encode(legacy)
+        assertTrue("expectedGame" !in encodedLegacy.decodeToString())
+        assertEquals(legacy, codec.decode(encodedLegacy))
+    }
+
+    @Test
     fun `rejects oversized encoded input before decode`() {
         assertFailsWith<IllegalArgumentException> {
             codec.decode(ByteArray(MAX_ROOM_FRAME_BYTES + 1))
@@ -303,10 +319,10 @@ class RoomMessageCodecTest {
     }
 
     private companion object {
-        // Protocol 4.2 vectors. Change only after deliberate wire compatibility and version review.
+        // Protocol 4.3 vectors. Change only after deliberate wire compatibility and version review.
         const val GOLDEN_PLAYER_SNAPSHOT =
             "9f7839636f6d2e7061726c6f722e6e6574776f726b696e672e70726f746f636f6c2e486f73744d6573736167652e506c" +
-                "61796572536e617073686f74bf66686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7202ff6973" +
+                "61796572536e617073686f74bf66686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7203ff6973" +
                 "657373696f6e496461736667616d65496461676b67616d6556657273696f6e01696d6573736167654964616d68736571" +
                 "75656e6365026f636f6e6e656374696f6e45706f636801ff687265766973696f6e03781a6e6578744578706563746564" +
                 "436c69656e7453657175656e6365046d7075626c69635061796c6f6164430001ff6e707269766174655061796c6f6164" +
@@ -316,13 +332,13 @@ class RoomMessageCodecTest {
             "9f783a636f6d2e7061726c6f722e6e6574776f726b696e672e70726f746f636f6c2e486f73744d6573736167652e5365" +
                 "7373696f6e5374617274696e67bf6773746172744964657374617274666361736549646463617365666d6f6465496464" +
                 "6d6f646567706c61796572739fbf62696461706b646973706c61794e616d656150647365617400ffff6c73657373696f" +
-                "6e4e6f6e63650566686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7202ff6973657373696f6e" +
+                "6e4e6f6e63650566686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7203ff6973657373696f6e" +
                 "496461736667616d65496461676b67616d6556657273696f6e01696d6573736167654964616d6873657175656e636502" +
                 "6f636f6e6e656374696f6e45706f636801ff6b6361736556657273696f6ef66a63617365446967657374f6ffff"
 
         const val GOLDEN_CLIENT_COMMAND =
             "9f7838636f6d2e7061726c6f722e6e6574776f726b696e672e70726f746f636f6c2e506565724d6573736167652e436c" +
-                "69656e74436f6d6d616e64bf66686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7202ff697365" +
+                "69656e74436f6d6d616e64bf66686561646572bf6870726f746f636f6cbf656d616a6f7204656d696e6f7203ff697365" +
                 "7373696f6e496461736667616d65496461676b67616d6556657273696f6e01696d6573736167654964616d6873657175" +
                 "656e6365026f636f6e6e656374696f6e45706f636801ff656163746f72617069636f6d6d616e64496461636e636c6965" +
                 "6e7453657175656e6365067065787065637465645265766973696f6e07677061796c6f6164431020ffffff"
