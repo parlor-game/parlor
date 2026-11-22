@@ -1,0 +1,186 @@
+name: Parlor native UI capture
+
+on:
+  push:
+    branches: [capture/native-screens-2026-11-22]
+    paths:
+      - .github/workflows/parlor-native-capture.yml
+      - evidence/screenshots/**
+
+permissions:
+  contents: read
+
+jobs:
+  capture-android:
+    if: ${{ !startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Build Android debug app
+        run: ./gradlew :composeApp:assembleDebug --dependency-verification=strict --no-configuration-cache
+      - name: Boot a clean Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          tools="$ANDROID_HOME/cmdline-tools/latest/bin"
+          image='system-images;android-35;google_apis;x86_64'
+          "$tools/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools' 'emulator' "$image"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/parlor-avds"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | "$tools/avdmanager" create avd --force --name parlor-capture --package "$image" --path "$ANDROID_AVD_HOME/parlor-capture.avd"
+          "$ANDROID_HOME/emulator/emulator" -avd parlor-capture -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/parlor-emulator.log" 2>&1 &
+          emulator_pid=$!
+          if ! timeout 360 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do kill -0 "$1" || exit 1; sleep 2; done' bash "$emulator_pid"; then
+            cat "$RUNNER_TEMP/parlor-emulator.log"
+            exit 1
+          fi
+          adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
+          adb -s emulator-5554 shell wm dismiss-keyguard
+          adb -s emulator-5554 shell settings put system font_scale 1.0
+          adb -s emulator-5554 shell settings put system system_locales en-US
+          adb -s emulator-5554 shell wm size 1080x2400
+          adb -s emulator-5554 shell wm density 420
+          adb -s emulator-5554 shell dumpsys window | head -80 > "$RUNNER_TEMP/android-display.txt"
+      - name: Create one-time encrypted controller token
+        id: token
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 32)"
+          echo "::add-mask::$token"
+          digest="$(printf '%s' "$token" | openssl dgst -sha256 | awk '{print $NF}')"
+          printf '%s' "$token" > "$RUNNER_TEMP/ui-token"
+          openssl pkeyutl -encrypt -pubin -inkey .github/parlor-capture-public.pem -in "$RUNNER_TEMP/ui-token" -out "$RUNNER_TEMP/ui-token.enc"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Upload encrypted one-time controller token
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-ui-controller-token-android
+          path: ${{ runner.temp }}/ui-token.enc
+          if-no-files-found: error
+          retention-days: 1
+      - name: Open Android live UI session
+        uses: ui-test-actions/ui-test-actions@0c818c5d72e8c30c59bd1287c330a40392bf8e89 # v3.0.1
+        with:
+          target: android
+          device: emulator-5554
+          token-sha256: ${{ steps.token.outputs.digest }}
+          duration-minutes: '60'
+          app-ids: me.parlor.android.debug
+          app-installs: '{"me.parlor.android.debug":"composeApp/build/outputs/apk/debug/composeApp-debug.apk"}'
+          launch: |
+            adb -s emulator-5554 install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk
+            adb -s emulator-5554 shell am start -W -n me.parlor.android.debug/com.parlor.app.MainActivity
+          ready: adb -s emulator-5554 shell dumpsys activity activities | grep -q 'mResumedActivity.*me.parlor.android.debug\|topResumedActivity.*me.parlor.android.debug'
+
+  capture-ios:
+    if: ${{ !startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
+    runs-on: macos-15
+    timeout-minutes: 100
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Build iOS Simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Boot a clean iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available -j > "$RUNNER_TEMP/simulators.json"
+          simulator="$(python3 - "$RUNNER_TEMP/simulators.json" <<'PYTHON'
+          import json
+          import sys
+          devices = json.load(open(sys.argv[1], encoding="utf-8"))["devices"]
+          print(next(device["udid"] for runtime in sorted(devices, reverse=True) if ".iOS-" in runtime
+                     for device in devices[runtime]
+                     if device["name"].startswith("iPhone") and device["isAvailable"]))
+          PYTHON
+          )"
+          xcrun simctl boot "$simulator" || true
+          xcrun simctl bootstatus "$simulator" -b
+          xcrun simctl status_bar "$simulator" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          xcrun simctl ui "$simulator" appearance light
+          echo "UI_DEVICE=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl list devices booted > "$RUNNER_TEMP/ios-device.txt"
+      - name: Create one-time encrypted controller token
+        id: token
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 32)"
+          echo "::add-mask::$token"
+          digest="$(printf '%s' "$token" | openssl dgst -sha256 | awk '{print $NF}')"
+          printf '%s' "$token" > "$RUNNER_TEMP/ui-token"
+          openssl pkeyutl -encrypt -pubin -inkey .github/parlor-capture-public.pem -in "$RUNNER_TEMP/ui-token" -out "$RUNNER_TEMP/ui-token.enc"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Upload encrypted one-time controller token
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-ui-controller-token-ios
+          path: ${{ runner.temp }}/ui-token.enc
+          if-no-files-found: error
+          retention-days: 1
+      - name: Open iOS Simulator live UI session
+        uses: ui-test-actions/ui-test-actions@0c818c5d72e8c30c59bd1287c330a40392bf8e89 # v3.0.1
+        with:
+          target: ios
+          device: ${{ env.UI_DEVICE }}
+          token-sha256: ${{ steps.token.outputs.digest }}
+          duration-minutes: '60'
+          app-ids: me.parlor.ios.debug
+          app-installs: '{"me.parlor.ios.debug":"build/Build/Products/Debug-iphonesimulator/iosApp.app"}'
+          launch: |
+            xcrun simctl install "$UI_DEVICE" build/Build/Products/Debug-iphonesimulator/iosApp.app
+            xcrun simctl launch "$UI_DEVICE" me.parlor.ios.debug
+          ready: xcrun simctl spawn "$UI_DEVICE" launchctl list | grep -q 'UIKitApplication:me.parlor.ios.debug'
+
+  upload-captured-evidence:
+    if: ${{ startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify evidence package
+        run: |
+          test -s evidence/screenshots/manifest.json
+          test -s evidence/screenshots/index.html
+          test "$(find evidence/screenshots -type f -name '*.png' | wc -l)" -gt 0
+      - name: Upload reviewed native screenshots, gallery, and manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-full-app-screens-native-${{ github.sha }}
+          path: evidence/screenshots/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
