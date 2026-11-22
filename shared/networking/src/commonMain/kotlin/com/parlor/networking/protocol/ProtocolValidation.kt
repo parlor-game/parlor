@@ -38,7 +38,7 @@ sealed interface ProtocolValidation {
 
 fun SessionEnvelopeHeader.validateFor(expected: SessionProtocol): ProtocolValidation = when {
     !protocol.isCompatibleWith(expected.protocol) -> ProtocolValidation.IncompatibleProtocol
-    !sessionId.raw.isValidWireEntityId() || !gameId.raw.isValidWireEntityId() ->
+    !sessionId.raw.isValidWireEntityId() || !GameId.isCanonical(gameId.raw) ->
         ProtocolValidation.InvalidSessionIdentity
     sessionId != expected.sessionId -> ProtocolValidation.WrongSession
     gameId != expected.gameId -> ProtocolValidation.WrongGame

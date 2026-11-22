@@ -69,11 +69,13 @@ class ProtocolValidationTest {
             )
         }
 
-        val unsafeGame = session.copy(gameId = GameId("game\nspoof"))
-        assertEquals(
-            ProtocolValidation.InvalidSessionIdentity,
-            header(gameId = unsafeGame.gameId).validateFor(unsafeGame),
-        )
+        listOf("game\nspoof", "Other-Game", "game_id", "party", "parlor-room", "a".repeat(33)).forEach { raw ->
+            val unsafeGame = session.copy(gameId = GameId(raw))
+            assertEquals(
+                ProtocolValidation.InvalidSessionIdentity,
+                header(gameId = unsafeGame.gameId).validateFor(unsafeGame),
+            )
+        }
     }
 
     @Test

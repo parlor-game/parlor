@@ -12,6 +12,21 @@ import kotlinx.serialization.Serializable
 @Serializable
 value class GameId(val raw: String) {
     init { require(raw.isNotBlank()) { "GameId must not be blank" } }
+
+    fun requireCanonical() {
+        require(isCanonical(raw)) { "Expected a canonical game identifier" }
+    }
+
+    companion object {
+        private const val MAX_CANONICAL_LENGTH = 32
+        private val canonicalGrammar = Regex("[a-z][a-z0-9]*(-[a-z0-9]+)*")
+
+        /** Game IDs are case-sensitive and never normalized at a boundary. */
+        fun isCanonical(raw: String): Boolean =
+            raw.length in 1..MAX_CANONICAL_LENGTH &&
+                raw != "party" && !raw.startsWith("parlor") &&
+                canonicalGrammar.matches(raw)
+    }
 }
 
 @JvmInline

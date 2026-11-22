@@ -61,7 +61,7 @@ internal data class GameShellMultiplayerContract(
     val supportedPlayerCounts: IntRange,
 ) {
     init {
-        require(gameId.raw.isNotBlank()) { "Multiplayer game id must not be blank" }
+        gameId.requireCanonical()
         require(gameVersion > 0) { "Multiplayer game version must be positive" }
         require(!supportedPlayerCounts.isEmpty()) {
             "Multiplayer player bounds must not be empty"
@@ -183,6 +183,7 @@ internal class DefaultGameShellRegistry(
             "Duplicate game shell ids are not allowed: ${duplicateIds.joinToString { it.raw }}"
         }
         all.forEach { binding ->
+            binding.definition.id.requireCanonical()
             require(!binding.definition.supportedPlayerCounts.isEmpty()) {
                 "Game '${binding.definition.id.raw}' has no supported player counts"
             }
