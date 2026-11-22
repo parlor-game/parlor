@@ -16,4 +16,6 @@
     <string name="session_exit_peer_body">ستُحذف عضويتك وبيانات إعادة الانضمام نهائيًا، ولن تتمكن من العودة إلى هذه الجلسة بعد المغادرة.</string>
     <string name="session_exit_peer_confirm">مغادرة الغرفة</string>
     <string name="session_exit_peer_confirm_description">مغادرة غرفة اللعب الجماعي نهائيًا والعودة إلى الصفحة الرئيسية.</string>
+    <string name="room_code_copy">نسخ الرمز</string>
+    <string name="room_code_copied">تم نسخ رمز الغرفة.</string>
 </resources>

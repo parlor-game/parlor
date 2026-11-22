@@ -27,10 +27,11 @@ import com.parlor.app.resources.lobby_requests_heading
 import com.parlor.app.resources.lobby_setup_heading
 import com.parlor.app.resources.room_game_action_failed
 import com.parlor.app.resources.room_game_approve
+import com.parlor.app.resources.room_game_approve_button
 import com.parlor.app.resources.room_game_cannot_start
 import com.parlor.app.resources.room_game_decline
+import com.parlor.app.resources.room_game_decline_button
 import com.parlor.app.resources.room_game_leave
-import com.parlor.app.resources.room_game_local
 import com.parlor.app.resources.room_game_request
 import com.parlor.app.resources.room_game_start
 import com.parlor.app.resources.room_game_wait_for_admission
@@ -40,6 +41,8 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.LocalParlorToastState
+import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.designsystem.components.parlorSafeContentPadding
@@ -84,7 +87,6 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
     LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.m),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
-            Text(stringResource(Res.string.room_game_local), color = ParlorTheme.colors.textSecondary)
             LobbyInvitation(info.code, info.hostDisplayName)
             if (pending.isNotEmpty()) {
                 Text(
@@ -100,8 +102,11 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
             pending.forEach { request ->
                 ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
                     Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                        Text(stringResource(Res.string.room_game_request, request.displayName.asBidiArgument()),
-                            color = ParlorTheme.colors.textPrimary)
+                        Text(
+                            stringResource(Res.string.room_game_request, request.displayName.asBidiArgument()),
+                            color = ParlorTheme.colors.textPrimary,
+                            style = ParlorTheme.typography.labelLarge,
+                        )
                         val act: (Boolean) -> Unit = { approve ->
                             if (enabled && request.playerId !in admitting) {
                                 admitting = admitting + request.playerId
@@ -147,12 +152,20 @@ private fun AdmissionActions(name: String, enabled: Boolean, action: (Boolean) -
         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
     ) {
         val isolated = name.asBidiArgument()
-        RoomButton(
-            stringResource(Res.string.room_game_approve, isolated), { action(true) }, enabled,
+        ParlorButton(
+            label = stringResource(Res.string.room_game_approve_button),
+            contentDescription = stringResource(Res.string.room_game_approve, isolated),
+            onClick = { action(true) },
+            enabled = enabled,
             modifier = Modifier.weight(1f),
+            illuminated = true,
         )
-        RoomButton(
-            stringResource(Res.string.room_game_decline, isolated), { action(false) }, enabled, secondary = true,
+        ParlorButton(
+            label = stringResource(Res.string.room_game_decline_button),
+            contentDescription = stringResource(Res.string.room_game_decline, isolated),
+            onClick = { action(false) },
+            enabled = enabled,
+            variant = ParlorButtonVariant.Secondary,
             modifier = Modifier.weight(1f),
         )
     }

@@ -8,15 +8,20 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.localization.AppLanguage
@@ -36,6 +41,28 @@ class RoomCodeLayoutTest {
     @Test fun english_dark() = verify(AppLanguage.English, ThemeMode.Dark)
     @Test fun arabic_light() = verify(AppLanguage.Arabic, ThemeMode.Light)
     @Test fun arabic_dark() = verify(AppLanguage.Arabic, ThemeMode.Dark)
+
+    @Suppress("DEPRECATION") // The test substitutes the platform text clipboard.
+    @Test
+    fun copy_writes_the_exact_invitation_code() = runComposeUiTest {
+        var clipboardValue: AnnotatedString? = null
+        val clipboard = object : ClipboardManager {
+            override fun setText(annotatedString: AnnotatedString) {
+                clipboardValue = annotatedString
+            }
+            override fun getText(): AnnotatedString? = clipboardValue
+        }
+        setContent {
+            CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme { RoomCodeWithCopy(CODE) }
+                }
+            }
+        }
+        onNodeWithText("Copy code").performClick()
+        onNodeWithText("Room code copied.").assertIsDisplayed()
+        runOnIdle { assertEquals(CODE, clipboardValue?.text) }
+    }
 
     private fun verify(language: AppLanguage, theme: ThemeMode) {
         for (fontScale in listOf(1f, 2f)) {

@@ -16,4 +16,6 @@
     <string name="session_exit_peer_body">Your membership and rejoin credential will be permanently deleted. You cannot rejoin this session after leaving.</string>
     <string name="session_exit_peer_confirm">Leave room</string>
     <string name="session_exit_peer_confirm_description">Permanently leave this multiplayer room and return home.</string>
+    <string name="room_code_copy">Copy code</string>
+    <string name="room_code_copied">Room code copied.</string>
 </resources>

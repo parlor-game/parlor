@@ -65,12 +65,14 @@ class HomeCatalogVisualEvidenceTest {
     fun catalog_comparison_includes_the_real_dock_and_saved_name_fixture() {
         for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
             for (theme in listOf(ThemeMode.Dark, ThemeMode.Light)) {
-                catalogWithDock(language, theme)
+                catalogWithDock(language, theme, width = 390)
+                catalogWithDock(language, theme, width = 320)
+                catalogWithDock(language, theme, width = 768)
             }
         }
     }
 
-    private fun catalogWithDock(language: AppLanguage, theme: ThemeMode) = runComposeUiTest {
+    private fun catalogWithDock(language: AppLanguage, theme: ThemeMode, width: Int) = runComposeUiTest {
         val games = catalogBindings()
         val english = language == AppLanguage.English
         setContent {
@@ -80,7 +82,7 @@ class HomeCatalogVisualEvidenceTest {
             ) {
                 ProvideAppLanguage(language) {
                     ParlorTheme(themeMode = theme, reducedMotion = true) {
-                        Box(Modifier.size(390.dp, 740.dp).testTag("shell-preview")) {
+                        Box(Modifier.size(width.dp, 740.dp).testTag("shell-preview")) {
                             Column {
                                 HomeScreen(games, onGameSelected = {}, modifier = Modifier.weight(1f), onOpenProfile = {})
                                 AppNavigationBar(AppTopLevelDestination.Games, {})
@@ -92,12 +94,14 @@ class HomeCatalogVisualEvidenceTest {
         }
         onNodeWithText(if (english) "Play Last Light" else "العب الضوء الأخير").assertIsDisplayed()
         val outputDir = System.getenv("PARLOR_UI_SCREENSHOT_DIR") ?: "build/reports/tests/public-ux"
-        val output = File(outputDir, "library-${language.tag}-${theme.tag}-390.png")
+        val output = File(outputDir, "library-${language.tag}-${theme.tag}-$width.png")
         check(output.parentFile.mkdirs() || output.parentFile.isDirectory)
         capturePublicScreen(output)
-        val last = if (english) "Open Word Impostor" else "افتح لعبة الإمبوستر"
-        onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(last, substring = true))
-        capturePublicScreen(File(outputDir, "catalog-${language.tag}-${theme.tag}-390.png"))
+        if (width == 390) {
+            val last = if (english) "Open Word Impostor" else "افتح لعبة الإمبوستر"
+            onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(last, substring = true))
+            capturePublicScreen(File(outputDir, "catalog-${language.tag}-${theme.tag}-390.png"))
+        }
     }
 
     private fun catalogBindings() = listOf(
@@ -190,7 +194,11 @@ class HomeCatalogVisualEvidenceTest {
 
     @Test
     fun recovery_uses_public_session_metadata_alongside_the_library() {
-        renderScreen(AppLanguage.English, ThemeMode.Light, 1f, catalog = true, recovery = true)
+        for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
+            for (theme in listOf(ThemeMode.Dark, ThemeMode.Light)) {
+                renderScreen(language, theme, 1f, catalog = true, recovery = true)
+            }
+        }
     }
 
     private fun renderScreen(

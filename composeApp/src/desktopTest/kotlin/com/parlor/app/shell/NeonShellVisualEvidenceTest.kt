@@ -68,12 +68,14 @@ class NeonShellVisualEvidenceTest {
         if (System.getenv("PARLOR_UI_SCREENSHOT_DIR").isNullOrBlank()) return
         for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
             for (theme in listOf(ThemeMode.Dark, ThemeMode.Light)) {
-                capture(language, theme)
+                capture(language, theme, width = 390, fontScale = 1f)
+                capture(language, theme, width = 320, fontScale = 2f)
+                capture(language, theme, width = 768, fontScale = 1f)
             }
         }
     }
 
-    private fun capture(language: AppLanguage, theme: ThemeMode) {
+    private fun capture(language: AppLanguage, theme: ThemeMode, width: Int, fontScale: Float) {
         val english = language == AppLanguage.English
         val name = if (english) "Layla" else "ليلى"
         val settings = InMemorySettingsStore(
@@ -106,19 +108,19 @@ class NeonShellVisualEvidenceTest {
         }
         val setup = GameHostSetupCheckpoint(spec.kind("setup"), spec.defaultCaseId)
         val screen = mutableStateOf("settings")
-        val suffix = "${language.tag}-${theme.tag}-390"
+        val suffix = "${language.tag}-${theme.tag}-$width" + if (fontScale == 1f) "" else "-2.0"
         startKoin { modules(module { single<SettingsStore> { settings } }) }
         try {
             runComposeUiTest {
                 setContent {
                     CompositionLocalProvider(
-                        LocalDensity provides Density(1f, 1f),
+                        LocalDensity provides Density(1f, fontScale),
                         LocalPreferredDisplayName provides name,
                         LocalParlorToastState provides ParlorToastState(),
                     ) {
                         ProvideAppLanguage(language) {
                             ParlorTheme(themeMode = theme, reducedMotion = true) {
-                                Box(Modifier.size(390.dp, 740.dp).testTag("acceptance-viewport")) {
+                                Box(Modifier.size(width.dp, 740.dp).testTag("acceptance-viewport")) {
                                     val gameTitle = if (english) "Whodunit" else "من القاتل"
                                     when (screen.value) {
                                         "settings" -> Column {

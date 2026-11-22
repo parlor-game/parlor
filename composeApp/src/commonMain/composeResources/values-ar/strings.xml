@@ -262,4 +262,6 @@
     <string name="name_seat_label">الاسم الظاهر في الغرفة</string>
     <string name="join_seat_label">تلعب باسم</string>
     <string name="join_change_seat">تغيير الاسم</string>
+    <string name="room_game_approve_button">موافقة</string>
+    <string name="room_game_decline_button">رفض</string>
 </resources>

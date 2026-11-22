@@ -163,6 +163,8 @@
     <string name="room_game_request">%1$s wants to join</string>
     <string name="room_game_approve">Approve %1$s</string>
     <string name="room_game_decline">Decline %1$s</string>
+    <string name="room_game_approve_button">Approve</string>
+    <string name="room_game_decline_button">Decline</string>
     <plurals name="room_game_start">
         <item quantity="one">Start with %1$d player</item>
         <item quantity="other">Start with %1$d players</item>

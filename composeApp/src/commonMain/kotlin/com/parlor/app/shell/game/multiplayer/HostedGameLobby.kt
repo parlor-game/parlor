@@ -13,12 +13,14 @@ import androidx.compose.ui.Modifier
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error
 import com.parlor.app.resources.room_game_error_body
+import com.parlor.app.resources.room_game_host
 import com.parlor.app.resources.room_game_opening
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.InPlaceBackOwner
 import com.parlor.designsystem.components.ProvideInPlaceBackOwner
 import com.parlor.designsystem.components.SessionExitConfirmation
 import com.parlor.designsystem.components.SessionExitKind
+import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
@@ -117,7 +119,9 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGameLobby(
             setupLookup != null && setup == null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
                 body = stringResource(Res.string.room_game_error_body), onNewRoom = retry, enabled = !busy)
             session == null || setup == null -> RoomGameStatus(
-                stringResource(Res.string.room_game_opening), leave, modifier, enabled = !busy)
+                stringResource(Res.string.room_game_opening), leave, modifier, enabled = !busy,
+                body = stringResource(Res.string.room_game_host, name.asBidiArgument()),
+            )
             frozen == null -> HostRoomControls(spec, session.room, setup, { setup.freeze(session) }, requestLeave, busy, modifier)
             else -> HostedGamePanel(spec, session, checkNotNull(frozen), setup.state.value.caseId, requestLeave, retry, busy, modifier)
         }

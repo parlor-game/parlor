@@ -80,11 +80,10 @@ internal fun RoomButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
     secondary: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     ParlorButton(
         label = label, contentDescription = label, onClick = onClick, enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         variant = if (secondary) ParlorButtonVariant.Secondary else ParlorButtonVariant.Primary,
         illuminated = !secondary,
     )

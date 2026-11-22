@@ -18,10 +18,12 @@ import com.parlor.app.resources.lobby_welcome_body
 import com.parlor.app.resources.lobby_welcome_title
 import com.parlor.app.resources.room_game_code
 import com.parlor.app.resources.room_game_host
+import com.parlor.app.resources.room_game_local
 import com.parlor.app.resources.room_game_players
 import com.parlor.app.resources.room_game_wait
 import com.parlor.designsystem.components.ParlorCard
-import com.parlor.designsystem.components.RoomCodeText
+import com.parlor.designsystem.components.EyebrowLabel
+import com.parlor.designsystem.components.RoomCodeWithCopy
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.RoomMember
@@ -29,20 +31,28 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun LobbyInvitation(code: String, hostName: String) {
-    ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.l, hero = true) {
-        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
+    ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            EyebrowLabel(stringResource(Res.string.lobby_welcome_title))
             Text(
-                stringResource(Res.string.lobby_welcome_title),
+                stringResource(Res.string.room_game_local),
                 color = ParlorTheme.colors.textPrimary,
                 style = ParlorTheme.typography.headingLarge,
                 modifier = Modifier.semantics { heading() },
             )
-            Text(stringResource(Res.string.room_game_code), color = ParlorTheme.colors.textSecondary)
-            RoomCodeText(code = code)
+            ParlorCard(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = ParlorTheme.spacing.s,
+            ) {
+                Column {
+                    EyebrowLabel(stringResource(Res.string.room_game_code))
+                    RoomCodeWithCopy(code = code)
+                }
+            }
             Text(stringResource(Res.string.room_game_host, hostName.asBidiArgument()),
-                color = ParlorTheme.colors.textPrimary)
+                color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.labelLarge)
             Text(stringResource(Res.string.lobby_welcome_body), color = ParlorTheme.colors.textSecondary,
-                style = ParlorTheme.typography.bodyMedium)
+                style = ParlorTheme.typography.bodySmall)
         }
     }
 }
