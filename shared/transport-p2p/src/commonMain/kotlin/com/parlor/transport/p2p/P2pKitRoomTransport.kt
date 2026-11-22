@@ -301,8 +301,14 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     rows = if (path is NetworkPathStatus.Unsatisfied) emptyList() else {
                         scopedLobbyRows(kit, peers, startedAt, game, rows)
                     }
-                    rows
-                }.distinctUntilChanged().collect { emit(Result.Success(it)) }
+                    if (path !is NetworkPathStatus.Unsatisfied && rows.isEmpty() &&
+                        peers.any { it.isIncompatibleNearbyGame(kit, startedAt, game) }
+                    ) {
+                        Result.Failure(NetError.IncompatibleProtocol)
+                    } else {
+                        Result.Success(rows)
+                    }
+                }.distinctUntilChanged().collect { emit(it) }
             } finally {
                 kit.stopAfterFailure(diagnostics)
             }
@@ -311,6 +317,16 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             failure.rethrowIfCancellation()
             emit(Result.Failure(NetError.TransportFailure("Room discovery failed")))
         }
+
+    private fun Peer.isIncompatibleNearbyGame(kit: P2pKit, startedAt: Long, game: HostedGameProtocol): Boolean {
+        if (!hasFreshAdvertisement(kit, startedAt)) return false
+        return when (val entry = LobbyAdvertisement.parse(name)) {
+            LobbyAdvertisement.Entry.Legacy -> true
+            is LobbyAdvertisement.Entry.GameRoom -> entry.game.gameId == game.gameId &&
+                (entry.game != game || entry.protocol != ProtocolVersion())
+            else -> false
+        }
+    }
 
     private fun scopedLobbyRows(
         kit: P2pKit,

@@ -272,4 +272,5 @@
     <string name="party_private_cover">Party hidden while Parlor is inactive</string>
     <string name="party_network_settings">Open network settings</string>
     <string name="party_approval_pending">Waiting for approval from %1$s</string>
+    <string name="nearby_update_required">A nearby room uses a different Parlor version. Ask the host to update.</string>
 </resources>

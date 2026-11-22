@@ -18,6 +18,7 @@ import com.parlor.app.resources.nearby_error
 import com.parlor.app.resources.nearby_room
 import com.parlor.app.resources.nearby_search
 import com.parlor.app.resources.nearby_searching
+import com.parlor.app.resources.nearby_update_required
 import com.parlor.app.resources.nearby_selected
 import com.parlor.app.resources.nearby_stop
 import com.parlor.core.result.Result
@@ -88,7 +89,9 @@ private fun NearbyRoomResults(
 ) {
     when (found) {
         null -> NearbyStatus(stringResource(Res.string.nearby_searching))
-        is Result.Failure -> NearbyStatus(stringResource(Res.string.nearby_error))
+        is Result.Failure -> NearbyStatus(stringResource(
+            if (found.error == NetError.IncompatibleProtocol) Res.string.nearby_update_required else Res.string.nearby_error,
+        ))
         is Result.Success -> {
             if (found.data.isEmpty()) NearbyStatus(stringResource(Res.string.nearby_empty))
             found.data.forEach { room ->

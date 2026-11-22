@@ -72,6 +72,27 @@ class ScopedLobbyDiscoveryTest {
     }
 
     @Test
+    fun detects_incompatible_nearby_versions_without_exposing_other_games_as_dial_targets() = runTest {
+        val kit = FakeP2pKit(PeerId("browser-version"))
+        val transport = transport { kit }
+        val otherGame = room("dominoes", "K7QX", dominoes.copy(gameVersion = 2))
+        val incompatible = room("mafia-newer", "WXYZ", mafia.copy(gameVersion = 2))
+        val compatible = room("mafia-current", "ABCD", mafia)
+        kit.peersFlow.value = listOf(otherGame)
+        val browsing = async { transport.discoverRooms(mafia).take(3).toList() }
+        runCurrent()
+        kit.peersFlow.value = listOf(otherGame, incompatible)
+        runCurrent()
+        kit.peersFlow.value = listOf(otherGame, incompatible, compatible)
+        val (other, update, found) = browsing.await()
+        assertEquals(Result.Success(emptyList()), other)
+        assertEquals(Result.Failure(NetError.IncompatibleProtocol), update)
+        val rows = assertIs<Result.Success<List<DiscoveredRoom>>>(found).data
+        assertEquals("ABCD", rows.single().roomTag)
+        assertEquals(1, kit.stopCalls)
+    }
+
+    @Test
     fun selected_room_requires_the_same_game_and_dials_only_that_advertisement() = runTest {
         val browser = FakeP2pKit(PeerId("browser"))
         val joining = FakeP2pKit(PeerId("joining"))
