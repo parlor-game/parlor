@@ -9,7 +9,7 @@
 
     <!-- الشاشة الرئيسية. -->
     <string name="home_eyebrow">الليلة حول مائدتكم</string>
-    <string name="home_title">لنجتمع على لعبة.</string>
+    <string name="home_title">مكتبة الألعاب</string>
     <string name="home_whodunit_title">من القاتل</string>
     <string name="home_whodunit_subtitle">سبعة ألغاز ومذنب واحد بين الضيوف.</string>
     <string name="home_whodunit_tagline">تبادلوا الأسرار واكشفوا الأدلة واتهموا بحذر.</string>
@@ -21,14 +21,14 @@
 
     <!-- استئناف الجلسات قيد التقدّم. -->
     <string name="home_resume_tile_title">استئناف لعبة محفوظة</string>
-    <string name="home_resume_tile_subtitle">أكمل لعبتك قيد التقدّم.</string>
+    <string name="home_resume_tile_subtitle">على هذا الهاتف</string>
     <string name="home_resume_tile_description">استئناف لعبة محلية قيد التقدّم.</string>
     <string name="home_resume_tile_game_title">استئناف %1$s</string>
     <string name="home_resume_tile_position">اللعبة المحلية المحفوظة %1$d من %2$d.</string>
     <string name="home_resume_tile_game_description">استئناف لعبة %1$s المحلية، وهي اللعبة المحفوظة %2$d من %3$d.</string>
     <string name="home_resume_tile_unknown_description">فتح اللعبة المحلية المحفوظة %1$d من %2$d للاسترداد.</string>
     <string name="home_resume_multiplayer_title">العودة إلى لعبة جماعية</string>
-    <string name="home_resume_multiplayer_subtitle">أعد الاتصال بالغرفة السابقة قبل انتهاء مهلة العودة.</string>
+    <string name="home_resume_multiplayer_subtitle">عُد إلى غرفتك السابقة.</string>
     <string name="home_resume_multiplayer_description">العودة إلى اللعبة الجماعية السابقة.</string>
 
     <!-- أساليب اللعب التي تستخدمها شاشة الإعداد المعتمدة على السجل. -->
@@ -38,7 +38,7 @@
     <string name="playmode_solo_choose">العب منفردًا</string>
     <string name="playmode_solo_choose_description">ابدأ جلسة منفردة على هذا الجهاز بدون تمرير.</string>
     <string name="playmode_passandplay_title">تمرير ولعب</string>
-    <string name="playmode_passandplay_body">مرّروا هاتفًا واحدًا بينكم، مع حجب الأدوار الخاصة بين اللاعبين.</string>
+    <string name="playmode_passandplay_body">مرّروا الهاتف بين الأدوار.</string>
     <string name="playmode_passandplay_meta">هاتف واحد · %1$d–%2$d لاعبين</string>
     <string name="playmode_passandplay_meta_exact">هاتف واحد · %1$d لاعبين</string>
     <string name="playmode_passandplay_choose">تمرير ولعب</string>
@@ -113,9 +113,9 @@
     </plurals>
     <string name="home_saved_on_device">محفوظة على هذا الجهاز</string>
     <string name="home_players_exact_format">%1$d لاعبين</string>
-    <string name="home_players_range_format">%1$d–%2$d لاعبين</string>
-    <string name="home_local_lan_meta">محلي + شبكة Wi-Fi نفسها</string>
-    <string name="home_local_meta">لعب محلي</string>
+    <string name="home_players_range_format">من %1$d إلى %2$d لاعبين</string>
+    <string name="home_local_lan_meta">هاتف واحد أو هواتف قريبة</string>
+    <string name="home_local_meta">هاتف واحد</string>
     <string name="home_continue_label">متابعة</string>
     <string name="home_whodunit_open">افتح من القاتل</string>
     <string name="home_whodunit_open_description">افتح من القاتل واختر طريقة اللعب.</string>
@@ -126,20 +126,20 @@
     <string name="setup_eyebrow">إعداد اللعبة</string>
     <string name="setup_title">كيف ستلعبون؟</string>
     <string name="setup_subtitle">اختر الإعداد المناسب لمجموعتك.</string>
-    <string name="setup_one_device_label">جهاز واحد</string>
-    <string name="setup_each_device_label">جهاز لكل لاعب · شبكة WI-FI نفسها</string>
+    <string name="setup_one_device_label">هاتف واحد</string>
+    <string name="setup_each_device_label">هواتف قريبة</string>
     <string name="setup_solo_unavailable_title">اللعب المنفرد غير متاح.</string>
     <string name="setup_solo_requires_exact">تحتاج هذه اللعبة إلى مائدة كاملة من %1$d لاعبين.</string>
     <string name="setup_solo_requires_range">تحتاج هذه اللعبة إلى %1$d–%2$d لاعبين.</string>
     <string name="setup_solo_unavailable_description_format">اللعب المنفرد غير متاح. %1$s</string>
-    <string name="setup_lan_note">تبقى الغرف داخل شبكتكم المحلية، بلا حسابات أو بحث عام عن لاعبين أو عناوين IP يدوية.</string>
+    <string name="setup_lan_note">وصّلوا هواتفكم بشبكة الواي فاي نفسها.</string>
     <string name="setup_back_description">العودة إلى الشاشة الرئيسية.</string>
     <string name="setup_host_title">استضف غرفة</string>
     <string name="setup_host_body">أنشئ الرمز وتولَّ قيادة اللعبة.</string>
     <string name="setup_host_meta">هاتف لكل لاعب</string>
     <string name="setup_host_choose">استضف غرفة</string>
     <string name="setup_host_choose_description">افتح غرفة وأظهر الرمز لأصدقائك للانضمام.</string>
-    <string name="setup_join_title">انضم إلى غرفة</string>
+    <string name="setup_join_title">انضم برمز</string>
     <string name="setup_join_body">أدخل رمز المضيف المكوّن من ستة أحرف.</string>
     <string name="setup_join_meta">هاتف لكل لاعب</string>
     <string name="setup_join_choose">انضم إلى غرفة</string>
@@ -149,7 +149,7 @@
     <string name="home_resume_open_failed">تعذّر فتح اللعبة المحفوظة.</string>
     <string name="home_recovery_checking">جارٍ التحقق من الألعاب المحفوظة والجلسات القابلة للاستئناف…</string>
     <string name="home_recovery_unavailable_title">بعض معلومات الاستعادة غير متاحة.</string>
-    <string name="home_recovery_unavailable_body">تعذّر على Parlor قراءة كل لعبة محفوظة أو جلسة قابلة للاستئناف بأمان. تظل الألعاب المتاحة ظاهرة. تحقّق مرة أخرى قبل البدء من جديد.</string>
+    <string name="home_recovery_unavailable_body">الألعاب المتاحة مدرجة أدناه. أعد التحقّق للعثور على الألعاب المحفوظة.</string>
     <string name="home_recovery_retry">تحقّق مرة أخرى</string>
     <string name="home_recovery_retry_description">أعد التحقق من الألعاب المحفوظة والجلسات القابلة للاستئناف.</string>
     <string name="local_resume_failure_eyebrow">الاستعادة غير متاحة</string>
@@ -211,9 +211,9 @@
 
     <!-- Capability-based catalog and contextual onboarding. -->
     <string name="catalog_filter_all">الكل</string>
-    <string name="catalog_filter_local">جهاز واحد</string>
+    <string name="catalog_filter_local">هاتف واحد</string>
     <string name="catalog_filter_nearby">بالقرب منك</string>
-    <string name="catalog_nearby_only_meta">نفس الواي فاي · جهاز لكل لاعب</string>
+    <string name="catalog_nearby_only_meta">هواتف قريبة</string>
     <string name="catalog_empty_title">لا توجد ألعاب بهذا الإعداد</string>
     <string name="catalog_empty_body">اختر كل الألعاب لتجد طريقة أخرى للعب.</string>
     <string name="join_steps_title">انضم في ثلاث خطوات</string>
@@ -228,7 +228,7 @@
     <string name="settings_language_help">اختر لغة جميع الألعاب والشاشات.</string>
     <string name="settings_appearance_help">اتبع إعداد الجهاز أو اختر المظهر الذي تفضّله.</string>
     <string name="settings_accessibility_help">اجعل اللعب أكثر راحة لك.</string>
-    <string name="resume_delete_action">حذف الجلسة المحفوظة</string>
+    <string name="resume_delete_action">حذف</string>
     <string name="resume_delete_description">حذف: %1$s</string>
     <string name="resume_delete_title">حذف الجلسة المحفوظة؟</string>
     <string name="resume_delete_local_body">سيُحذف هذا اللعب المحفوظ من هذا الجهاز فقط. لن تتأثر الألعاب المحفوظة الأخرى أو الإعدادات. لا يمكن التراجع عن الحذف.</string>

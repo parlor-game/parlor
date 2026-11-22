@@ -1,6 +1,6 @@
 package com.parlor.app.shell.home
 
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.listSaver
@@ -37,7 +37,7 @@ internal fun publicCatalogAnchor(key: String?, offset: Int): HomeCatalogAnchor =
 
 /** A live list survives navigation disposal; its public key survives root recreation. */
 internal class HomeCatalogScrollState(
-    val listState: LazyListState = LazyListState(),
+    val listState: LazyGridState = LazyGridState(),
     private var pendingAnchor: HomeCatalogAnchor? = null,
 ) {
     fun anchorForSave(): HomeCatalogAnchor {
@@ -90,7 +90,7 @@ internal fun rememberHomeCatalogScrollState(): HomeCatalogScrollState {
     return state
 }
 
-/** Mirrors the LazyColumn's keys, including transient and recovered rows before games. */
+/** Mirrors the grid's keys, including transient and recovered rows before games. */
 internal fun homeCatalogItemKeys(
     filteredGames: List<GameShellBinding>,
     unfinishedSessions: List<LocalRecoveryEntry>,

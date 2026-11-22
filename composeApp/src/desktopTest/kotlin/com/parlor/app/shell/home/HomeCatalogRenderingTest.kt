@@ -51,7 +51,7 @@ class HomeCatalogRenderingTest {
                 }
             }
         }
-        onNodeWithText("One device").performScrollTo().performClick().assertIsSelected()
+        onNodeWithText("One phone").performScrollTo().performClick().assertIsSelected()
         onNodeWithText("No games for this setup").performScrollTo().assertExists()
         onNodeWithText("All").performScrollTo().performClick().assertIsSelected()
         onNodeWithText("No games for this setup").assertDoesNotExist()
@@ -75,11 +75,11 @@ class HomeCatalogRenderingTest {
                 }
             }
         }
-        onNodeWithText(if (arabic) "جهاز واحد" else "One device")
+        onNodeWithText(if (arabic) "هاتف واحد" else "One phone")
             .performScrollTo().performClick().assertIsSelected()
         runOnIdle { assertEquals(emptyList(), selections) }
         onNodeWithText(if (arabic) "لعبة واحدة (1)" else "1 game").assertExists()
-        onNodeWithText(if (arabic) "نفس الواي فاي · جهاز لكل لاعب" else "Same Wi-Fi · own devices")
+        onNodeWithText(if (arabic) "هواتف قريبة" else "Nearby phones")
             .assertDoesNotExist()
         onNodeWithContentDescription(if (arabic) "افتح لعبة حرامية وظباط." else "Open the Mafia game.")
             .performScrollTo().assertIsDisplayed().performClick()
@@ -91,7 +91,7 @@ class HomeCatalogRenderingTest {
         onNodeWithText(if (arabic) "الكل" else "All")
             .performScrollTo().performClick().assertIsSelected()
         onNodeWithText(if (arabic) "لعبتان (2)" else "2 games").assertExists()
-        val nearbyLabel = if (arabic) "نفس الواي فاي · جهاز لكل لاعب" else "Same Wi-Fi · own devices"
+        val nearbyLabel = if (arabic) "هواتف قريبة" else "Nearby phones"
         onNode(hasScrollToIndexAction()).performScrollToNode(hasText(nearbyLabel))
         onNodeWithText(nearbyLabel).assertExists()
     }

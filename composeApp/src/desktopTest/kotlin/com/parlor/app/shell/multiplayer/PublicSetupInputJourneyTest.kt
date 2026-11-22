@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
@@ -30,6 +32,7 @@ import com.parlor.app.App
 import com.parlor.app.StartupMultiplayerRecoveryGate
 import com.parlor.app.di.contentModule
 import com.parlor.app.lifecycle.AppLifecycleCoordinator
+import com.parlor.core.random.SessionSeedSource
 import com.parlor.core.result.Result
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.games.dominoes.di.dominoModule
@@ -75,6 +78,42 @@ class PublicSetupInputJourneyTest {
         verifyJourneys(AppLanguage.Arabic, listOf("افتح الدومنة المصرية", "افتح غمزة", "افتح لعبة الإمبوستر"))
     }
 
+    @Test
+    fun registered_library_counts_follow_the_active_phone_filter() {
+        PublicSetupFixture(AppLanguage.English).use { fixture ->
+            runComposeUiTest {
+                installApp(fixture)
+                for ((filter, count) in listOf("All" to 6, "One phone" to 3, "Nearby" to 6)) {
+                    val chip = onNodeWithText(filter)
+                    chip.performScrollTo().performTouchInput { click() }
+                    chip.assertIsSelected()
+                    onNodeWithText("$count games").assertIsDisplayed()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun one_phone_entries_reach_each_game_owned_setup_without_networking() {
+        val games = mapOf(
+            "Open Whodunit and pick how you want to play." to "Choose tonight’s mystery.",
+            "Open the Mafia game." to "How many players?",
+            "Open Last Light and choose local or nearby play" to "Gather around one device",
+        )
+        for ((game, destination) in games) {
+            PublicSetupFixture(AppLanguage.English).use { fixture ->
+                runComposeUiTest {
+                    installApp(fixture)
+                    onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(game))
+                    tapPublicControl(game)
+                    tapPublicControl("Start a pass-and-play session on this device.")
+                    onNodeWithText(destination).assertIsDisplayed()
+                    runOnIdle { assertEquals(0, fixture.transport.lanCalls.get()) }
+                }
+            }
+        }
+    }
+
     private fun verifyJourneys(language: AppLanguage, games: List<String>) {
         for (game in games) {
             PublicSetupFixture(language).use { fixture ->
@@ -101,6 +140,7 @@ class PublicSetupInputJourneyTest {
                         single<RoomTransport> { fixture.transport }
                         single { fixture.owner }
                         single { StartupMultiplayerRecoveryGate() }
+                        single<SessionSeedSource> { SessionSeedSource { 1L } }
                         single<SnapshotStore> { InMemorySnapshotStore() }
                         single { AppLifecycleCoordinator(fixture.transport).apply { notifyActive() } }
                     },

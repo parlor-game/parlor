@@ -73,6 +73,7 @@ internal class MafiaGameShellBinding(
         ParlorAccentScope(ParlorAccent.Crimson) {
             MafiaShellContent(
                 launch = launch,
+                presentation = catalogPresentation(),
                 capabilities = capabilities,
                 supportedPlayerCounts = definition.supportedPlayerCounts,
                 onExit = onExit,
@@ -101,6 +102,7 @@ private enum class MafiaShellScreen {
 @Composable
 private fun MafiaShellContent(
     launch: GameShellLaunch,
+    presentation: GameCatalogPresentation,
     capabilities: GameShellCapabilities,
     supportedPlayerCounts: IntRange,
     onExit: () -> Unit,
@@ -161,6 +163,7 @@ private fun MafiaShellContent(
 
     when (screen) {
         MafiaShellScreen.Setup -> PlayModePickerScreen(
+            presentation = presentation,
             onModeSelected = { mode ->
                 if (
                     screen == MafiaShellScreen.Setup &&

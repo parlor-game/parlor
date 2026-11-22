@@ -94,6 +94,7 @@ internal class LastLightGameShellBinding(
             ParlorAccentScope(ParlorAccent.Amber) {
                 LastLightShellContent(
                     launch = launch,
+                    presentation = catalogPresentation(),
                     capabilities = capabilities,
                     supportedPlayerCounts = definition.supportedPlayerCounts,
                     onExit = onExit,
@@ -123,6 +124,7 @@ private enum class LastLightShellScreen {
 @Composable
 private fun LastLightShellContent(
     launch: GameShellLaunch,
+    presentation: GameCatalogPresentation,
     capabilities: GameShellCapabilities,
     supportedPlayerCounts: IntRange,
     onExit: () -> Unit,
@@ -183,6 +185,7 @@ private fun LastLightShellContent(
 
     when (screen) {
         LastLightShellScreen.Setup -> PlayModePickerScreen(
+            presentation = presentation,
             onModeSelected = { mode ->
                 if (
                     screen == LastLightShellScreen.Setup &&

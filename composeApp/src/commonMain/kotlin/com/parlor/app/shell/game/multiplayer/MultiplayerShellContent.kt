@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
+import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBackRequest
 import com.parlor.app.shell.game.GameShellCapabilities
 import com.parlor.app.shell.game.GameShellLaunch
@@ -28,7 +29,7 @@ private enum class ShellStep { Setup, HostPermission, HostName, Host, JoinPermis
 @Composable
 internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellContent(
     spec: MultiplayerGameSpec<S, A, E>, launch: GameShellLaunch, capabilities: GameShellCapabilities,
-    onExit: () -> Unit, backRequest: GameShellBackRequest, modifier: Modifier,
+    presentation: GameCatalogPresentation, onExit: () -> Unit, backRequest: GameShellBackRequest, modifier: Modifier,
 ) {
     if (launch is GameShellLaunch.ResumeLocal) {
         InvalidGameRouteFallback(onExit)
@@ -60,6 +61,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
     val settings = gate::openAppSettings.takeIf { gate.canOpenNetworkSettings }
     when (step) {
         ShellStep.Setup -> PlayModePickerScreen(
+            presentation = presentation,
             onModeSelected = {},
             // A retained picker callback must not replace a route selected by
             // an earlier activation, including its unsubmitted name draft.

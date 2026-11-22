@@ -5,17 +5,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
+import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,49 +27,47 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.playmode_passandplay_body
 import com.parlor.app.resources.playmode_passandplay_choose_description
-import com.parlor.app.resources.playmode_passandplay_meta
-import com.parlor.app.resources.playmode_passandplay_meta_exact
 import com.parlor.app.resources.playmode_passandplay_title
 import com.parlor.app.resources.playmode_solo_body
 import com.parlor.app.resources.playmode_solo_choose_description
-import com.parlor.app.resources.playmode_solo_meta
 import com.parlor.app.resources.playmode_solo_title
 import com.parlor.app.resources.setup_back_description
 import com.parlor.app.resources.setup_each_device_label
 import com.parlor.app.resources.setup_eyebrow
 import com.parlor.app.resources.setup_host_body
 import com.parlor.app.resources.setup_host_choose_description
-import com.parlor.app.resources.setup_host_meta
 import com.parlor.app.resources.setup_host_title
 import com.parlor.app.resources.setup_join_body
 import com.parlor.app.resources.setup_join_choose_description
-import com.parlor.app.resources.setup_join_meta
 import com.parlor.app.resources.setup_join_title
 import com.parlor.app.resources.setup_lan_note
-import com.parlor.app.resources.setup_mode_unavailable
-import com.parlor.app.resources.setup_multiplayer_disabled
 import com.parlor.app.resources.setup_one_device_label
 import com.parlor.app.resources.setup_solo_requires_exact
 import com.parlor.app.resources.setup_solo_requires_range
 import com.parlor.app.resources.setup_solo_unavailable_description_format
 import com.parlor.app.resources.setup_solo_unavailable_title
-import com.parlor.app.resources.setup_subtitle
-import com.parlor.app.resources.setup_title
+import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameEntryMode
 import com.parlor.app.shell.game.GameShellCapabilities
-import com.parlor.designsystem.backdrop.HeroBackdrop
-import com.parlor.designsystem.components.AdaptiveOptions
-import com.parlor.designsystem.components.EyebrowLabel
+import com.parlor.app.shell.home.playerRangeLabel
+import com.parlor.designsystem.components.CatalogArtworkBadge
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorCard
-import com.parlor.designsystem.components.ScreenHeader
+import com.parlor.designsystem.components.ParlorIconButton
+import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.session.PlayMode
 import org.jetbrains.compose.resources.stringResource
@@ -112,69 +111,99 @@ internal fun PlayModePickerScreen(
     onHost: () -> Unit,
     onJoin: () -> Unit,
     onBack: () -> Unit,
+    presentation: GameCatalogPresentation,
     modifier: Modifier = Modifier,
     capabilities: GameShellCapabilities,
     supportedPlayerCounts: IntRange,
 ) {
     val model = capabilities.toPlayModePickerModel(supportedPlayerCounts)
     val availability = model.availability
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.widthIn(max = PickerWidth).fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
+                .parlorSafeContentPadding(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
         ) {
-            ScreenHeader(
-                title = stringResource(Res.string.setup_title),
-                eyebrow = stringResource(Res.string.setup_eyebrow),
-                subtitle = stringResource(Res.string.setup_subtitle),
-                onBack = onBack,
-                backContentDescription = stringResource(Res.string.setup_back_description),
-            )
-
-            TopologyHeading(stringResource(Res.string.setup_each_device_label))
-            AdaptiveOptions(
-                first = {
-                    SetupOptionCard(
-                        icon = SetupIcon.Host,
-                        title = stringResource(Res.string.setup_host_title),
-                        body = stringResource(Res.string.setup_host_body),
-                        meta = stringResource(Res.string.setup_host_meta),
-                        contentDescription = stringResource(Res.string.setup_host_choose_description),
-                        onClick = onHost,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = availability.host,
-                        disabledHint = stringResource(Res.string.setup_multiplayer_disabled),
-                        emphasized = true,
-                    )
-                },
-                second = {
-                    SetupOptionCard(
-                        icon = SetupIcon.Join,
-                        title = stringResource(Res.string.setup_join_title),
-                        body = stringResource(Res.string.setup_join_body),
-                        meta = stringResource(Res.string.setup_join_meta),
-                        contentDescription = stringResource(Res.string.setup_join_choose_description),
-                        onClick = onJoin,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = availability.join,
-                        disabledHint = stringResource(Res.string.setup_multiplayer_disabled),
-                    )
-                },
-            )
-
+            SelectedGameHeader(presentation, model.supportedPlayerCounts, onBack)
             if (availability.solo || availability.passAndPlay) {
                 LocalPlayOptions(model, onModeSelected)
             }
-
-            Text(
-                text = stringResource(Res.string.setup_lan_note),
-                style = ParlorTheme.typography.bodySmall,
-                color = ParlorTheme.colors.textTertiary,
-            )
+            if (availability.host || availability.join) {
+                NearbyPlayOptions(availability, onHost, onJoin)
+            }
         }
+    }
+}
+
+@Composable
+private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: IntRange, onBack: () -> Unit) {
+    val coverShape = RoundedCornerShape(ParlorTheme.radii.subtle)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
+        ParlorIconButton(
+            icon = ParlorIcons.Back,
+            contentDescription = stringResource(Res.string.setup_back_description),
+            onClick = onBack,
+            modifier = Modifier.libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.pill)),
+        )
+        LibraryText(
+            text = stringResource(Res.string.setup_eyebrow),
+            style = ParlorTheme.typography.labelSmall,
+            color = ParlorTheme.colors.textSecondary,
+        )
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val largeText = LocalDensity.current.fontScale >= PICKER_LARGE_TYPE
+        val caption: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+                LibraryText(
+                    text = presentation.title,
+                    modifier = Modifier.semantics { heading() },
+                    style = ParlorTheme.typography.displayMedium,
+                    color = ParlorTheme.colors.textPrimary,
+                )
+                LibraryText(playerRangeLabel(players), style = ParlorTheme.typography.bodyMedium, color = ParlorTheme.colors.textSecondary)
+            }
+        }
+        if (largeText && maxWidth < NarrowPickerWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+                CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxl).clip(coverShape))
+                caption()
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
+                CatalogArtworkBadge(presentation.artwork, Modifier.size(HeaderPrintSize).clip(coverShape))
+                caption()
+            }
+        }
+    }
+}
+
+@Composable
+private fun NearbyPlayOptions(availability: PlayModePickerAvailability, onHost: () -> Unit, onJoin: () -> Unit) {
+    TopologyHeading(stringResource(Res.string.setup_each_device_label))
+    LibraryText(
+        text = stringResource(Res.string.setup_lan_note),
+        style = ParlorTheme.typography.bodyMedium,
+        color = ParlorTheme.colors.textSecondary,
+    )
+    if (availability.host) {
+        SetupOptionCard(
+            icon = SetupIcon.Host,
+            title = stringResource(Res.string.setup_host_title),
+            body = stringResource(Res.string.setup_host_body),
+            contentDescription = stringResource(Res.string.setup_host_choose_description),
+            onClick = onHost,
+        )
+    }
+    if (availability.join) {
+        SetupOptionCard(
+            icon = SetupIcon.Join,
+            title = stringResource(Res.string.setup_join_title),
+            body = stringResource(Res.string.setup_join_body),
+            contentDescription = stringResource(Res.string.setup_join_choose_description),
+            onClick = onJoin,
+        )
     }
 }
 
@@ -183,72 +212,35 @@ private fun LocalPlayOptions(model: PlayModePickerModel, onModeSelected: (PlayMo
     val availability = model.availability
     TopologyHeading(stringResource(Res.string.setup_one_device_label))
     if (availability.solo) {
-        SoloOptionCard(
-            availability = availability,
-            playerCounts = model.supportedPlayerCounts,
+        SetupOptionCard(
+            icon = SetupIcon.Solo,
+            title = stringResource(Res.string.playmode_solo_title),
+            body = stringResource(Res.string.playmode_solo_body),
+            contentDescription = stringResource(Res.string.playmode_solo_choose_description),
             onClick = { onModeSelected(PlayMode.Solo) },
         )
     }
-    SetupOptionCard(
-        icon = SetupIcon.PassAndPlay,
-        title = stringResource(Res.string.playmode_passandplay_title),
-        body = stringResource(Res.string.playmode_passandplay_body),
-        meta = if (model.supportedPlayerCounts.first == model.supportedPlayerCounts.last) {
-            stringResource(Res.string.playmode_passandplay_meta_exact, model.supportedPlayerCounts.first)
-        } else {
-            stringResource(
-                Res.string.playmode_passandplay_meta,
-                model.supportedPlayerCounts.first,
-                model.supportedPlayerCounts.last,
-            )
-        },
-        contentDescription = stringResource(Res.string.playmode_passandplay_choose_description),
-        onClick = { onModeSelected(PlayMode.PassAndPlay) },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = availability.passAndPlay,
-        disabledHint = stringResource(Res.string.setup_mode_unavailable),
-        emphasized = true,
-    )
+    if (availability.passAndPlay) {
+        SetupOptionCard(
+            icon = SetupIcon.PassAndPlay,
+            title = stringResource(Res.string.playmode_passandplay_title),
+            body = stringResource(Res.string.playmode_passandplay_body),
+            contentDescription = stringResource(Res.string.playmode_passandplay_choose_description),
+            onClick = { onModeSelected(PlayMode.PassAndPlay) },
+        )
+    }
     if (!availability.solo) {
-        SoloOptionCard(
-            availability = availability,
-            playerCounts = model.supportedPlayerCounts,
-            onClick = { onModeSelected(PlayMode.Solo) },
+        val explanation = stringResource(Res.string.setup_solo_unavailable_description_format, soloRequirement(model.supportedPlayerCounts))
+        LibraryText(
+            text = stringResource(Res.string.setup_solo_unavailable_title),
+            modifier = Modifier.semantics {
+                disabled()
+                contentDescription = explanation
+            },
+            style = ParlorTheme.typography.bodySmall,
+            color = ParlorTheme.colors.textSecondary,
         )
     }
-}
-
-@Composable
-private fun SoloOptionCard(
-    availability: PlayModePickerAvailability,
-    playerCounts: IntRange,
-    onClick: () -> Unit,
-) {
-    val requirement = soloRequirement(playerCounts)
-    SetupOptionCard(
-        icon = SetupIcon.Solo,
-        title = if (availability.solo) {
-            stringResource(Res.string.playmode_solo_title)
-        } else {
-            stringResource(Res.string.setup_solo_unavailable_title)
-        },
-        body = if (availability.solo) {
-            stringResource(Res.string.playmode_solo_body)
-        } else {
-            requirement
-        },
-        meta = stringResource(Res.string.playmode_solo_meta),
-        contentDescription = if (availability.solo) {
-            stringResource(Res.string.playmode_solo_choose_description)
-        } else {
-            stringResource(Res.string.setup_solo_unavailable_description_format, requirement)
-        },
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = availability.solo,
-        disabledHint = stringResource(Res.string.setup_mode_unavailable),
-        compact = !availability.solo,
-    )
 }
 
 @Composable
@@ -258,7 +250,12 @@ private fun TopologyHeading(text: String) {
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        EyebrowLabel(text = text, accent = false)
+        LibraryText(
+            text = text,
+            modifier = Modifier.semantics { heading() },
+            style = ParlorTheme.typography.headingMedium,
+            color = ParlorTheme.colors.textPrimary,
+        )
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -273,141 +270,49 @@ private fun SetupOptionCard(
     icon: SetupIcon,
     title: String,
     body: String,
-    meta: String,
     contentDescription: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    disabledHint: String,
-    emphasized: Boolean = false,
-    compact: Boolean = false,
 ) {
+    val shape = RoundedCornerShape(ParlorTheme.radii.card)
     ParlorCard(
-        modifier = modifier
+        modifier = Modifier.fillMaxWidth().clip(shape).libraryFocusOutline(shape)
             .semantics { this.contentDescription = contentDescription }
-            .clickable(
-                enabled = enabled,
-                role = Role.Button,
-                onClick = onClick,
-            ),
-        cornerRadius = ParlorTheme.radii.card,
+            .clickable(role = Role.Button, onClick = onClick),
         contentPadding = ParlorTheme.spacing.m,
-        hero = emphasized && enabled,
     ) {
-        if (compact) {
-            CompactOptionContent(
-                icon = icon,
-                title = title,
-                body = body,
-                enabled = enabled,
-            )
+        val label: @Composable () -> Unit = {
+            LibraryText(title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary)
+        }
+        val caption: @Composable () -> Unit = {
+            LibraryText(body, style = ParlorTheme.typography.bodyMedium, color = ParlorTheme.colors.textSecondary, preferredLines = 2)
+        }
+        if (LocalDensity.current.fontScale >= PICKER_LARGE_TYPE) {
+            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                    ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xl))
+                    label()
+                }
+                caption()
+            }
         } else {
-            StandardOptionContent(
-                icon = icon,
-                title = title,
-                body = body,
-                meta = if (enabled) meta else disabledHint,
-                enabled = enabled,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m), verticalAlignment = Alignment.CenterVertically) {
+                ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xxl))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+                    label()
+                    caption()
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun StandardOptionContent(
-    icon: SetupIcon,
-    title: String,
-    body: String,
-    meta: String,
-    enabled: Boolean,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
-        ModeGlyph(icon = icon, enabled = enabled)
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-        ) {
-            OptionTitle(title = title, enabled = enabled)
-            OptionBody(body = body, enabled = enabled)
-            Text(
-                text = meta,
-                style = ParlorTheme.typography.labelMedium,
-                color = if (enabled) {
-                    ParlorTheme.colors.accentEmber
-                } else {
-                    ParlorTheme.colors.textTertiary
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactOptionContent(
-    icon: SetupIcon,
-    title: String,
-    body: String,
-    enabled: Boolean,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ModeGlyph(icon = icon, enabled = enabled)
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
-        ) {
-            OptionTitle(title = title, enabled = enabled)
-            OptionBody(body = body, enabled = enabled)
-        }
-    }
-}
-
-@Composable
-private fun OptionTitle(title: String, enabled: Boolean) {
-    Text(
-        text = title,
-        style = ParlorTheme.typography.headingMedium,
-        color = if (enabled) {
-            ParlorTheme.colors.textPrimary
-        } else {
-            ParlorTheme.colors.textTertiary
-        },
-    )
-}
-
-@Composable
-private fun OptionBody(body: String, enabled: Boolean) {
-    Text(
-        text = body,
-        style = ParlorTheme.typography.bodySmall,
-        color = if (enabled) {
-            ParlorTheme.colors.textSecondary
-        } else {
-            ParlorTheme.colors.textTertiary
-        },
-    )
-}
-
-@Composable
-private fun ModeGlyph(icon: SetupIcon, enabled: Boolean) {
-    val iconColor = if (enabled) {
-        ParlorTheme.colors.accentEmber
-    } else {
-        ParlorTheme.colors.textTertiary
-    }
+private fun ModeGlyph(icon: SetupIcon, modifier: Modifier) {
+    val iconColor = ParlorTheme.colors.accentEmber
     Box(
-        modifier = Modifier
-            .size(ParlorTheme.spacing.xxl)
+        modifier = modifier
             .clip(RoundedCornerShape(ParlorTheme.radii.card))
-            .background(
-                if (enabled) {
-                    ParlorTheme.colors.accentEmber.copy(alpha = MODE_GLYPH_ALPHA)
-                } else {
-                    ParlorTheme.colors.surfaceHigher
-                },
-            )
+            .background(iconColor.copy(alpha = MODE_GLYPH_ALPHA))
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
@@ -511,6 +416,11 @@ private fun soloRequirement(playerCounts: IntRange): String =
             playerCounts.last,
         )
     }
+
+private const val PICKER_LARGE_TYPE = 1.5f
+private val NarrowPickerWidth = 420.dp
+private val HeaderPrintSize = 88.dp
+private val PickerWidth = 560.dp
 
 private const val MODE_GLYPH_ALPHA = 0.12f
 private const val ICON_STROKE_RATIO = 0.07f

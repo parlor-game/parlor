@@ -4,9 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Text
+import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.parlor.app.resources.Res
@@ -15,6 +16,7 @@ import com.parlor.app.resources.catalog_filter_local
 import com.parlor.app.resources.catalog_filter_nearby
 import com.parlor.app.shell.game.GameEntryMode
 import com.parlor.app.shell.game.GameShellCapabilities
+import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.theme.ParlorTheme
 import org.jetbrains.compose.resources.stringResource
 
@@ -43,12 +45,13 @@ internal fun CatalogFilters(selected: HomeCatalogFilter, onSelected: (HomeCatalo
             FilterChip(
                 selected = filter == selected,
                 onClick = { onSelected(filter) },
-                modifier = Modifier.heightIn(min = ParlorTheme.spacing.xxl),
+                modifier = Modifier.heightIn(min = ParlorTheme.spacing.xxl).libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.pill)),
+                shape = RoundedCornerShape(ParlorTheme.radii.pill),
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = ParlorTheme.colors.surfaceElevated,
                     labelColor = ParlorTheme.colors.textSecondary,
-                    selectedContainerColor = ParlorTheme.colors.surfaceHero,
-                    selectedLabelColor = ParlorTheme.colors.textPrimary,
+                    selectedContainerColor = ParlorTheme.colors.accentEmber,
+                    selectedLabelColor = ParlorTheme.colors.textOnAccent,
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
@@ -57,11 +60,15 @@ internal fun CatalogFilters(selected: HomeCatalogFilter, onSelected: (HomeCatalo
                     selectedBorderColor = ParlorTheme.colors.accentEmber,
                 ),
                 label = {
-                    Text(stringResource(when (filter) {
-                        HomeCatalogFilter.All -> Res.string.catalog_filter_all
-                        HomeCatalogFilter.Local -> Res.string.catalog_filter_local
-                        HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
-                    }))
+                    LibraryText(
+                        text = stringResource(when (filter) {
+                            HomeCatalogFilter.All -> Res.string.catalog_filter_all
+                            HomeCatalogFilter.Local -> Res.string.catalog_filter_local
+                            HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
+                        }),
+                        style = ParlorTheme.typography.bodyMedium,
+                        color = if (selected == filter) ParlorTheme.colors.textOnAccent else ParlorTheme.colors.textSecondary,
+                    )
                 },
             )
         }

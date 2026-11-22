@@ -79,7 +79,7 @@ class HomeCatalogPartialPointerTest {
                         val state = rememberHomeCatalogScrollState()
                         scrollState = state
                         scope = rememberCoroutineScope()
-                        Box(Modifier.size(402.dp, 740.dp).clipToBounds().testTag(VIEWPORT)) {
+                        Box(Modifier.size(402.dp, 480.dp).clipToBounds().testTag(VIEWPORT)) {
                             HomeScreen(games = games, catalogScrollState = state, onGameSelected = selected::add)
                         }
                     }
