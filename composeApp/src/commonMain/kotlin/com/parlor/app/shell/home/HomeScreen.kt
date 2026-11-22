@@ -507,7 +507,11 @@ private fun GameHeroCard(
                         style = ParlorTheme.typography.labelLarge,
                         color = ParlorTheme.colors.accentEmber,
                     )
-                    Icon(ParlorIcons.Forward, contentDescription = null, tint = ParlorTheme.colors.accentEmber)
+                    Icon(
+                        imageVector = ParlorIcons.Forward,
+                        contentDescription = null,
+                        tint = ParlorTheme.colors.accentEmber,
+                    )
                 }
                 if (compact) CatalogTagline(presentation.tagline)
             }
