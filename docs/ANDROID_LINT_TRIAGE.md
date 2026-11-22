@@ -217,13 +217,24 @@ memoized. The failed producer did not retain that cache, so the precise
 network exception is not established.
 
 `prepareReleaseLintRepositoryInputs` fetches the live official master and
-Navigation3 group indexes once, validates their bounds/encoding/coordinates
+Navigation3 group indexes once, validates their bounds, encoding, coordinates
 and the reviewed stable update, and registers their bytes as release-analysis
-inputs. AGP initializes its own version-checked, task-owned cache before
-those exact bytes are copied into it. A failed fetch or invalid index fails
-closed; no historical index, fabricated warning, dependency override, optional
-warning list or detector suppression is used. All 37 required inventory rows
-and source-location checks remain unchanged.
+inputs.
+
+[PR run 44990742042](https://github.com/parlor-game/parlor/actions/runs/44990742042/job/137111028025)
+reported 13 advisories and zero errors. The 24 missing rows were all Maven
+Central library coordinates. AndroidX and Gradle plugin marker rows were
+present. The runner did not retain lint's Maven Central lookup errors.
+Metadata for the reviewed Central library coordinates now comes from the
+official `repo.maven.apache.org` endpoint, using bounded parallel fetches.
+The preparation verifies the coordinate and reviewed version. Pinned lint
+reads the live bytes under its `maven-versions/repo1.maven.org/` cache key
+and determines the advisories itself.
+
+AGP initializes its own version-checked, task-owned cache before those exact
+bytes are copied into it. A failed fetch or invalid index fails the build.
+Release lint still requires all 37 inventory rows, rejects new findings and
+checks that every finding points to the current checkout.
 
 CI retains `composeApp/build/reports/lint-repository-inputs-*.json` separately
 from the untouched lint XML. Each receipt identifies official URLs, byte

@@ -1,4 +1,5 @@
-"""Live Google Maven inputs for pinned release lint; never generate lint findings."""
+"""Live repository metadata for pinned release lint; never generate lint findings."""
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -10,14 +11,20 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
-BASE = "https://dl.google.com/dl/android/maven2/"
-FILES = ("master-index.xml", "androidx/navigation3/group-index.xml")
+GOOGLE_MAVEN = "https://dl.google.com/dl/android/maven2/"
+MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/"
+GOOGLE_INDEXES = ("master-index.xml", "androidx/navigation3/group-index.xml")
+CENTRAL_CACHE = "maven-versions/repo1.maven.org/"
+INVENTORY = "config/android-lint-accepted-warnings.txt"
 MAX_BYTES = 2 * 1024 * 1024
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?")
+CATALOG_UPDATE = re.compile(
+    r"DependencyUpdate\|gradle/libs\.versions\.toml\|A newer version of "
+    r"([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*):([A-Za-z0-9][A-Za-z0-9._-]*) than (\S+)"
+)
 
 
-def fetch(relative):
-    url = BASE + relative
+def fetch(url):
     with urllib.request.urlopen(url, timeout=20) as response:
         if response.status != 200 or response.geturl() != url:
             raise ValueError("Unexpected official index response")
@@ -60,6 +67,29 @@ def validate(master, group, current):
     return ".".join(map(str, latest))
 
 
+def central_coordinates(inventory):
+    # Plugin marker updates use the Gradle Plugin Portal. AndroidX updates use
+    # Google Maven; the remaining reviewed library advisories use Maven Central.
+    coordinates = {}
+    for line in inventory.splitlines():
+        advisory = CATALOG_UPDATE.fullmatch(line.strip())
+        if advisory:
+            group, artifact, current = advisory.groups()
+            if group.startswith("androidx."):
+                continue
+            coordinates[group, artifact] = current
+    return coordinates
+
+
+def validate_central(raw, group, artifact, current):
+    metadata = document(raw)
+    if metadata.tag != "metadata" or metadata.findtext("groupId") != group or metadata.findtext("artifactId") != artifact:
+        raise ValueError(f"Unexpected Maven Central coordinate for {group}:{artifact}")
+    versions = metadata.findall("./versioning/versions/version")
+    if not any(version.text == current for version in versions):
+        raise ValueError(f"Reviewed version {current} missing from Maven Central metadata for {group}:{artifact}")
+
+
 def write_atomic(path, raw):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".lint-index-", dir=path.parent)
@@ -74,7 +104,8 @@ def write_atomic(path, raw):
 
 def prepare(root, download=fetch):
     root = Path(root).resolve(strict=True)
-    catalog = (root / "gradle/libs.versions.toml").read_text()
+    catalog_bytes = (root / "gradle/libs.versions.toml").read_bytes()
+    catalog = catalog_bytes.decode("utf-8").replace("\r\n", "\n")
     sections = re.findall(r"(?ms)^\[versions\]\s*\n(.*?)(?=^\[|\Z)", catalog)
     if len(sections) != 1:
         raise ValueError("Missing/duplicate reviewed versions section")
@@ -91,8 +122,20 @@ def prepare(root, download=fetch):
     properties = (root / "gradle.properties").read_text().splitlines()
     if "android.experimental.lint.version=9.1.1" not in properties:
         raise ValueError("Unsupported lint cache layout")
-    raw = {name: download(name) for name in FILES}
-    latest = validate(raw[FILES[0]], raw[FILES[1]], current)
+    google_paths = [f"maven.google/{index}" for index in GOOGLE_INDEXES]
+    urls = dict(zip(google_paths, (GOOGLE_MAVEN + index for index in GOOGLE_INDEXES)))
+    central = {}
+    for (group, artifact), version in central_coordinates((root / INVENTORY).read_text()).items():
+        relative = f"{group.replace('.', '/')}/{artifact}/maven-metadata.xml"
+        path = CENTRAL_CACHE + relative
+        urls[path] = MAVEN_CENTRAL + relative
+        central[path] = (group, artifact, version)
+    # Keep official fetches bounded without serializing every Central artifact.
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        raw = dict(zip(urls, pool.map(download, urls.values())))
+    latest = validate(*(raw[path] for path in google_paths), current)
+    for path, coordinate in central.items():
+        validate_central(raw[path], *coordinate)
     target = root / "composeApp/build/lint-repository-inputs"
     # Generated checkout-owned inputs only; never modify Gradle's dependency cache.
     for parent in (target, target.parent, target.parent.parent):
@@ -103,10 +146,11 @@ def prepare(root, download=fetch):
         if any(parent.is_symlink() for parent in (path, *path.parents) if parent != root.parent):
             raise ValueError("Symlinked lint index")
         write_atomic(path, data)
-    receipt = dict(schema=1, source_head=os.environ.get("GITHUB_SHA"),
-                   source_catalog_sha256=hashlib.sha256((root / "gradle/libs.versions.toml").read_bytes()).hexdigest(),
+    write_atomic(target / "cache-files.txt", ("\n".join(raw) + "\n").encode())
+    receipt = dict(schema=2, source_head=os.environ.get("GITHUB_SHA"),
+                   source_catalog_sha256=hashlib.sha256(catalog_bytes).hexdigest(),
                    lint="32.1.1", agp="8.13.2", current=current, latest_observed=latest,
-                   inputs=[dict(path=name, url=BASE + name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+                   inputs=[dict(path=name, url=urls[name], bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
                            for name, data in raw.items()],
                    result="PASS_LIVE_REPOSITORY_INPUTS_NOT_LINT_QUALIFICATION")
     encoded = (json.dumps(receipt, indent=2) + "\n").encode()
