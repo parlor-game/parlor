@@ -1,8 +1,5 @@
 package com.parlor.games.wordimpostor.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.components.InPlaceBackHandler
@@ -144,15 +140,30 @@ private fun WordVoteCounts(state: WordImpostorState) {
 @Composable
 internal fun WordResults(state: WordImpostorState, host: Boolean, enabled: Boolean, onAction: (WordImpostorAction) -> Unit) {
     val result = checkNotNull(state.public.result)
-    WordTitle(stringResource(Res.string.wi_result))
+    val matchFinished = state.phase == WordImpostorPhase.MatchResult
+    if (matchFinished) {
+        val high = state.public.scores.values.max()
+        val winners = state.players.filter { state.public.scores.getValue(it.id) == high }.map { it.id }.toSet()
+        WordTitle(stringResource(Res.string.wi_champions, state.names(winners)))
+    } else {
+        WordTitle(stringResource(Res.string.wi_result))
+    }
+
     WordPanel {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            WordEmblem(true)
-            WordBody(stringResource(Res.string.wi_word_was))
-            WordTitle(stringResource(WordContentResources.word(result.wordId)))
-        }
+        WordBody(stringResource(Res.string.wi_word_was))
+        WordTitle(stringResource(WordContentResources.word(result.wordId)))
         WordBody(stringResource(Res.string.wi_impostors_were, state.names(result.impostors)))
+    }
+    if (host) {
+        WordButton(stringResource(if (matchFinished) Res.string.wi_rematch else Res.string.wi_next), enabled) {
+            onAction(if (matchFinished) WordImpostorAction.Rematch(state.public.token)
+                else WordImpostorAction.NextRound(state.public.token))
+        }
+    } else {
+        WordBody(stringResource(Res.string.wi_wait_host))
+    }
+
+    WordPanel {
         WordBody(if (result.correctVoters.isEmpty()) stringResource(Res.string.wi_no_correct_voters) else
             stringResource(Res.string.wi_correct_voters, state.names(result.correctVoters)))
         state.players.filter { it.id in result.impostors }.forEach { player ->
@@ -161,20 +172,10 @@ internal fun WordResults(state: WordImpostorState, host: Boolean, enabled: Boole
         }
     }
     WordVoteCounts(state)
-    if (state.phase == WordImpostorPhase.MatchResult) {
-        val high = state.public.scores.values.max()
-        WordTitle(stringResource(Res.string.wi_champions,
-            state.names(state.players.filter { state.public.scores.getValue(it.id) == high }.map { it.id }.toSet())))
-    }
     WordBody(stringResource(Res.string.wi_scoreboard))
     state.players.sortedByDescending { state.public.scores.getValue(it.id) }.forEach { player ->
         WordScoreBar(stringResource(Res.string.wi_score, player.displayName.asBidiArgument(),
             state.public.scores.getValue(player.id), result.awarded.getValue(player.id)),
             state.public.scores.getValue(player.id), state.public.settings.rounds)
     }
-    if (host) WordButton(stringResource(if (state.phase == WordImpostorPhase.MatchResult) Res.string.wi_rematch else Res.string.wi_next),
-        enabled) {
-        onAction(if (state.phase == WordImpostorPhase.MatchResult) WordImpostorAction.Rematch(state.public.token)
-            else WordImpostorAction.NextRound(state.public.token))
-    } else WordBody(stringResource(Res.string.wi_wait_host))
 }

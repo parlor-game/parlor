@@ -254,12 +254,14 @@ class WordImpostorTableTest {
             }
         }
         assertEquals(WordImpostorPhase.MatchResult, state.phase)
-        onNodeWithText(localized("Behind the words", "ورا الكلام")).assertIsDisplayed()
+        onNodeWithText(localized("Party champions:", "أبطال الحفلة:"), substring = true).assertIsDisplayed()
         capturePublicGameFrame("results-${language.tag}-${themeMode.name.lowercase()}-2.0")
         onNodeWithText(word).assertExists()
         val rematch = localized("Play again · reset scores", "العبوا تاني · صفّر النقط")
         onNodeWithText(rematch).assertDoesNotExist() // Only the real host owns rematches.
         runOnIdle { host = true }
+        val scoreboard = onNodeWithText(localized("SCOREBOARD", "لوحة النقاط"), useUnmergedTree = true)
+        assertTrue(onNodeWithText(rematch).fetchSemanticsNode().positionInRoot.y < scoreboard.fetchSemanticsNode().positionInRoot.y)
         onNodeWithText(rematch).reachable().assertIsEnabled()
         onNodeWithText(rematch, useUnmergedTree = true).assertFullText()
         onNodeWithText(rematch).performClick()
