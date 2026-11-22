@@ -15,6 +15,13 @@ SMALL_IOS_ISSUE = (
     'XCTAssertEqual failed: ("XCTWaiterResult(rawValue: 2)") is not equal to '
     '("XCTWaiterResult(rawValue: 1)") - The full typed value must reach the actual Compose field.'
 )
+ROUTE_CAPTURE_ALIASES = {
+    "ghamza.round": {"ghamza.social"},
+    "ghamza.results": {"ghamza.rematch-covered"},
+    "word-impostor.question": {"word-impostor.next-question-public"},
+    "word-impostor.vote": {"word-impostor.voting", "word-impostor.guessing-covered"},
+    "word-impostor.results": {"word-impostor.rematch-covered"},
+}
 
 
 def capture_for(manifest: dict[str, object], platform: str, profile: str, screen_id: str, locale_prefix: str | None = None) -> str:
@@ -51,6 +58,51 @@ def main() -> None:
     if SMALL_IOS_ISSUE not in issues:
         issues.append(SMALL_IOS_ISSUE)
 
+    captures = manifest.get("captures", [])
+    checklist = manifest.get("checklist", [])
+    for row in checklist:
+        if not isinstance(row, dict):
+            continue
+        screen_id = str(row.get("screen_id", ""))
+        aliases = ROUTE_CAPTURE_ALIASES.get(screen_id)
+        if not aliases:
+            continue
+        matching = [
+            capture for capture in captures
+            if isinstance(capture, dict) and capture.get("screen_id") in ({screen_id} | aliases)
+        ]
+        if not matching:
+            raise ValueError(f"Expected route alias has no capture: {screen_id} -> {sorted(aliases)}")
+        native_matching = [
+            capture for capture in matching
+            if capture.get("platform") in {"Android Emulator", "iOS Simulator"}
+        ]
+        row["captures"] = [capture["capture_filename"] for capture in matching]
+        row["capture_count"] = len(matching)
+        row["captured_platforms"] = sorted({str(capture["platform"]) for capture in matching})
+        row["native_captures"] = [capture["capture_filename"] for capture in native_matching]
+        row["native_capture_count"] = len(native_matching)
+        row["native_captured_platforms"] = sorted({str(capture["platform"]) for capture in native_matching})
+        row["native_coverage_by_platform"] = {
+            platform: {
+                "capture_count": sum(1 for capture in native_matching if capture["platform"] == platform),
+                "profiles": sorted({str(capture.get("profile")) for capture in native_matching if capture["platform"] == platform}),
+            }
+            for platform in sorted({str(capture["platform"]) for capture in native_matching})
+        }
+        row["status"] = "captured"
+        row["gap_or_reason"] = ""
+        row["native_status"] = "not-captured-natively" if not native_matching else "captured"
+        row["native_gap_or_reason"] = (
+            "Only Desktop seeded production-composable evidence exists; it does not certify a native screen capture."
+            if not native_matching else ""
+        )
+    manifest["totals"]["uncovered_checklist_count"] = sum(1 for row in checklist if row.get("status") == "uncovered")
+    manifest["totals"]["native_captured_checklist_count"] = sum(1 for row in checklist if row.get("native_status") == "captured")
+    manifest["totals"]["native_uncovered_checklist_count"] = sum(
+        1 for row in checklist if row.get("native_status") in {"uncovered", "not-captured-natively"}
+    )
+
     reviewed = [
         {
             "severity": "review",
@@ -86,7 +138,8 @@ def main() -> None:
         "source_aggregate_run_id": args.source_run_id,
         "amendment_source_sha": args.amendment_sha,
         "screenshots_changed": False,
-        "reason": "Added the second iPhone SE XCTest failure recorded in the original simulator log and documented visual review across actual device-size screenshots.",
+        "route_capture_aliases": {key: sorted(value) for key, value in ROUTE_CAPTURE_ALIASES.items()},
+        "reason": "Added the second iPhone SE XCTest failure recorded in the original simulator log, reconciled route IDs to the captured Ghamza and Word Impostor states, and documented visual review across actual device-size screenshots.",
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
