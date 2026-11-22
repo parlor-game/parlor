@@ -44,6 +44,7 @@ internal class DominoGameShellBinding(override val definition: DominoDefinition)
     override fun disconnected(state: DominoState) = state.public.disconnected
     override fun isAborted(state: DominoState) = state.phase == DominoPhase.Aborted
     override fun isCompleted(state: DominoState) = state.phase == DominoPhase.MatchResult
+    override fun isRematch(action: DominoAction) = action is DominoAction.Rematch
     override fun disconnectedAction(id: PlayerId) = DominoAction.Disconnected(id)
     override fun reconnectedAction(id: PlayerId) = DominoAction.Reconnected(id)
     override fun encodeAction(action: DominoAction) = DominoCodec.encodeAction(action)

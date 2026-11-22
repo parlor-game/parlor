@@ -83,7 +83,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGamePanel(
         else -> {
             val leave = onCompleted?.takeIf { spec.isCompleted(own.state) } ?: onLeave
             GameTableSurface(spec, own.state, true, session.room, runtime.actions,
-                runtime.bridge.recoveryEpoch, leave, busy, modifier)
+                runtime.bridge.recoveryEpoch, leave, busy, modifier, onPartyRematch = onCompleted)
         }
     }
 }
@@ -135,6 +135,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGamePanel(
 private fun <S : GameState, A : GameAction, E : GameEvent> GameTableSurface(
     spec: MultiplayerGameSpec<S, A, E>, state: S, isHost: Boolean, room: LocalRoom,
     actions: GameActionSubmission<A>, recovery: StateFlow<Long>, onLeave: () -> Unit, busy: Boolean, modifier: Modifier,
+    onPartyRematch: (() -> Unit)? = null,
 ) {
     val lifecycle: AppLifecycleCoordinator = koinInject()
     val visibility by lifecycle.visibility.collectAsState()
@@ -167,7 +168,13 @@ private fun <S : GameState, A : GameAction, E : GameEvent> GameTableSurface(
         )
         else -> spec.Table(state, room.selfPlayerId, isHost, !busy && !pending,
             combinedGamePrivacyEpoch(visibility.privacyEpoch, recoveryEpoch),
-            onAction = { actions.trySubmit(it, !busy && !pending, stillAllowed) }, onLeave = onLeave, modifier = modifier)
+            onAction = { action ->
+                if (isHost && onPartyRematch != null && spec.isRematch(action)) {
+                    if (!busy && !pending && spec.isCompleted(state) && stillAllowed()) onPartyRematch()
+                } else {
+                    actions.trySubmit(action, !busy && !pending, stillAllowed)
+                }
+            }, onLeave = onLeave, modifier = modifier)
     }
 }
 
