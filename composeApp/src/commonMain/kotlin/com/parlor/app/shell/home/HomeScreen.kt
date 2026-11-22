@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +49,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
@@ -62,7 +66,8 @@ import com.parlor.app.resources.catalog_mode_one_phone_wifi
 import com.parlor.app.resources.catalog_mode_wifi_only
 import com.parlor.app.resources.catalog_players_and_genre
 import com.parlor.app.resources.home_continue_label
-import com.parlor.app.resources.home_guest_greeting
+import com.parlor.app.resources.home_guest
+import com.parlor.app.resources.home_profile_greeting
 import com.parlor.app.resources.home_party_subtitle
 import com.parlor.app.resources.home_games_count
 import com.parlor.app.resources.home_local_lan_meta
@@ -90,6 +95,8 @@ import com.parlor.app.resources.resume_delete_action
 import com.parlor.app.resources.resume_delete_description
 import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBinding
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
+import com.parlor.app.shell.profile.OpenProfileButton
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
 import com.parlor.designsystem.components.CatalogArtworkBadge
@@ -122,6 +129,7 @@ internal fun HomeScreen(
     onDiscardMultiplayer: (String) -> Unit = {},
     recoveryActionsEnabled: Boolean = true,
     catalogScrollState: HomeCatalogScrollState = rememberHomeCatalogScrollState(),
+    onOpenProfile: (() -> Unit)? = null,
 ) {
     var selectedFilter by rememberSaveable { mutableStateOf(HomeCatalogFilter.All) }
     var returnFocusKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -146,7 +154,7 @@ internal fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
+            item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar(onOpenProfile) }
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
                 if (showFeatured && games.size > 1) FeaturedGames(games, onGameSelected)
             }
@@ -259,16 +267,24 @@ private fun libraryColumns(width: Dp, padding: PaddingValues): Int {
 private fun catalogGameCount(count: Int): String = pluralStringResource(Res.plurals.home_games_count, count, count)
 
 @Composable
-private fun HomeTopBar() {
+private fun HomeTopBar(onOpenProfile: (() -> Unit)?) {
+    val name = LocalPreferredDisplayName.current ?: stringResource(Res.string.home_guest)
+    val template = stringResource(Res.string.home_profile_greeting, GREETING_NAME_PLACEHOLDER)
+    val accent = ParlorTheme.colors.accentEmber
+    val greeting = buildAnnotatedString {
+        append(template.substringBefore(GREETING_NAME_PLACEHOLDER))
+        withStyle(SpanStyle(color = accent)) { append(name) }
+        append(template.substringAfter(GREETING_NAME_PLACEHOLDER, missingDelimiterValue = ""))
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            LibraryText(
-                text = stringResource(Res.string.home_guest_greeting),
-                style = ParlorTheme.typography.headingMedium.copy(fontWeight = FontWeight.ExtraBold),
+            Text(
+                text = greeting,
+                style = ParlorTheme.typography.headingMedium.copy(fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold),
                 color = ParlorTheme.colors.textPrimary,
                 modifier = Modifier.testTag(HOME_BRAND_TEST_TAG),
             )
@@ -278,9 +294,13 @@ private fun HomeTopBar() {
                 color = ParlorTheme.colors.textSecondary,
             )
         }
-        val brand = stringResource(Res.string.app_name)
-        Box(Modifier.semantics { contentDescription = brand }) {
-            ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
+        if (onOpenProfile != null) {
+            OpenProfileButton(onOpenProfile)
+        } else {
+            val brand = stringResource(Res.string.app_name)
+            Box(Modifier.semantics { contentDescription = brand }) {
+                ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
+            }
         }
     }
 }
@@ -636,6 +656,7 @@ internal fun playerRangeLabel(range: IntRange): String =
         stringResource(Res.string.home_players_range_format, range.first, range.last)
     }
 
+private const val GREETING_NAME_PLACEHOLDER = "{name}"
 private const val HOME_COMPACT_INTRODUCTION_FONT_SCALE = 1.5f
 private val TwoCoverWidth = 440.dp
 private val ThreeCoverWidth = 688.dp

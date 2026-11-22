@@ -96,7 +96,13 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
                         .semantics { contentDescription = label },
                 ) {
                     CatalogArtworkBadge(option.artwork, Modifier.fillMaxSize())
-                    Box(Modifier.fillMaxSize().border(1.dp, if (active) colors.accentEmber else colors.borderElevated, tile))
+                    Box(
+                        Modifier.fillMaxSize().border(
+                            width = if (active) 2.dp else 1.dp,
+                            color = if (active) colors.accentEmberGlow else colors.borderElevated,
+                            shape = tile,
+                        ),
+                    )
                 }
             }
         }
@@ -123,7 +129,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
                     radius = radius,
                 )
                 onDrawBehind { drawRect(halo, size = Size(size.width, size.height)) }
-            }.padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.s),
+            }.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
         ) {

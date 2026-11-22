@@ -1,5 +1,6 @@
 package com.parlor.app.shell.multiplayer
 
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,7 +73,8 @@ fun NameInputScreen(
     modifier: Modifier = Modifier,
     gameTitle: String? = null,
 ) {
-    var name by remember { mutableStateOf(initial) }
+    val preferredName = LocalPreferredDisplayName.current
+    var name by remember { mutableStateOf(initial.ifBlank { preferredName.orEmpty() }) }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val sanitized = normalizedMultiplayerDisplayName(name)

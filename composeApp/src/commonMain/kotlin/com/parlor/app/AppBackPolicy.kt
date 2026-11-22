@@ -10,7 +10,7 @@ internal enum class AppBackAction {
 
 internal fun appBackAction(route: AppRoute): AppBackAction = when (route) {
     AppRoute.Home -> AppBackAction.AllowPlatformExit
-    AppRoute.Settings -> AppBackAction.NavigateGames
+    AppRoute.Profile, AppRoute.Settings -> AppBackAction.NavigateGames
     is AppRoute.LocalResumeFailure -> AppBackAction.HandledByNavDisplay
     is AppRoute.Game -> AppBackAction.DelegateToGame
 }

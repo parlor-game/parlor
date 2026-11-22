@@ -48,6 +48,22 @@ object ParlorIcons {
     }
 
 
+    val Profile: ImageVector = parlorIcon("Profile") {
+        moveTo(12f, 3.5f)
+        curveTo(6.5f, 3.5f, 6.5f, 12f, 12f, 12f)
+        curveTo(17.5f, 12f, 17.5f, 3.5f, 12f, 3.5f)
+        close()
+        moveTo(12f, 5.3f)
+        curveTo(15.2f, 5.3f, 15.2f, 10.2f, 12f, 10.2f)
+        curveTo(8.8f, 10.2f, 8.8f, 5.3f, 12f, 5.3f)
+        close()
+        moveTo(4f, 20.5f)
+        curveTo(4f, 11.3f, 20f, 11.3f, 20f, 20.5f)
+        lineTo(18f, 20.5f)
+        curveTo(18f, 13.8f, 6f, 13.8f, 6f, 20.5f)
+        close()
+    }
+
     val Settings: ImageVector = parlorIcon("Settings") {
         moveTo(19.14f, 12.94f)
         curveToRelative(0.04f, -0.3f, 0.06f, -0.61f, 0.06f, -0.94f)

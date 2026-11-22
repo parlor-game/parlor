@@ -69,7 +69,7 @@ class HomeCatalogVisualEvidenceTest {
                     ParlorTheme(themeMode = ThemeMode.Dark, reducedMotion = true) {
                         Box(Modifier.size(390.dp, 760.dp).testTag("shell-preview")) {
                             Column {
-                                HomeScreen(games, onGameSelected = {}, modifier = Modifier.weight(1f))
+                                HomeScreen(games, onGameSelected = {}, modifier = Modifier.weight(1f), onOpenProfile = {})
                                 AppNavigationBar(AppTopLevelDestination.Games, {})
                             }
                         }

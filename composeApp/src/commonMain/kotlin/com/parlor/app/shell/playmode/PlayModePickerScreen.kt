@@ -189,7 +189,7 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, model: Pla
                 caption()
             }
         } else {
-            ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
+            ParlorCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp, contentPadding = 14.dp) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
@@ -200,7 +200,7 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, model: Pla
                     )
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
                         caption()
                         if (!largeText) {
@@ -370,25 +370,31 @@ private fun SetupOptionCard(
             }
             if (LocalDensity.current.fontScale >= PICKER_LARGE_TYPE) {
                 Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xl))
                         label()
                     }
                     caption()
                 }
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     ModeGlyph(icon, Modifier.size(42.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         label()
                         caption()
                     }
                     Icon(
-                    ParlorIcons.ChevronNext,
-                    contentDescription = null,
-                    tint = colors.textTertiary,
-                    modifier = Modifier.size(16.dp),
-                )
+                        ParlorIcons.ChevronNext,
+                        contentDescription = null,
+                        tint = colors.textTertiary,
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
         }

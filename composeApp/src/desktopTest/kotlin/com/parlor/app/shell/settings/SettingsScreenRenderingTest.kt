@@ -58,7 +58,11 @@ class SettingsScreenRenderingTest {
                             ParlorTheme(themeMode = ThemeMode.Dark, reducedMotion = true) {
                                 Box(Modifier.size(width.dp, 760.dp).testTag("acceptance-viewport")) {
                                     Column {
-                                        SettingsScreen(mutationScope = rememberCoroutineScope(), modifier = Modifier.weight(1f))
+                                        SettingsScreen(
+                                            mutationScope = rememberCoroutineScope(),
+                                            modifier = Modifier.weight(1f),
+                                            onOpenProfile = {},
+                                        )
                                         AppNavigationBar(AppTopLevelDestination.Settings, {})
                                     }
                                 }

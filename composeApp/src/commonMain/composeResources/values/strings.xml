@@ -224,7 +224,7 @@
     <string name="featured_next">Next featured game</string>
     <string name="featured_select">Feature %1$s</string>
     <string name="featured_play">Play %1$s</string>
-    <string name="home_guest_greeting">Hello, Guest</string>
+    <string name="home_guest">Guest</string>
     <string name="home_party_subtitle">Local Wi-Fi · Party play</string>
     <string name="name_character_count">%1$d of %2$d characters</string>
     <string name="name_seat_preview">Seat label in room: %1$s</string>
@@ -238,4 +238,14 @@
     <string name="catalog_genre_domino">Strategy</string>
     <string name="catalog_genre_ghamza">Social deduction</string>
     <string name="catalog_genre_word_impostor">Word game</string>
+    <string name="navigation_profile_label">Profile</string>
+    <string name="navigation_profile_description">Open profile.</string>
+    <string name="home_profile_greeting">Hello, %1$s</string>
+    <string name="profile_title">Your profile</string>
+    <string name="profile_subtitle">Your name is saved on this device.</string>
+    <string name="profile_display_name">Display name</string>
+    <string name="profile_name_help">Parlor fills in this name when you host or join a room. You can change it before sending it.</string>
+    <string name="profile_save">Save name</string>
+    <string name="profile_clear">Clear saved name</string>
+    <string name="profile_saved">Name saved.</string>
 </resources>

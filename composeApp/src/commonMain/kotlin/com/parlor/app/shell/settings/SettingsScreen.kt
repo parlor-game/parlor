@@ -38,6 +38,7 @@ import com.parlor.app.resources.settings_language_help
 import com.parlor.app.resources.settings_appearance_help
 import com.parlor.app.resources.settings_accessibility_help
 import com.parlor.app.resources.Res
+import com.parlor.app.shell.profile.OpenProfileButton
 import com.parlor.app.resources.settings_appearance_dark
 import com.parlor.app.resources.settings_appearance_label
 import com.parlor.app.resources.settings_appearance_light
@@ -85,6 +86,7 @@ import org.koin.compose.koinInject
 fun SettingsScreen(
     mutationScope: CoroutineScope,
     modifier: Modifier = Modifier,
+    onOpenProfile: (() -> Unit)? = null,
 ) {
     val settings: SettingsStore = koinInject()
     val toastState = LocalParlorToastState.current
@@ -110,7 +112,7 @@ fun SettingsScreen(
                 .parlorSafeContentPadding(ParlorTheme.spacing.m),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SettingsHeading()
+            SettingsHeading(onOpenProfile)
 
             SettingsSection(
                 label = stringResource(Res.string.settings_language_label),
@@ -177,18 +179,25 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsHeading() {
+private fun SettingsHeading(onOpenProfile: (() -> Unit)?) {
     val title = stringResource(Res.string.settings_title)
     val summary = stringResource(Res.string.settings_subtitle)
     if (LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE) {
         ScreenHeader(title = title, eyebrow = stringResource(Res.string.settings_eyebrow), subtitle = summary)
     } else {
-        Column(Modifier.heightIn(min = 46.dp), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
-            Text(
-                text = title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary,
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(text = summary, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary)
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+                Text(
+                    text = title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(text = summary, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary)
+            }
+            if (onOpenProfile != null) OpenProfileButton(onOpenProfile)
         }
     }
 }

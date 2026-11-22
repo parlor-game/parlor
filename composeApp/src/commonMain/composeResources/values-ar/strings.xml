@@ -232,7 +232,7 @@
     <string name="featured_next">اللعبة المختارة التالية</string>
     <string name="featured_select">اعرض %1$s ضمن الألعاب المختارة</string>
     <string name="featured_play">العب %1$s</string>
-    <string name="home_guest_greeting">أهلًا يا ضيف</string>
+    <string name="home_guest">ضيف</string>
     <string name="home_party_subtitle">واي فاي محلي · لعب جماعي</string>
     <string name="name_character_count">%1$d من %2$d حرفًا</string>
     <string name="name_seat_preview">الاسم الظاهر في الغرفة: %1$s</string>
@@ -246,4 +246,14 @@
     <string name="catalog_genre_domino">استراتيجية</string>
     <string name="catalog_genre_ghamza">استنتاج اجتماعي</string>
     <string name="catalog_genre_word_impostor">لعبة كلمات</string>
+    <string name="navigation_profile_label">الملف الشخصي</string>
+    <string name="navigation_profile_description">افتح الملف الشخصي.</string>
+    <string name="home_profile_greeting">أهلًا، %1$s</string>
+    <string name="profile_title">ملفك الشخصي</string>
+    <string name="profile_subtitle">يُحفظ اسمك على هذا الجهاز.</string>
+    <string name="profile_display_name">اسم العرض</string>
+    <string name="profile_name_help">يملأ بارلور هذا الاسم عند استضافة غرفة أو الانضمام إليها. يمكنك تغييره قبل إرساله.</string>
+    <string name="profile_save">احفظ الاسم</string>
+    <string name="profile_clear">امسح الاسم المحفوظ</string>
+    <string name="profile_saved">تم حفظ الاسم.</string>
 </resources>
