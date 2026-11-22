@@ -1,6 +1,7 @@
 # ADR-0003: Game room and party boundaries
 
-Status: Accepted for implementation  
+Status: Accepted for implementation
+
 Related: [Smart Lobby specification](../planning/SMART_LOBBY.md)
 
 ## Decisions
