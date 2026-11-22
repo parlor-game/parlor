@@ -191,9 +191,9 @@ install_ios() {
   [[ ${#apps[@]} == 1 && -d "${apps[0]}" ]]
   app="${apps[0]}"
   codesign --verify --strict "$app"
-  codesign -d --entitlements :- "$app" > "$proof/simulator-entitlements.plist"
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print application-identifier' "$proof/simulator-entitlements.plist")" == "UITEST0001.$bundle" ]]
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print keychain-access-groups:0' "$proof/simulator-entitlements.plist")" == "UITEST0001.$bundle" ]]
+  local executable
+  executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+  python3 "$verification" check-ios-entitlement "$app/$executable" "UITEST0001.$bundle" > "$proof/simulator-entitlements.json"
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"

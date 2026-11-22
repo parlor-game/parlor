@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
-      CANDIDATE: 4b14a7c58482a5c566a44ce09c929015cf2dc886
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -97,7 +97,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
-      CANDIDATE: 4b14a7c58482a5c566a44ce09c929015cf2dc886
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
@@ -123,13 +123,16 @@ jobs:
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
-          run-id: '45067803829'
+          run-id: '45060464381'
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: matrix.target == 'ios'
         with:
-          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '45072606265'
+          name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN
         if: matrix.pairing == 'mixed'
@@ -160,6 +163,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          script = Path("verification/mobile-lan/trial.sh")
+          original = script.read_text()
+          anchor = 'kill -0 "$(cat "$dir/bridge.pid")"'
+          if original.count(anchor) != 1:
+              raise SystemExit("The pinned bridge process check changed")
+          script.write_text(original.replace(anchor, "sudo -n " + anchor))
+          PY
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
       - name: Open independent UI controllers

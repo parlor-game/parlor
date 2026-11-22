@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import struct
+import plistlib
 import sys
 import time
 from urllib.parse import urlsplit
@@ -64,6 +66,32 @@ def manifest():
             with path.open("rb") as stream:
                 files[entry] = hashlib.file_digest(stream, "sha256").hexdigest()
     print(json.dumps(files, indent=2))
+
+
+def check_ios_entitlement():
+    binary = Path(sys.argv[2]).read_bytes()
+    expected = sys.argv[3]
+    magic, architecture, _, _, command_count, _, _, _ = struct.unpack_from("<8I", binary)
+    if (magic, architecture) != (0xfeedfacf, 0x0100000c):
+        raise ValueError("Expected an arm64 Mach-O simulator executable")
+    cursor = 32
+    for _ in range(command_count):
+        command, size = struct.unpack_from("<2I", binary, cursor)
+        if command == 0x19:  # LC_SEGMENT_64
+            count, = struct.unpack_from("<I", binary, cursor + 64)
+            for n in range(count):
+                section = cursor + 72 + n * 80
+                if binary[section:section + 16].rstrip(b"\x00") != b"__entitlements":
+                    continue
+                _, length, offset = struct.unpack_from("<QQI", binary, section + 32)
+                rights = plistlib.loads(binary[offset:offset + length].rstrip(b"\x00"))
+                if rights.get("application-identifier") != expected or rights.get("keychain-access-groups") != [expected]:
+                    raise ValueError("Simulator app lacks the pinned test-only Keychain entitlement")
+                print(json.dumps({"application_identifier": expected, "keychain_access_groups": [expected]}))
+                return
+        cursor += size
+    raise ValueError("Simulator app lacks embedded entitlements")
+
 
 
 def current_wifi_addresses(devices):
@@ -238,6 +266,7 @@ if __name__ == "__main__":
             "plan": plan,
             "pairing": lambda: print(configuration()[0]),
             "manifest": manifest,
+            "check-ios-entitlement": check_ios_entitlement,
             "wifi": wifi,
             "start": start,
             "hold": hold,
