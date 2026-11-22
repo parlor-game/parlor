@@ -31,6 +31,9 @@ import dev.p2pkit.core.Platform
 import dev.p2pkit.core.TransportKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -78,17 +81,17 @@ class ScopedLobbyDiscoveryTest {
         val otherGame = room("dominoes", "K7QX", dominoes.copy(gameVersion = 2))
         val incompatible = room("mafia-newer", "WXYZ", mafia.copy(gameVersion = 2))
         val compatible = room("mafia-current", "ABCD", mafia)
+        val observations = Channel<Result<List<DiscoveredRoom>, NetError>>(1)
         kit.peersFlow.value = listOf(otherGame)
-        val browsing = async { transport.discoverRooms(mafia).take(3).toList() }
-        runCurrent()
+        val browsing = launch { transport.discoverRooms(mafia).take(3).collect { observations.send(it) } }
+
+        assertEquals(Result.Success(emptyList()), withTimeout(1_000) { observations.receive() })
         kit.peersFlow.value = listOf(otherGame, incompatible)
-        runCurrent()
+        assertEquals(Result.Failure(NetError.IncompatibleProtocol), withTimeout(1_000) { observations.receive() })
         kit.peersFlow.value = listOf(otherGame, incompatible, compatible)
-        val (other, update, found) = browsing.await()
-        assertEquals(Result.Success(emptyList()), other)
-        assertEquals(Result.Failure(NetError.IncompatibleProtocol), update)
-        val rows = assertIs<Result.Success<List<DiscoveredRoom>>>(found).data
+        val rows = assertIs<Result.Success<List<DiscoveredRoom>>>(withTimeout(1_000) { observations.receive() }).data
         assertEquals("ABCD", rows.single().roomTag)
+        browsing.join()
         assertEquals(1, kit.stopCalls)
     }
 
