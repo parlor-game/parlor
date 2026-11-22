@@ -19,6 +19,12 @@ final class IOSAppLaunchUITests: XCTestCase {
             app.staticTexts["parlor-home-brand"].waitForExistence(timeout: 30),
             "The Kotlin Compose root should render the home screen",
         )
+        attachCurrentScreen(app, named: "home-library-english")
+        let settingsTab = app.buttons["Open settings."]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 10))
+        settingsTab.tap()
+        XCTAssertTrue(app.staticTexts["Language"].waitForExistence(timeout: 10))
+        attachCurrentScreen(app, named: "settings-english")
         XCTAssertFalse(
             app.alerts.firstMatch.waitForExistence(timeout: 2),
             "No alert should appear during the simulator cold-start observation window",
@@ -58,6 +64,14 @@ final class IOSAppLaunchUITests: XCTestCase {
         let permission: String
         let continueToCode: String
         let findRoom: String
+    }
+
+    @MainActor
+    private func attachCurrentScreen(_ app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor
@@ -126,7 +140,9 @@ final class IOSAppLaunchUITests: XCTestCase {
             app.launch()
             defer { app.terminate() }
             XCTAssertTrue(app.staticTexts["parlor-home-brand"].waitForExistence(timeout: 30))
+            attachCurrentScreen(app, named: "home-library-\(language)")
             try tapSetupButton(app, prefix: game)
+            attachCurrentScreen(app, named: "\(game)-mode-picker-\(language)")
             for action in actions {
                 let control = setupButton(app, prefix: action)
                 XCTAssertTrue(control.waitForExistence(timeout: 10), "\(game): missing \(action)")
@@ -158,14 +174,18 @@ final class IOSAppLaunchUITests: XCTestCase {
             app.launch()
             defer { app.terminate() }
             XCTAssertTrue(app.staticTexts["parlor-home-brand"].waitForExistence(timeout: 30))
+            attachCurrentScreen(app, named: "home-library-\(language)")
             try tapSetupButton(app, prefix: game)
+            attachCurrentScreen(app, named: "\(game)-mode-picker-\(language)")
             XCTAssertTrue(setupButton(app, prefix: copy.host).waitForExistence(timeout: 10))
             XCTAssertTrue(setupButton(app, prefix: copy.join).exists)
             XCTAssertFalse(setupButton(app, prefix: copy.local).exists)
 
             try tapPublicSetupTransition(app, from: copy.host, to: copy.permission)
+            attachCurrentScreen(app, named: "\(game)-host-permission-guidance-\(language)")
             try tapSetupButton(app, prefix: copy.permission)
             XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 10))
+            attachCurrentScreen(app, named: "\(game)-host-name-entry-\(language)")
             XCTAssertTrue(setupButton(app, prefix: copy.hostContinue).waitForExistence(timeout: 10))
             try tapSetupButton(app, prefix: copy.back)
             // Home restores its LazyColumn position, so the brand header can
@@ -178,10 +198,13 @@ final class IOSAppLaunchUITests: XCTestCase {
             XCTAssertFalse(setupButton(app, prefix: copy.hostContinue).exists)
 
             try tapSetupButton(app, prefix: game)
+            attachCurrentScreen(app, named: "\(game)-mode-picker-\(language)")
             try tapPublicSetupTransition(app, from: copy.join, to: copy.permission)
+            attachCurrentScreen(app, named: "\(game)-join-permission-guidance-\(language)")
             try tapSetupButton(app, prefix: copy.permission)
             let name = app.textViews.firstMatch
             XCTAssertTrue(name.waitForExistence(timeout: 10))
+            attachCurrentScreen(app, named: "\(game)-join-name-entry-\(language)")
             try tapSettledControl(name)
             let keyboard = app.keyboards.firstMatch
             XCTAssertTrue(keyboard.waitForExistence(timeout: 10))
@@ -194,6 +217,7 @@ final class IOSAppLaunchUITests: XCTestCase {
             XCTAssertEqual(app.textViews.count, 1)
             XCTAssertTrue(setupButton(app, prefix: copy.findRoom).waitForExistence(timeout: 10))
             XCTAssertFalse(setupButton(app, prefix: copy.findRoom).isEnabled)
+            attachCurrentScreen(app, named: "\(game)-room-code-entry-\(language)")
             XCTAssertFalse(app.alerts.firstMatch.exists, "Public setup must not request network access")
         }
     }
@@ -205,8 +229,11 @@ final class IOSAppLaunchUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         XCTAssertTrue(app.staticTexts["parlor-home-brand"].waitForExistence(timeout: 30))
+        attachCurrentScreen(app, named: "home-library-english")
         try tapSetupButton(app, prefix: "Open Last Light and choose local or nearby play")
+        attachCurrentScreen(app, named: "last-light-mode-picker-english")
         try tapSetupButton(app, prefix: "Start a pass-and-play session on this device.")
+        attachCurrentScreen(app, named: "last-light-local-player-count-english")
         for _ in 0..<4 { try tapSetupButton(app, prefix: "Add a player") }
         let first = app.textViews["Player 1"]
         for _ in 0..<12 {
