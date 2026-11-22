@@ -536,10 +536,12 @@ Validation (`JoinLinkCodec`, pure Kotlin in `:shared:networking`):
    different Parlor version" and stops. Nothing touches the LAN.
 2. Name entry (prefilled from the last used name if decision D-9 allows).
 3. `join(JoinConfig(code, name, expectedGame = g@gv, target = JoinTarget.Pinned(fingerprint, roomId)))`.
-4. The transport discovers `parlor-lobby|` adverts whose protocol/game match,
-   dials only peers whose TXT fingerprint matches. It doesn't trust TXT for
-   this: `connect(peer, fingerprint)` enforces the pin cryptographically. The
-   whole join still has a 30 s bound. **No IP address or port is ever read
+4. The transport discovers `parlor-lobby|` adverts with the exact protocol,
+   game, game version and room tag. P2pKit rc3's public `Peer` does not expose
+   an advertisement fingerprint, so tag collisions can produce more than
+   one candidate. `connect(peer, fingerprint)` enforces the pin for each
+   candidate; the transport must send no Parlor admission frame until it
+   confirms the session identity. The join still has a 30 s bound. **No IP address or port is ever read
    from the link** (ADR-0002 invariant).
 5. `StaleRoom` or a pin failure is definitive: "This QR code is for a room that
    has closed."
