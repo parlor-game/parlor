@@ -1,9 +1,9 @@
 package com.parlor.networking.protocol
 
-import com.parlor.core.versioning.SemVer
-
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.SessionId
+import com.parlor.core.versioning.SemVer
 import com.parlor.networking.room.RoomInputPolicy
 
 /** The immutable identity/version tuple for one authoritative game session. */
@@ -15,7 +15,13 @@ data class SessionProtocol(
     val connectionEpoch: Long = 1L,
     /** Peer-side id of the authoritative start barrier; not part of headers. */
     val startId: String? = null,
-)
+    /** Present only for a match hosted inside a persistent party. */
+    val partyId: PartyId? = null,
+) {
+    init {
+        require((protocol == PARTY_WIRE_VERSION) == (partyId != null))
+    }
+}
 
 sealed interface ProtocolValidation {
     data object Valid : ProtocolValidation
@@ -40,7 +46,7 @@ fun SessionEnvelopeHeader.validateFor(expected: SessionProtocol): ProtocolValida
     !protocol.isCompatibleWith(expected.protocol) -> ProtocolValidation.IncompatibleProtocol
     !sessionId.raw.isValidWireEntityId() || !GameId.isCanonical(gameId.raw) ->
         ProtocolValidation.InvalidSessionIdentity
-    sessionId != expected.sessionId -> ProtocolValidation.WrongSession
+    sessionId != expected.sessionId || partyId != expected.partyId -> ProtocolValidation.WrongSession
     gameId != expected.gameId -> ProtocolValidation.WrongGame
     gameVersion != expected.gameVersion -> ProtocolValidation.IncompatibleGameVersion
     !messageId.isValidOpaqueId() -> ProtocolValidation.InvalidMessageId

@@ -4947,7 +4947,9 @@ internal class PeerP2pRoom(
                 return@collect
             }
             if (decoded is HostMessage.SessionEnded) {
-                if (!stageAuthenticatedTerminal(decoded, session, credentialBinding)) {
+                if (decoded.header.partyId != info.value.partyId ||
+                    !stageAuthenticatedTerminal(decoded, session, credentialBinding)
+                ) {
                     return@collect
                 }
             }
@@ -5019,6 +5021,13 @@ internal class PeerP2pRoom(
     override suspend fun commitValidatedSessionEnd(
         message: HostMessage.SessionEnded,
     ): Result<SessionEndCommitStatus, NetError> = terminalCommitMutex.withLock {
+        val partyId = info.value.partyId
+        if (message.header.partyId != partyId) {
+            return@withLock Result.Success(SessionEndCommitStatus.NotOwned)
+        }
+        if (partyId != null) {
+            return@withLock Result.Success(commitPartyMatchEnd(message))
+        }
         val transaction = beginTerminalCommit(message)
             ?: return@withLock Result.Success(SessionEndCommitStatus.NotOwned)
         var settled = false
@@ -5053,6 +5062,29 @@ internal class PeerP2pRoom(
         }
     }
 
+    // A game ending in a party consumes the authenticated frame, leaving
+    // the physical connection and the party membership credential intact.
+    private suspend fun commitPartyMatchEnd(message: HostMessage.SessionEnded): SessionEndCommitStatus =
+        lifecycleMutex.withLock lifecycleLock@{
+            if (left || terminalByHost || terminalCommitInFlight != null) {
+                return@lifecycleLock SessionEndCommitStatus.NotOwned
+            }
+            sessionMutex.withLock {
+                if (takeStagedTerminal(message) == null) {
+                    SessionEndCommitStatus.NotOwned
+                } else {
+                    SessionEndCommitStatus.Committed
+                }
+            }
+        }
+
+    // Caller holds sessionMutex and lifecycleMutex.
+    private fun takeStagedTerminal(message: HostMessage.SessionEnded): StagedTerminalFrame? {
+        stagedTerminalFrames.removeAll { it.session !== activeSession }
+        val index = stagedTerminalFrames.indexOfLast { it.session === activeSession && it.message == message }
+        return if (index < 0) null else stagedTerminalFrames.removeAt(index)
+    }
+
     private data class TerminalCommitTransaction(
         val frame: StagedTerminalFrame,
         val jobs: List<Job>,
@@ -5065,12 +5097,7 @@ internal class PeerP2pRoom(
             return@lifecycleLock null
         }
         sessionMutex.withLock sessionLock@{
-            stagedTerminalFrames.removeAll { it.session !== activeSession }
-            val index = stagedTerminalFrames.indexOfLast { staged ->
-                staged.session === activeSession && staged.message == message
-            }
-            if (index < 0) return@sessionLock null
-            val frame = stagedTerminalFrames.removeAt(index)
+            val frame = takeStagedTerminal(message) ?: return@sessionLock null
             terminalCommitInFlight = frame
             val jobs = listOfNotNull(lifecycleExpiryJob, resumeJob).distinct()
             lifecycleExpiryJob = null

@@ -8,6 +8,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
@@ -44,9 +45,11 @@ import kotlin.system.exitProcess
 object ResumeProcessEndpoint {
     private val game = HostedGameProtocol(GameId("process-fixture-game"), 1)
 
-    private fun header(sequence: Long, id: String) = SessionEnvelopeHeader(
-        protocol = ProtocolVersion(), sessionId = SessionId("process-fixture-session"),
+    private fun header(sequence: Long, id: String, partyId: PartyId?) = SessionEnvelopeHeader(
+        protocol = if (partyId == null) ProtocolVersion() else PARTY_WIRE_VERSION,
+        sessionId = SessionId("process-fixture-session"),
         gameId = game.gameId, gameVersion = game.gameVersion, messageId = id, sequence = sequence,
+        partyId = partyId,
     )
 
     @JvmStatic
@@ -127,6 +130,7 @@ object ResumeProcessEndpoint {
 
     private suspend fun verifyHost(room: LocalRoom, inviteMode: Boolean) = coroutineScope {
         check(room.isHost)
+        val partyId = room.info.value.partyId
         val admission = async(start = CoroutineStart.UNDISPATCHED) {
             val pending = withTimeout(35_000) { room.pendingAdmissions.first { it.size == 1 }.single() }
             check(pending.displayName == "process-peer" && !pending.isRejoin)
@@ -146,7 +150,7 @@ object ResumeProcessEndpoint {
         val player = admission.await()
         val message = first.await()
         check(message is PeerMessage.SessionHeartbeat && message.actor == player)
-        check(message.header == header(0, "process-peer-heartbeat-0001"))
+        check(message.header == header(0, "process-peer-heartbeat-0001", partyId))
         check(message.actor != PlayerId("forged-process-actor"))
         println("AUTHENTICATED_ACTOR_PASS")
         val match = SessionId("process-fixture-session")
@@ -157,27 +161,36 @@ object ResumeProcessEndpoint {
             withTimeout(45_000) { room.incoming.first() }
         }
         check(room.send(SendTarget.Direct(player), HostMessage.Heartbeat(
-            header(1, "process-host-checkpoint-0001"), 0,
+            header(1, "process-host-checkpoint-0001", partyId), 0,
         )) is Result.Success)
         withTimeout(15_000) { room.members.first { members -> members.none { it.playerId == player && it.connected } } }
         println("PHYSICAL_CLOSE_PASS")
         val resumed = resumedInbound.await()
         check(resumed is PeerMessage.SessionHeartbeat && resumed.actor == player)
-        check(resumed.header == header(2, "process-peer-heartbeat-0002"))
+        check(resumed.header == header(2, "process-peer-heartbeat-0002", partyId))
         withTimeout(10_000) { room.members.first { members -> members.any { it.playerId == player && it.connected } } }
         check(room.members.value.size == 1 && room.pendingAdmissions.value.isEmpty())
         println("REJOIN_SAME_SEAT_PASS")
+        val afterMatch = async(start = CoroutineStart.UNDISPATCHED) {
+            if (partyId != null) withTimeout(15_000) { room.incoming.first() } else null
+        }
+        check(room.send(SendTarget.Direct(player), HostMessage.SessionEnded(
+            header(3, "process-host-terminal-0001", partyId), SessionEndReason.Cancelled, 0,
+        )) is Result.Success)
         room.partyMatches?.let { leases ->
+            val continuation = afterMatch.await()
+            check(continuation is PeerMessage.SessionHeartbeat && continuation.actor == player)
+            check(continuation.header == header(0, "process-after-match-0001", partyId))
             check(leases.reopenMatch(match) is Result.Success)
             val next = SessionId("process-fixture-session-2")
             val second = leases.freezeMatch(next, setOf(player))
             check(second is Result.Success && second.data.single().playerId == player)
             check(leases.reopenMatch(next) is Result.Success)
             println("PARTY_SAME_ROOM_REOPEN_PASS")
+            check(room.send(SendTarget.Direct(player), HostMessage.Heartbeat(
+                header(1, "process-after-match-0002", partyId), 0,
+            )) is Result.Success)
         }
-        check(room.send(SendTarget.Direct(player), HostMessage.SessionEnded(
-            header(3, "process-host-terminal-0001"), SessionEndReason.Cancelled, 0,
-        )) is Result.Success)
         withTimeout(15_000) { room.members.first { members -> members.none { it.playerId == player && it.connected } } }
         println("PEER_DISCONNECT_PASS")
     }
@@ -208,10 +221,10 @@ object ResumeProcessEndpoint {
             withTimeout(15_000) { room.incoming.first() }
         }
         check(room.sendToHost(PeerMessage.SessionHeartbeat(
-            header(0, "process-peer-heartbeat-0001"), PlayerId("forged-process-actor"), 0,
+            header(0, "process-peer-heartbeat-0001", partyId), PlayerId("forged-process-actor"), 0,
         )) is Result.Success)
         val received = checkpoint.await()
-        check(received is HostMessage.Heartbeat && received.header == header(1, "process-host-checkpoint-0001"))
+        check(received is HostMessage.Heartbeat && received.header == header(1, "process-host-checkpoint-0001", partyId))
         check(room.closeForRetry() is Result.Success)
         // Test runner synchronizes only after the separate host observed closure.
         check(readln() == "CLOSE_OBSERVED")
@@ -253,13 +266,27 @@ object ResumeProcessEndpoint {
             withTimeout(15_000) { resumed.incoming.first() }
         }
         check(resumed.sendToHost(PeerMessage.SessionHeartbeat(
-            header(2, "process-peer-heartbeat-0002"), PlayerId("forged-process-actor"), 0,
+            header(2, "process-peer-heartbeat-0002", partyId), PlayerId("forged-process-actor"), 0,
         )) is Result.Success)
         val response = terminal.await()
-        check(response is HostMessage.SessionEnded && response.header == header(3, "process-host-terminal-0001"))
+        check(response is HostMessage.SessionEnded && response.header == header(3, "process-host-terminal-0001", partyId))
         check(response.reason == SessionEndReason.Cancelled && response.finalRevision == 0L)
         println("BIDIRECTIONAL_PASS")
         check(resumed.commitValidatedSessionEnd(response) == Result.Success(SessionEndCommitStatus.Committed))
+        if (partyId != null) {
+            check(resumed.commitValidatedSessionEnd(response) == Result.Success(SessionEndCommitStatus.NotOwned))
+            check(store.loadResumeCandidate() == Result.Success(rotated))
+            println("PARTY_MATCH_END_RETAINS_MEMBERSHIP_PASS")
+            val followUp = async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeout(15_000) { resumed.incoming.first() }
+            }
+            check(resumed.sendToHost(PeerMessage.SessionHeartbeat(
+                header(0, "process-after-match-0001", partyId), resumed.selfPlayerId, 0,
+            )) is Result.Success)
+            val accepted = followUp.await()
+            check(accepted is HostMessage.Heartbeat && accepted.header == header(1, "process-after-match-0002", partyId))
+            check(resumed.finalLeave() is Result.Success)
+        }
         check(store.loadResumeCandidate() == Result.Success(null))
         check(transport.resumeLastSession(game, selection) == Result.Failure(NetError.NotConnected))
         check(fixture.realKitCreationAttempts == creations + 1)

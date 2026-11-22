@@ -96,10 +96,13 @@ suspend fun awaitAuthoritativeSessionStart(
     deadlineMs: Long = DEFAULT_PEER_START_DEADLINE_MS,
     sendTimeoutMs: Long = DEFAULT_START_FRAME_SEND_TIMEOUT_MS,
     idGenerator: () -> String = SecureIds::id128,
+    expectedMatch: SessionProtocol? = null,
     prepareOffer: suspend (HostMessage.SessionStarting, SessionProtocol) -> Boolean,
 ): Result<ValidatedSessionStart, SessionStartFailure> = coroutineScope {
     require(deadlineMs > 0L) { "deadlineMs must be positive" }
     require(sendTimeoutMs > 0L) { "sendTimeoutMs must be positive" }
+    require(expectedMatch == null || (expectedMatch.partyId != null &&
+        expectedMatch.gameId == expectedGameId && expectedMatch.gameVersion == expectedGameVersion))
 
     val merged: Flow<PeerStartEvent> = merge(
         room.incoming.map(PeerStartEvent::Message),
@@ -122,7 +125,7 @@ suspend fun awaitAuthoritativeSessionStart(
                         // The received header supplies session identity/epoch only.
                         // Compatibility is always checked against this binary's
                         // local protocol version, never against the untrusted frame.
-                        val expected = SessionProtocol(
+                        val expected = expectedMatch ?: SessionProtocol(
                             sessionId = message.header.sessionId,
                             gameId = expectedGameId,
                             gameVersion = expectedGameVersion,
@@ -147,7 +150,7 @@ suspend fun awaitAuthoritativeSessionStart(
                         )
                     }
                     is HostMessage.SessionEnded -> {
-                        val expected = SessionProtocol(
+                        val expected = expectedMatch ?: SessionProtocol(
                             sessionId = message.header.sessionId,
                             gameId = expectedGameId,
                             gameVersion = expectedGameVersion,
@@ -391,6 +394,7 @@ internal fun peerStartHeader(
     messageId = messageId,
     sequence = 0L,
     connectionEpoch = protocol.connectionEpoch,
+    partyId = protocol.partyId,
 )
 
 const val DEFAULT_PEER_START_DEADLINE_MS: Long = 20_000L
