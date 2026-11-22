@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.localization.ProvideAppLanguage
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.theme.ThemeMode
 import com.parlor.games.lastlight.domain.model.AvailableActions
 import com.parlor.games.lastlight.domain.model.Card
 import com.parlor.games.lastlight.domain.model.CardId
@@ -120,11 +121,12 @@ internal fun LastLightTestFrame(
     height: Dp = 640.dp,
     fontScale: Float = 1f,
     language: AppLanguage = AppLanguage.English,
+    themeMode: ThemeMode = ThemeMode.Default,
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
         ProvideAppLanguage(language) {
-            ParlorTheme(reducedMotion = true) {
+            ParlorTheme(themeMode = themeMode, reducedMotion = true) {
                 LastLightTheme(reduceMotion = ParlorTheme.reducedMotion) {
                     Surface(
                         Modifier.size(width, height).testTag(LAST_LIGHT_VIEWPORT),

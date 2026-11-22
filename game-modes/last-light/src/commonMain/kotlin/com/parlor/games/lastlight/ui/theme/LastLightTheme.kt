@@ -6,117 +6,143 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.sp
 import com.parlor.designsystem.theme.ParlorTheme
-import com.parlor.games.lastlight.resources.Res
-import com.parlor.games.lastlight.resources.fraunces_semibold
-import com.parlor.games.lastlight.resources.manrope_medium
-import com.parlor.games.lastlight.resources.manrope_regular
-import com.parlor.games.lastlight.resources.manrope_semibold
-import org.jetbrains.compose.resources.Font
+import com.parlor.designsystem.tokens.isLight
 
-/** Intentional card-table colors shared by the shell and game presentation. */
+/** Semantic card-table color roles resolved directly from ParlorTheme (Dark and Light). */
 object LastLightColors {
-    val Ink = Color(0xFF191526)
-    val Surface = Color(0xFF252133)
-    val Paper = Color(0xFFF4F0E8)
-    val Muted = Color(0xFFBAB5C4)
-    val Citron = Color(0xFFD6EF82)
-    val Copper = Color(0xFFF16B48)
-    val Divider = Color(0xFF575163)
-    val Outline = Color(0xFF888190)
-    val Error = Color(0xFFFFB4AB)
+    val Ink: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.surfaceCanvas
+    val Surface: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.surfaceElevated
+    val SurfaceHero: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.surfaceHero
+    val SurfaceInset: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.surfaceInset
+    val Paper: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.textPrimary
+    val CardPaper: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.surfacePaper
+    val CardInk: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.textOnPaper
+    val OnAccent: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.textOnAccent
+    val Muted: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.textSecondary
+    val Citron: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.accentEmber
+    val Safe: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.semanticSuccess
+    val Copper: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.semanticDanger
+    val Divider: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.borderSubtle
+    val Outline: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.borderElevated
+    val Error: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.semanticDanger
+    val Transparent: Color
+        @Composable @ReadOnlyComposable get() = ParlorTheme.colors.transparent
 }
 
 val LocalReduceMotion = staticCompositionLocalOf { false }
-
-private val DeckColorScheme = darkColorScheme(
-    primary = LastLightColors.Citron,
-    onPrimary = LastLightColors.Ink,
-    primaryContainer = Color(0xFF344025),
-    onPrimaryContainer = LastLightColors.Citron,
-    secondary = LastLightColors.Paper,
-    onSecondary = LastLightColors.Ink,
-    secondaryContainer = LastLightColors.Surface,
-    onSecondaryContainer = LastLightColors.Paper,
-    tertiary = LastLightColors.Copper,
-    onTertiary = LastLightColors.Ink,
-    tertiaryContainer = Color(0xFF492D2D),
-    onTertiaryContainer = LastLightColors.Paper,
-    background = LastLightColors.Ink,
-    onBackground = LastLightColors.Paper,
-    surface = LastLightColors.Surface,
-    onSurface = LastLightColors.Paper,
-    surfaceVariant = LastLightColors.Surface,
-    onSurfaceVariant = LastLightColors.Muted,
-    outline = LastLightColors.Outline,
-    outlineVariant = LastLightColors.Divider,
-    error = LastLightColors.Error,
-    onError = LastLightColors.Ink,
-    errorContainer = Color(0xFF4C272D),
-    onErrorContainer = LastLightColors.Paper,
-    scrim = LastLightColors.Ink,
-)
 
 @Composable
 fun LastLightTheme(
     reduceMotion: Boolean = ParlorTheme.reducedMotion,
     content: @Composable () -> Unit,
 ) {
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val arabicSans = ParlorTheme.typography.bodyMedium.fontFamily ?: FontFamily.SansSerif
-    val display = if (rtl) arabicSans else FontFamily(Font(Res.font.fraunces_semibold, FontWeight.SemiBold))
-    val body = if (rtl) arabicSans else FontFamily(
-        Font(Res.font.manrope_regular, FontWeight.Normal),
-        Font(Res.font.manrope_medium, FontWeight.Medium),
-        Font(Res.font.manrope_semibold, FontWeight.SemiBold),
-    )
-    val typography = remember(display, body, rtl) {
-        fun editorial(size: Int, line: Int) = TextStyle(
-            fontFamily = display,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = size.sp,
-            lineHeight = line.sp,
-            letterSpacing = if (rtl) 0.sp else (-0.6).sp,
-        )
-        fun readable(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(
-            fontFamily = body,
-            fontWeight = weight,
-            fontSize = size.sp,
-            lineHeight = line.sp,
-        )
+    val colors = ParlorTheme.colors
+    val parlorType = ParlorTheme.typography
+    val colorScheme = remember(colors) {
+        if (colors.isLight) {
+            lightColorScheme(
+                primary = colors.accentEmber,
+                onPrimary = colors.textOnAccent,
+                primaryContainer = colors.surfaceHero,
+                onPrimaryContainer = colors.accentEmber,
+                secondary = colors.accentBrass,
+                onSecondary = colors.textOnAccent,
+                secondaryContainer = colors.surfaceElevated,
+                onSecondaryContainer = colors.textPrimary,
+                tertiary = colors.semanticDanger,
+                onTertiary = colors.textOnAccent,
+                tertiaryContainer = colors.surfaceHigher,
+                onTertiaryContainer = colors.textPrimary,
+                background = colors.surfaceCanvas,
+                onBackground = colors.textPrimary,
+                surface = colors.surfaceElevated,
+                onSurface = colors.textPrimary,
+                surfaceVariant = colors.surfaceHigher,
+                onSurfaceVariant = colors.textSecondary,
+                outline = colors.borderElevated,
+                outlineVariant = colors.borderSubtle,
+                error = colors.semanticDanger,
+                onError = colors.textOnAccent,
+                errorContainer = colors.surfaceHigher,
+                onErrorContainer = colors.semanticDanger,
+                scrim = colors.overlayScrim,
+            )
+        } else {
+            darkColorScheme(
+                primary = colors.accentEmber,
+                onPrimary = colors.textOnAccent,
+                primaryContainer = colors.surfaceHero,
+                onPrimaryContainer = colors.accentEmber,
+                secondary = colors.accentBrass,
+                onSecondary = colors.textOnAccent,
+                secondaryContainer = colors.surfaceElevated,
+                onSecondaryContainer = colors.textPrimary,
+                tertiary = colors.semanticDanger,
+                onTertiary = colors.textOnAccent,
+                tertiaryContainer = colors.surfaceHigher,
+                onTertiaryContainer = colors.textPrimary,
+                background = colors.surfaceCanvas,
+                onBackground = colors.textPrimary,
+                surface = colors.surfaceElevated,
+                onSurface = colors.textPrimary,
+                surfaceVariant = colors.surfaceHigher,
+                onSurfaceVariant = colors.textSecondary,
+                outline = colors.borderElevated,
+                outlineVariant = colors.borderSubtle,
+                error = colors.semanticDanger,
+                onError = colors.textOnAccent,
+                errorContainer = colors.surfaceHigher,
+                onErrorContainer = colors.semanticDanger,
+                scrim = colors.overlayScrim,
+            )
+        }
+    }
+    val typography = remember(parlorType) {
         Typography(
-            displayLarge = editorial(56, 62),
-            displayMedium = editorial(48, 54),
-            displaySmall = editorial(40, 46),
-            headlineLarge = editorial(36, 42),
-            headlineMedium = editorial(30, 36),
-            headlineSmall = editorial(26, 32),
-            titleLarge = readable(22, 30, FontWeight.SemiBold),
-            titleMedium = readable(18, 26, FontWeight.SemiBold),
-            titleSmall = readable(16, 24, FontWeight.SemiBold),
-            bodyLarge = readable(17, 26),
-            bodyMedium = readable(16, 24),
-            bodySmall = readable(14, 21),
-            labelLarge = readable(16, 22, FontWeight.SemiBold),
-            labelMedium = readable(14, 20, FontWeight.Medium),
-            labelSmall = readable(12, 18, FontWeight.SemiBold),
+            displayLarge = parlorType.displayHero,
+            displayMedium = parlorType.displayLarge,
+            displaySmall = parlorType.displayMedium,
+            headlineLarge = parlorType.displayLarge,
+            headlineMedium = parlorType.displayMedium,
+            headlineSmall = parlorType.headingLarge,
+            titleLarge = parlorType.headingLarge,
+            titleMedium = parlorType.headingMedium,
+            titleSmall = parlorType.labelLarge,
+            bodyLarge = parlorType.bodyLarge,
+            bodyMedium = parlorType.bodyMedium,
+            bodySmall = parlorType.bodySmall,
+            labelLarge = parlorType.labelLarge,
+            labelMedium = parlorType.labelMedium,
+            labelSmall = parlorType.labelSmall,
         )
     }
     CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
         MaterialTheme(
-            colorScheme = DeckColorScheme,
+            colorScheme = colorScheme,
             typography = typography,
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(6.dp),

@@ -88,9 +88,9 @@ private fun TableControl(
         enabled = enabled,
         modifier = modifier.heightIn(min = 48.dp),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, LastLightColors.Divider.copy(alpha = 0.75f)),
+        border = BorderStroke(1.dp, LastLightColors.Divider),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = LastLightColors.Ink.copy(alpha = 0.22f),
+            containerColor = LastLightColors.Surface.copy(alpha = 0.85f),
             contentColor = LastLightColors.Paper,
         ),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
@@ -109,6 +109,7 @@ internal enum class TableGlyph { Leave, Options, Sound, Haptics, Screen }
 @Composable
 internal fun TableControlGlyph(glyph: TableGlyph, modifier: Modifier = Modifier, color: Color = LastLightColors.Citron) {
     val mirror = glyph == TableGlyph.Leave && LocalLayoutDirection.current == LayoutDirection.Rtl
+    val knobFill = LastLightColors.Surface
     Canvas(modifier.clearAndSetSemantics { }) {
         scale(scaleX = if (mirror) -1f else 1f, scaleY = 1f) {
             val w = size.width
@@ -131,7 +132,7 @@ internal fun TableControlGlyph(glyph: TableGlyph, modifier: Modifier = Modifier,
                     val y = h * (0.22f + index * 0.28f)
                     val x = w * if (index == 1) 0.65f else 0.35f
                     drawLine(color, Offset(w * 0.12f, y), Offset(w * 0.88f, y), stroke, StrokeCap.Round)
-                    drawCircle(LastLightColors.Ink, w * 0.1f, Offset(x, y))
+                    drawCircle(knobFill, w * 0.1f, Offset(x, y))
                     drawCircle(color, w * 0.1f, Offset(x, y), style = Stroke(stroke))
                 }
                 TableGlyph.Sound -> {

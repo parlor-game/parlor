@@ -315,7 +315,7 @@ private fun HandCard(
             .then(cardSemantics(card, index, count, isSelected, canSelect, onToggle))
             .border(
                 2.dp,
-                if (focused) LastLightColors.Citron else Color.Transparent,
+                if (focused) LastLightColors.Citron else LastLightColors.Transparent,
                 RoundedCornerShape(12.dp),
             )
             .padding(top = 8.dp),
@@ -345,11 +345,11 @@ private fun LargeHandCard(
             .onFocusChanged { focused = it.isFocused }
             .then(cardSemantics(card, index, count, isSelected, canSelect, onToggle)),
         shape = RoundedCornerShape(14.dp),
-        color = LastLightColors.Paper,
-        contentColor = LastLightColors.Ink,
+        color = LastLightColors.CardPaper,
+        contentColor = LastLightColors.CardInk,
         border = BorderStroke(
             if (isSelected || focused) 3.dp else 1.dp,
-            if (isSelected || focused) LastLightColors.Ink else LastLightColors.Paper,
+            if (isSelected || focused) LastLightColors.Citron else LastLightColors.Outline,
         ),
     ) {
         Row(
@@ -357,7 +357,7 @@ private fun LargeHandCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            RankSymbol(card.rank, Modifier.size(42.dp))
+            RankSymbol(card.rank, Modifier.size(42.dp), tint = LastLightColors.CardInk)
             Text(rankName(card.rank), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if (isSelected) SelectionMark(Modifier.size(24.dp)) else Spacer(Modifier.size(24.dp))
         }

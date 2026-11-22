@@ -26,7 +26,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.parlor.games.lastlight.ui.theme.LastLightColors
 import com.parlor.games.lastlight.domain.model.CardRank
 import com.parlor.games.lastlight.resources.Res
 import com.parlor.games.lastlight.resources.card_back
@@ -42,6 +41,7 @@ import com.parlor.games.lastlight.resources.rank_crown
 import com.parlor.games.lastlight.resources.rank_moon
 import com.parlor.games.lastlight.resources.rank_star
 import com.parlor.games.lastlight.resources.rank_wild
+import com.parlor.games.lastlight.ui.theme.LastLightColors
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -72,7 +72,7 @@ internal fun rankClaim(rank: CardRank, count: Int): String = pluralStringResourc
 internal fun RankSymbol(
     rank: CardRank,
     modifier: Modifier = Modifier,
-    tint: Color = LastLightColors.Ink,
+    tint: Color = LastLightColors.CardInk,
 ) {
     Icon(
         painter = painterResource(
@@ -100,10 +100,10 @@ internal fun CardFace(
     Box(
         modifier
             .clip(shape)
-            .background(LastLightColors.Paper)
+            .background(LastLightColors.CardPaper)
             .border(
                 width = if (selected) 3.dp else 1.dp,
-                color = if (selected) LastLightColors.Ink else LastLightColors.Paper,
+                color = if (selected) LastLightColors.Citron else LastLightColors.Outline,
                 shape = shape,
             )
             .clearAndSetSemantics { },
@@ -113,11 +113,11 @@ internal fun CardFace(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                RankSymbol(rank, Modifier.size(38.dp))
+                RankSymbol(rank, Modifier.size(38.dp), tint = LastLightColors.CardInk)
             }
             Text(
                 text = rankName(rank),
-                color = LastLightColors.Ink,
+                color = LastLightColors.CardInk,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
@@ -141,18 +141,20 @@ internal fun CardBack(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun SelectionMark(modifier: Modifier = Modifier) {
+    val accent = LastLightColors.Citron
+    val onAccent = LastLightColors.OnAccent
     Canvas(modifier.clearAndSetSemantics { }) {
-        drawCircle(LastLightColors.Citron)
+        drawCircle(accent)
         val stroke = size.minDimension * 0.11f
         drawLine(
-            color = LastLightColors.Ink,
+            color = onAccent,
             start = Offset(size.width * 0.25f, size.height * 0.51f),
             end = Offset(size.width * 0.44f, size.height * 0.69f),
             strokeWidth = stroke,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = LastLightColors.Ink,
+            color = onAccent,
             start = Offset(size.width * 0.44f, size.height * 0.69f),
             end = Offset(size.width * 0.77f, size.height * 0.32f),
             strokeWidth = stroke,
