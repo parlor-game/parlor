@@ -14,6 +14,7 @@ import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.security.SecureIds
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.HostedPartyProtocol
@@ -76,12 +77,13 @@ class ProcessPartySessionOwner(private val transport: RoomTransport, private val
         code: String,
         games: Set<PartyGame>,
         invitation: PartyJoinInvitation? = null,
+        onApprovalPending: ((ApprovalWait) -> Unit)? = null,
     ): Result<ProcessPartySession, NetError> = open {
         if (!games.hasValidCatalog() || !displayName.isCanonicalDisplayName() || !RoomInputPolicy.isValidRoomCode(code)) {
             return@open Result.Failure(NetError.InvalidInput)
         }
         val target = PartyAdmissionContext(invitation?.partyId, games.protocols().toList())
-        val config = JoinConfig(code, displayName, party = target, partyInvitation = invitation)
+        val config = JoinConfig(code, displayName, party = target, partyInvitation = invitation, onApprovalPending = onApprovalPending)
         installPeer(transport.join(config), displayName, games.protocols())
     }
 

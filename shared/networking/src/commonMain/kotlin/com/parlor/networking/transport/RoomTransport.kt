@@ -6,6 +6,7 @@ import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.invitation.PartyJoinInvitation
+import com.parlor.networking.protocol.AdmissionLobbyInfo
 import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.room.DiscoveredRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlin.time.TimeMark
 
 private val unreportedLocalNetworkAccess =
     MutableStateFlow<LocalNetworkAccess>(LocalNetworkAccess.NotApplicable)
@@ -231,7 +233,11 @@ data class JoinConfig(
     val invitation: JoinInvitation? = null,
     val party: PartyAdmissionContext? = null,
     val partyInvitation: PartyJoinInvitation? = null,
+    val onApprovalPending: ((ApprovalWait) -> Unit)? = null,
 )
+
+/** Host-authenticated lobby details. This local countdown is indicative. */
+data class ApprovalWait(val lobby: AdmissionLobbyInfo, val deadline: TimeMark)
 
 data class ResumableSessionInfo(
     val gameId: GameId,

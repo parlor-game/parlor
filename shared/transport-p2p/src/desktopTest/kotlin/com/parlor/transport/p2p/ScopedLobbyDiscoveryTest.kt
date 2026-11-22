@@ -241,7 +241,10 @@ class ScopedLobbyDiscoveryTest {
             session.incomingFlow.emit(P2pMessage.Binary(codec.encode(pending)))
         }
 
-        val result = transport { kit }.join(JoinConfig("ABCDEF", "Guest", expectedGameProtocol = mafia))
+        val result = transport { kit }.join(JoinConfig(
+            "ABCDEF", "Guest", expectedGameProtocol = mafia,
+            onApprovalPending = { error("A different game's approval preview must never reach the peer UI") },
+        ))
         assertEquals(Result.Failure(NetError.WrongGame), result)
         assertEquals(1, session.sent.size)
         assertEquals(1, session.closeCalls)

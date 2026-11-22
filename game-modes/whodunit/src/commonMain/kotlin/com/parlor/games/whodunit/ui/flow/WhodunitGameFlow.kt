@@ -1053,23 +1053,23 @@ fun WhodunitMultiplayerHostFlow(
 
     var terminalExitInFlight by remember(runtime) { mutableStateOf(false) }
     val exitToLibrary: (SessionEndReason) -> Unit = { reason ->
-        if (!terminalExitInFlight) {
+        if (onPartyEnd != null) {
+            onPartyEnd(reason)
+        } else if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
             endMatch(reason)
         }
     }
     val retryStartAfterTerminal: () -> Unit = {
-        if (!terminalExitInFlight) {
+        if (onPartyEnd != null) {
+            onPartyEnd(SessionEndReason.Cancelled)
+        } else if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
-            if (sessionOwner == null) {
-                endMatch(SessionEndReason.Cancelled)
-            } else {
-                uiScope.launch {
-                    sessionOwner.prepareHostRetry(ownedSession)
-                    onRetryStart()
-                }
+            uiScope.launch {
+                checkNotNull(sessionOwner).prepareHostRetry(ownedSession)
+                onRetryStart()
             }
         }
     }

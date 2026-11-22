@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.CandleFlame
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
@@ -424,6 +425,7 @@ private fun MafiaHostLobbyContent(
                                         style = ParlorTheme.typography.bodyLarge,
                                         color = ParlorTheme.colors.textPrimary,
                                     )
+                                    AdmissionCountdown(admission.approvalDeadline)
                                     ParlorButton(
                                         label = stringResource(Res.string.md_host_approve),
                                         contentDescription = stringResource(

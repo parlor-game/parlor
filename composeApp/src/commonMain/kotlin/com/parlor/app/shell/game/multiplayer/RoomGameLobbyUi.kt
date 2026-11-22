@@ -38,6 +38,7 @@ import com.parlor.app.resources.room_game_wait_for_players
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorToastSeverity
@@ -104,6 +105,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
                     Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
                         Text(stringResource(Res.string.room_game_request, request.displayName.asBidiArgument()),
                             color = ParlorTheme.colors.textPrimary)
+                        AdmissionCountdown(request.approvalDeadline)
                         val act: (Boolean) -> Unit = { approve ->
                             if (enabled && request.playerId !in admitting) {
                                 admitting = admitting + request.playerId

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlin.time.TimeMark
 
 /**
  * The local-multi-device room abstraction. Production binds this contract to
@@ -259,6 +260,8 @@ data class PendingAdmission(
     val displayName: String,
     val isRejoin: Boolean,
     val partySupportedGames: List<GameProtocolRef> = emptyList(),
+    /** Same monotonic deadline the host checks under the seat-capacity lock. */
+    val approvalDeadline: TimeMark? = null,
 )
 
 /** Network/transport errors. */

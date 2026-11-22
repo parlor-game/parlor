@@ -266,7 +266,6 @@
     <string name="party_start">ابدأ اللعبة</string>
     <string name="party_play_again">العب مرة أخرى</string>
     <string name="party_view_match">العودة إلى المباراة</string>
-    <string name="party_return_to_lobby">العودة إلى الردهة</string>
     <string name="party_leave">مغادرة الغرفة</string>
     <string name="party_cancel">إلغاء</string>
     <string name="party_leave_confirm">هل تريد مغادرة الغرفة؟</string>
@@ -280,4 +279,5 @@
     <string name="party_action_error">تغيرت حالة الغرفة. راجع الردهة وحاول مرة أخرى.</string>
     <string name="party_private_cover">الغرفة مخفية عندما يكون بارلور غير نشط</string>
     <string name="party_network_settings">فتح إعدادات الشبكة</string>
+    <string name="party_approval_pending">بانتظار موافقة %1$s</string>
 </resources>

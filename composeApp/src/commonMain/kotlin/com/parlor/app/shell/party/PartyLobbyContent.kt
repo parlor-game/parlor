@@ -45,6 +45,7 @@ import com.parlor.app.resources.party_waiting
 import com.parlor.app.shell.game.multiplayer.LobbyInvitation
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
@@ -149,6 +150,7 @@ private fun HostPartyControls(
             ParlorCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
                     PartyDetail(request.displayName.asBidiArgument())
+                    AdmissionCountdown(request.approvalDeadline)
                     PartyButton(Res.string.party_approve, enabled = enabled) { commands.approve(request.playerId) }
                     PartyButton(Res.string.party_decline, enabled = enabled, variant = ParlorButtonVariant.Secondary) {
                         commands.reject(request.playerId)

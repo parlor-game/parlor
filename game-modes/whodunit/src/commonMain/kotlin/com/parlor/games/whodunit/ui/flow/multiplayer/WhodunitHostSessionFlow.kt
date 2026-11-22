@@ -68,6 +68,7 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.CandleFlame
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
@@ -497,6 +498,7 @@ private fun HostLobbyContent(
                                         style = ParlorTheme.typography.bodyLarge,
                                         color = ParlorTheme.colors.textPrimary,
                                     )
+                                    AdmissionCountdown(admission.approvalDeadline)
                                     ParlorButton(
                                         label = stringResource(Res.string.host_approve),
                                         contentDescription = stringResource(

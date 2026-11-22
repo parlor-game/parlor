@@ -19,6 +19,7 @@ import com.parlor.app.resources.party_entry_detail
 import com.parlor.app.resources.party_invitation
 import com.parlor.app.resources.party_join
 import com.parlor.app.resources.party_joining
+import com.parlor.app.resources.party_approval_pending
 import com.parlor.app.resources.party_name
 import com.parlor.app.resources.party_open
 import com.parlor.app.resources.party_resume
@@ -28,12 +29,15 @@ import com.parlor.app.resources.party_network_settings
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.shell.game.multiplayer.roomGameError
 import com.parlor.core.result.Result
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorTextField
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.networking.invitation.PartyJoinInvitation
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.ResumablePartySessionInfo
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.needsRecoveryGuidance
@@ -58,6 +62,7 @@ internal fun PartyEntry(
     var job by remember { mutableStateOf<Job?>(null) }
     var waiting by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<NetError?>(null) }
+    var approval by remember { mutableStateOf<ApprovalWait?>(null) }
     var saved by remember { mutableStateOf<ResumablePartySessionInfo?>(null) }
     var name by remember { mutableStateOf("") }
     var roomName by remember { mutableStateOf("") }
@@ -78,6 +83,7 @@ internal fun PartyEntry(
                     if (result is Result.Failure) problem = result.error
                 } finally {
                     waiting = false
+                    approval = null
                 }
             }
         }
@@ -100,7 +106,7 @@ internal fun PartyEntry(
             textStyle = ParlorTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
             autoCorrectEnabled = false)
         PartyButton(Res.string.party_join, enabled = !waiting && validName && RoomInputPolicy.isValidRoomCode(code)) {
-            open { owner.join(displayName, code, catalog, invitation) }
+            open { owner.join(displayName, code, catalog, invitation, onApprovalPending = { approval = it }) }
         }
         if (invitation == null) {
             ParlorTextField(roomName, { if (!waiting) roomName = RoomInputPolicy.sanitizeDisplayNameInput(it) },
@@ -113,11 +119,22 @@ internal fun PartyEntry(
                 open { owner.host(displayName, catalog, initial, label) }
             }
         }
-        if (waiting) PartyDetail(stringResource(Res.string.party_joining))
+        if (waiting) PartyJoinProgress(approval)
         problem?.let { PartyError(roomGameError(it)) }
         if (problem != null && gate.canOpenNetworkSettings && transport.localNetworkAccess.value.needsRecoveryGuidance) {
             PartyButton(Res.string.party_network_settings, variant = ParlorButtonVariant.Secondary, onClick = gate::openAppSettings)
         }
         PartyButton(Res.string.party_cancel, variant = ParlorButtonVariant.Secondary, modifier = Modifier.fillMaxWidth(), onClick = leave)
+    }
+}
+
+
+@Composable
+private fun PartyJoinProgress(approval: ApprovalWait?) {
+    if (approval == null) {
+        PartyDetail(stringResource(Res.string.party_joining))
+    } else {
+        PartyDetail(stringResource(Res.string.party_approval_pending, approval.lobby.hostDisplayName.asBidiArgument()))
+        AdmissionCountdown(approval.deadline)
     }
 }

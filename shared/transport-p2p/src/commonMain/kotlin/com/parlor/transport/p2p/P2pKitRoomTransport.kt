@@ -39,6 +39,7 @@ import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.room.SendTarget
 import com.parlor.networking.room.SessionEndCommitStatus
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.HostedPartyProtocol
@@ -615,6 +616,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                         expectedGameProtocol = effectiveConfig.expectedGameProtocol,
                         expectedRoomId = effectiveConfig.expectedRoomId,
                         party = effectiveConfig.party,
+                        onApprovalPending = effectiveConfig.onApprovalPending,
                         firstResponseTimeoutMs = minOf(
                             FIRST_ADMISSION_RESPONSE_TIMEOUT_MS,
                             remainingFirstResponseBudgetMs,
@@ -1095,6 +1097,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         expectedGameProtocol: HostedGameProtocol?,
         expectedRoomId: RoomId?,
         party: PartyAdmissionContext?,
+        onApprovalPending: ((ApprovalWait) -> Unit)?,
     ): AdmissionOutcome = coroutineScope {
         val responses = Channel<HostMessage>(capacity = 8)
         val collector = launch(start = CoroutineStart.UNDISPATCHED) {
@@ -1152,8 +1155,9 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 pending.validateLobby(expectedGameProtocol, expectedRoomId, party)?.let {
                     return@coroutineScope AdmissionOutcome.Failed(it)
                 }
-                val window = pending.approvalWindowMillis ?: HOST_APPROVAL_TIMEOUT_MS
-                withTimeoutOrNull(minOf(window, HOST_APPROVAL_TIMEOUT_MS)) {
+                val window = minOf(pending.approvalWindowMillis ?: HOST_APPROVAL_TIMEOUT_MS, HOST_APPROVAL_TIMEOUT_MS)
+                pending.lobby?.let { onApprovalPending?.invoke(ApprovalWait(it, TimeSource.Monotonic.markNow() + window.milliseconds)) }
+                withTimeoutOrNull(window) {
                     responses.receiveMatching { response ->
                         when (response) {
                             is HostMessage.AdmissionOffered ->
@@ -3812,7 +3816,10 @@ internal class HostP2pRoom(
     private fun publishPendingAdmissions() {
         pendingApprovalChanged.trySend(Unit)
         _pendingAdmissions.value = pendingByPlayer.map { (playerId, pending) ->
-            PendingAdmission(playerId, pending.displayName, pending.isRejoin, pending.partySupportedGames)
+            PendingAdmission(
+                playerId, pending.displayName, pending.isRejoin, pending.partySupportedGames,
+                approvalDeadline = pending.approvalDeadline.takeIf { pending.transaction == null },
+            )
         }
     }
 
