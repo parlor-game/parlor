@@ -3,12 +3,14 @@ package com.parlor.app.shell.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -26,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -49,7 +52,7 @@ import com.parlor.app.resources.settings_reduced_motion_title
 import com.parlor.app.resources.settings_save_failed
 import com.parlor.app.resources.settings_subtitle
 import com.parlor.app.resources.settings_title
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorCard
@@ -95,45 +98,33 @@ fun SettingsScreen(
     val currentLanguage = languageTag?.let(AppLanguage::fromTag)
     val currentThemeMode = ThemeMode.fromTag(themeModeTag)
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
+    LibrarySurface(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xl),
+                .parlorSafeContentPadding(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
         ) {
-            ScreenHeader(
-                title = stringResource(Res.string.settings_title),
-                eyebrow = stringResource(Res.string.settings_eyebrow),
-                subtitle = stringResource(Res.string.settings_subtitle),
-            )
+            SettingsHeading()
 
             SettingsSection(
                 label = stringResource(Res.string.settings_language_label),
                 description = stringResource(Res.string.settings_language_help),
                 selectableGroup = true,
             ) {
-                LanguageOption(
-                    label = stringResource(Res.string.settings_language_system),
-                    selected = currentLanguage == null,
-                    onSelected = {
-                        mutations.submit { settings.setLanguageOverride(null) }
-                    },
-                )
-                LanguageOption(
-                    label = stringResource(Res.string.settings_language_english),
-                    selected = currentLanguage == AppLanguage.English,
-                    onSelected = {
-                        mutations.submit { settings.setLanguageOverride(AppLanguage.English.tag) }
-                    },
-                )
-                LanguageOption(
-                    label = stringResource(Res.string.settings_language_arabic),
-                    selected = currentLanguage == AppLanguage.Arabic,
-                    onSelected = {
-                        mutations.submit { settings.setLanguageOverride(AppLanguage.Arabic.tag) }
-                    },
+                SettingsChoices(
+                    listOf(
+                        SettingsChoice(stringResource(Res.string.settings_language_system), currentLanguage == null) {
+                            mutations.submit { settings.setLanguageOverride(null) }
+                        },
+                        SettingsChoice(stringResource(Res.string.settings_language_english), currentLanguage == AppLanguage.English) {
+                            mutations.submit { settings.setLanguageOverride(AppLanguage.English.tag) }
+                        },
+                        SettingsChoice(stringResource(Res.string.settings_language_arabic), currentLanguage == AppLanguage.Arabic) {
+                            mutations.submit { settings.setLanguageOverride(AppLanguage.Arabic.tag) }
+                        },
+                    ),
                 )
             }
 
@@ -142,32 +133,26 @@ fun SettingsScreen(
                 description = stringResource(Res.string.settings_appearance_help),
                 selectableGroup = true,
             ) {
-                AppearanceOption(
-                    label = stringResource(Res.string.settings_appearance_system),
-                    selected = currentThemeMode == ThemeMode.System,
-                    onSelected = {
-                        mutations.submit { settings.setThemeMode(ThemeMode.System.tag) }
-                    },
-                )
-                AppearanceOption(
-                    label = stringResource(Res.string.settings_appearance_light),
-                    selected = currentThemeMode == ThemeMode.Light,
-                    onSelected = {
-                        mutations.submit { settings.setThemeMode(ThemeMode.Light.tag) }
-                    },
-                )
-                AppearanceOption(
-                    label = stringResource(Res.string.settings_appearance_dark),
-                    selected = currentThemeMode == ThemeMode.Dark,
-                    onSelected = {
-                        mutations.submit { settings.setThemeMode(ThemeMode.Dark.tag) }
-                    },
+                SettingsChoices(
+                    listOf(
+                        SettingsChoice(stringResource(Res.string.settings_appearance_system), currentThemeMode == ThemeMode.System) {
+                            mutations.submit { settings.setThemeMode(ThemeMode.System.tag) }
+                        },
+                        SettingsChoice(stringResource(Res.string.settings_appearance_light), currentThemeMode == ThemeMode.Light) {
+                            mutations.submit { settings.setThemeMode(ThemeMode.Light.tag) }
+                        },
+                        SettingsChoice(stringResource(Res.string.settings_appearance_dark), currentThemeMode == ThemeMode.Dark) {
+                            mutations.submit { settings.setThemeMode(ThemeMode.Dark.tag) }
+                        },
+                    ),
                 )
             }
 
             SettingsSection(
                 label = stringResource(Res.string.settings_experience_label),
-                description = stringResource(Res.string.settings_accessibility_help),
+                description = if (LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE) {
+                    stringResource(Res.string.settings_accessibility_help)
+                } else null,
             ) {
                 ToggleOption(
                     title = stringResource(Res.string.settings_reduced_motion_title),
@@ -184,49 +169,97 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsSection(
-    label: String,
-    description: String,
-    selectableGroup: Boolean = false,
-    content: @Composable () -> Unit,
-) {
-    ParlorCard(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = ParlorTheme.radii.elevated,
-        contentPadding = ParlorTheme.spacing.l,
-    ) {
-        Column(
-            modifier = if (selectableGroup) Modifier.selectableGroup() else Modifier,
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-        ) {
-            EyebrowLabel(
-                text = label,
-                accent = false,
+private fun SettingsHeading() {
+    val title = stringResource(Res.string.settings_title)
+    val summary = stringResource(Res.string.settings_subtitle)
+    if (LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE) {
+        ScreenHeader(title = title, eyebrow = stringResource(Res.string.settings_eyebrow), subtitle = summary)
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+            Text(
+                text = title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary,
                 modifier = Modifier.semantics { heading() },
             )
-            Text(
-                text = description,
-                style = ParlorTheme.typography.bodyMedium,
-                color = ParlorTheme.colors.textSecondary,
-            )
-            content()
+            Text(text = summary, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary)
         }
     }
 }
 
 @Composable
-private fun LanguageOption(
+private fun SettingsSection(
     label: String,
-    selected: Boolean,
-    onSelected: () -> Unit,
-) = OptionRow(label = label, selected = selected, onSelected = onSelected)
+    description: String?,
+    selectableGroup: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val largeText = LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE
+    ParlorCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = ParlorTheme.radii.card,
+        contentPadding = if (largeText) ParlorTheme.spacing.l else ParlorTheme.spacing.m,
+    ) {
+        Column(
+            modifier = if (selectableGroup) Modifier.selectableGroup() else Modifier,
+            verticalArrangement = Arrangement.spacedBy(if (largeText) ParlorTheme.spacing.m else ParlorTheme.spacing.s),
+        ) {
+            if (largeText) {
+                EyebrowLabel(text = label, accent = false, modifier = Modifier.semantics { heading() })
+            } else {
+                Text(
+                    text = label, style = ParlorTheme.typography.labelLarge, color = ParlorTheme.colors.textPrimary,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            if (description != null) {
+                Text(
+                    text = description,
+                    style = if (largeText) ParlorTheme.typography.bodyMedium else ParlorTheme.typography.bodySmall,
+                    color = ParlorTheme.colors.textSecondary,
+                )
+            }
+            content()
+        }
+    }
+}
+
+private data class SettingsChoice(val label: String, val selected: Boolean, val select: () -> Unit)
 
 @Composable
-private fun AppearanceOption(
-    label: String,
-    selected: Boolean,
-    onSelected: () -> Unit,
-) = OptionRow(label = label, selected = selected, onSelected = onSelected)
+private fun SettingsChoices(options: List<SettingsChoice>) {
+    val colors = ParlorTheme.colors
+    val shape = RoundedCornerShape(ParlorTheme.radii.subtle)
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth < SegmentsMinimumWidth || fontScale >= SETTINGS_STACKED_FONT_SCALE) {
+            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+                options.forEach { OptionRow(it.label, it.selected, it.select) }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(shape).background(colors.surfaceHigher)
+                    .border(ParlorTheme.borders.hairline, colors.borderSubtle, shape).padding(ParlorTheme.spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+            ) {
+                options.forEach { option ->
+                    Box(
+                        Modifier.weight(1f).heightIn(min = ParlorTheme.spacing.xxl).clip(shape)
+                            .background(if (option.selected) colors.accentEmber else colors.transparent)
+                            .selectable(selected = option.selected, role = Role.RadioButton, onClick = option.select)
+                            .padding(ParlorTheme.spacing.xs),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = option.label,
+                            style = ParlorTheme.typography.labelLarge,
+                            color = if (option.selected) colors.textOnAccent else colors.textSecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun ToggleOption(
@@ -323,3 +356,6 @@ private fun OptionRow(
 private const val SELECTED_SURFACE_ALPHA = 0.12f
 
 private val ToggleRowMinimumWidth = 240.dp
+
+private const val SETTINGS_STACKED_FONT_SCALE = 1.4f
+private val SegmentsMinimumWidth = 252.dp
