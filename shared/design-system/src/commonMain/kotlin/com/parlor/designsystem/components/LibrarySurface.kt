@@ -19,10 +19,10 @@ import com.parlor.designsystem.theme.ParlorTheme
 
 /** Shared catalog surface with a softly lit header and the normal shell palette. */
 @Composable
-fun LibrarySurface(modifier: Modifier, content: @Composable BoxWithConstraintsScope.() -> Unit) {
+fun LibrarySurface(modifier: Modifier, litHeader: Boolean = true, content: @Composable BoxWithConstraintsScope.() -> Unit) {
     val colors = ParlorTheme.colors
     val background = Brush.verticalGradient(
-        0f to colors.surfaceHero,
+        0f to if (litHeader) colors.surfaceHero else colors.surfaceCanvas,
         0.38f to colors.surfaceCanvas,
         1f to colors.surfaceCanvas,
     )

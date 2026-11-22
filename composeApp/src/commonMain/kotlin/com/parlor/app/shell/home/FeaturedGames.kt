@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_players_and_genre
 import com.parlor.app.resources.featured_accent
 import com.parlor.app.resources.featured_next
 import com.parlor.app.resources.featured_play
@@ -69,7 +72,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
     val activeGame = games[index]
     val presentation = activeGame.catalogPresentation()
     val colors = ParlorTheme.colors
-    val shape = RoundedCornerShape(ParlorTheme.radii.elevated)
+    val shape = RoundedCornerShape(22.dp)
 
     Column(
         modifier = Modifier.fillMaxWidth().clip(shape).background(colors.surfaceElevated)
@@ -79,8 +82,8 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
         FeaturedCover(presentation, activeGame.multiplayerContract?.supportedPlayerCounts ?: activeGame.definition.supportedPlayerCounts)
         Row(
             modifier = Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState())
-                .padding(horizontal = ParlorTheme.spacing.m),
-            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s, Alignment.CenterHorizontally),
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         ) {
             games.forEachIndexed { position, game ->
                 val option = game.catalogPresentation()
@@ -93,7 +96,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
                         .semantics { contentDescription = label },
                 ) {
                     CatalogArtworkBadge(option.artwork, Modifier.fillMaxSize())
-                    if (active) Box(Modifier.fillMaxSize().border(ParlorTheme.borders.strong, colors.accentEmber, tile))
+                    Box(Modifier.fillMaxSize().border(1.dp, if (active) colors.accentEmber else colors.borderElevated, tile))
                 }
             }
         }
@@ -122,15 +125,20 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
                 onDrawBehind { drawRect(halo, size = Size(size.width, size.height)) }
             }.padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.s),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
         ) {
             val arrow = Modifier.border(ParlorTheme.borders.hairline, colors.borderSubtle, RoundedCornerShape(ParlorTheme.radii.pill))
             IconButton(onClick = { selected = (index + games.size - 1) % games.size }, modifier = arrow, enabled = games.size > 1) {
-                Icon(ParlorIcons.Back, stringResource(Res.string.featured_previous), tint = colors.textSecondary)
+                Icon(
+                    ParlorIcons.ChevronNext,
+                    stringResource(Res.string.featured_previous),
+                    Modifier.size(18.dp).rotate(CHEVRON_REVERSE_DEGREES),
+                    colors.textSecondary,
+                )
             }
             FeaturedPlayButton(playLabel, Modifier.weight(1f, fill = false)) { onPlay(activeGame.definition.id) }
             IconButton(onClick = { selected = (index + 1) % games.size }, modifier = arrow, enabled = games.size > 1) {
-                Icon(ParlorIcons.Forward, stringResource(Res.string.featured_next), tint = colors.textSecondary)
+                Icon(ParlorIcons.ChevronNext, stringResource(Res.string.featured_next), Modifier.size(18.dp), colors.textSecondary)
             }
         }
     }
@@ -139,13 +147,15 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
 @Composable
 private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> Unit) {
     val pill = RoundedCornerShape(ParlorTheme.radii.pill)
-    Box(
+    Row(
         modifier = modifier.widthIn(max = 240.dp).heightIn(min = ParlorTheme.spacing.xxl)
             .clip(pill).background(AmberActionBrush)
             .clickable(role = Role.Button, onClick = onPlay)
             .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.s),
-        contentAlignment = Alignment.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
+        Icon(ParlorIcons.Play, contentDescription = null, tint = AmberActionInk, modifier = Modifier.size(13.dp))
         LibraryText(
             text = label,
             style = ParlorTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp),
@@ -158,8 +168,12 @@ private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> 
 @Composable
 private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRange) {
     val colors = ParlorTheme.colors
-    Box(Modifier.fillMaxWidth().heightIn(min = 198.dp)) {
-        CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize())
+    val playerLabel = playerRangeLabel(players)
+    val badge = presentation.genre?.let { stringResource(Res.string.catalog_players_and_genre, it, playerLabel) } ?: playerLabel
+    Box(Modifier.fillMaxWidth().heightIn(min = 194.dp)) {
+        Box(Modifier.matchParentSize().clipToBounds()) {
+            CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize().offset(y = (-8).dp))
+        }
         Box(
             Modifier.matchParentSize().background(
                 Brush.verticalGradient(
@@ -171,16 +185,19 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
             ),
         )
         Column(Modifier.align(Alignment.TopStart).padding(ParlorTheme.spacing.m)) {
-            LibraryText(stringResource(Res.string.featured_top), ParlorTheme.typography.headingMedium, colors.coverScreenTextPrimary)
-            LibraryText(stringResource(Res.string.featured_accent), ParlorTheme.typography.headingMedium, CozyNoirPalette.accentEmberGlow)
+            val headline = ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, lineHeight = 17.sp)
+            LibraryText(stringResource(Res.string.featured_top), headline, colors.coverScreenTextPrimary)
+            LibraryText(stringResource(Res.string.featured_accent), headline, CozyNoirPalette.accentEmberGlow)
         }
+        val badgeShape = RoundedCornerShape(ParlorTheme.radii.pill)
         LibraryText(
-            text = playerRangeLabel(players),
-            style = ParlorTheme.typography.labelSmall,
+            text = badge,
+            style = ParlorTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
             color = colors.coverScreenTextPrimary,
-            modifier = Modifier.align(Alignment.TopEnd).padding(ParlorTheme.spacing.m)
-                .background(colors.coverScreen.copy(alpha = HERO_BADGE_ALPHA), RoundedCornerShape(ParlorTheme.radii.pill))
-                .padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.xs),
+            modifier = Modifier.align(Alignment.TopEnd).padding(14.dp)
+                .background(colors.coverScreen.copy(alpha = HERO_BADGE_ALPHA), badgeShape)
+                .border(1.dp, colors.coverScreenTextSecondary.copy(alpha = 0.25f), badgeShape)
+                .padding(horizontal = 9.dp, vertical = 4.dp),
         )
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = 50.dp).clipToBounds(),
@@ -223,3 +240,5 @@ private const val PLAY_HALO_Y = 0.62f
 private const val PLAY_HALO_RADIUS = 0.35f
 private const val HERO_BADGE_ALPHA = 0.65f
 private const val FEATURED_SCRIM_FADE_STOP = 0.8f
+
+private const val CHEVRON_REVERSE_DEGREES = 180f

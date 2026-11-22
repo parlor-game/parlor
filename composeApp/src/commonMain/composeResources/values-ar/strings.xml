@@ -237,4 +237,13 @@
     <string name="name_character_count">%1$d من %2$d حرفًا</string>
     <string name="name_seat_preview">الاسم الظاهر في الغرفة: %1$s</string>
     <string name="setup_lan_join_steps">نفس شبكة الواي فاي · اكتب اسمك ورمز الغرفة · انتظر موافقة المضيف</string>
+    <string name="catalog_players_and_genre">%1$s · %2$s</string>
+    <string name="catalog_mode_one_phone_wifi">هاتف واحد · واي فاي</string>
+    <string name="catalog_mode_wifi_only">واي فاي فقط</string>
+    <string name="catalog_genre_whodunit">استنتاج</string>
+    <string name="catalog_genre_mafia">أدوار سرية</string>
+    <string name="catalog_genre_last_light">خداع</string>
+    <string name="catalog_genre_domino">استراتيجية</string>
+    <string name="catalog_genre_ghamza">استنتاج اجتماعي</string>
+    <string name="catalog_genre_word_impostor">لعبة كلمات</string>
 </resources>

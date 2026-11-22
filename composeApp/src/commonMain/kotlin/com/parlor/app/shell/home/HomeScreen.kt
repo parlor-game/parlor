@@ -1,5 +1,7 @@
 package com.parlor.app.shell.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import com.parlor.designsystem.components.LibraryText
@@ -55,6 +58,9 @@ import com.parlor.app.resources.app_name
 import com.parlor.app.resources.catalog_empty_body
 import com.parlor.app.resources.catalog_empty_title
 import com.parlor.app.resources.catalog_nearby_only_meta
+import com.parlor.app.resources.catalog_mode_one_phone_wifi
+import com.parlor.app.resources.catalog_mode_wifi_only
+import com.parlor.app.resources.catalog_players_and_genre
 import com.parlor.app.resources.home_continue_label
 import com.parlor.app.resources.home_guest_greeting
 import com.parlor.app.resources.home_party_subtitle
@@ -126,7 +132,7 @@ internal fun HomeScreen(
     LaunchedEffect(catalogScrollState, recoveryLoading, itemKeys) {
         if (!recoveryLoading) catalogScrollState.restoreAfterRecovery(itemKeys)
     }
-    LibrarySurface(modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
         val padding = parlorSafeContentPaddingValues(
             horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.m, bottom = ParlorTheme.spacing.xxl,
         )
@@ -138,7 +144,7 @@ internal fun HomeScreen(
             modifier = Modifier.widthIn(max = if (columns == 1) ReadingWidth else LibraryWidth).fillMaxSize(),
             contentPadding = padding,
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
@@ -300,13 +306,17 @@ private fun SectionHeading(label: String, detail: String, library: Boolean = fal
                 color = if (library) ParlorTheme.colors.accentEmber else ParlorTheme.colors.textPrimary,
             )
         }
-        LibraryText(
-            text = detail,
-            style = ParlorTheme.typography.bodySmall,
-            color = ParlorTheme.colors.textTertiary,
-            textAlign = TextAlign.End,
-            modifier = Modifier.padding(start = ParlorTheme.spacing.s),
-        )
+        if (library) {
+            CatalogBadge(detail)
+        } else {
+            LibraryText(
+                text = detail,
+                style = ParlorTheme.typography.bodySmall,
+                color = ParlorTheme.colors.textTertiary,
+                textAlign = TextAlign.End,
+                modifier = Modifier.padding(start = ParlorTheme.spacing.s),
+            )
+        }
     }
 }
 
@@ -492,7 +502,12 @@ private fun GameHeroCard(
         contentPadding = 0.dp,
     ) {
         if (compact && LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE) {
-            CompactGameRow(presentation, players, modes)
+            CompactGameRow(
+                presentation = presentation,
+                details = presentation.genre?.let { stringResource(Res.string.catalog_players_and_genre, it, players) } ?: players,
+                mode = catalogModeLabel(supportsLocal, supportsLan),
+                compatibleLocally = supportsLocal,
+            )
         } else Column {
             if (!compact) {
                 CatalogArtworkBadge(
@@ -541,24 +556,52 @@ private fun GameHeroCard(
 }
 
 @Composable
-private fun CompactGameRow(presentation: GameCatalogPresentation, players: String, modes: String) {
+private fun CompactGameRow(presentation: GameCatalogPresentation, details: String, mode: String, compatibleLocally: Boolean) {
     val colors = ParlorTheme.colors
+    val coverShape = RoundedCornerShape(13.dp)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(ParlorTheme.spacing.s),
-        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CatalogArtworkBadge(presentation.artwork, Modifier.size(56.dp).clip(RoundedCornerShape(ParlorTheme.radii.subtle)))
-        Column(Modifier.weight(1f)) {
+        CatalogArtworkBadge(
+            presentation.artwork,
+            Modifier.size(56.dp).clip(coverShape).border(1.dp, colors.borderSubtle, coverShape),
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             LibraryText(
                 presentation.title,
-                ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold),
                 colors.textPrimary,
             )
-            LibraryText(players, ParlorTheme.typography.labelMedium, colors.textSecondary)
-            LibraryText(modes, ParlorTheme.typography.labelMedium, colors.accentEmber)
+            LibraryText(details, ParlorTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp), colors.textSecondary)
+            CatalogBadge(mode, if (compatibleLocally) colors.semanticSuccess else colors.accentEmber)
         }
-        Icon(ParlorIcons.Forward, contentDescription = null, tint = colors.textTertiary)
+        Icon(ParlorIcons.ChevronNext, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+internal fun catalogModeLabel(local: Boolean, nearby: Boolean): String = stringResource(when {
+    local && nearby -> Res.string.catalog_mode_one_phone_wifi
+    nearby -> Res.string.catalog_mode_wifi_only
+    else -> Res.string.home_local_meta
+})
+
+@Composable
+internal fun CatalogBadge(text: String, dot: androidx.compose.ui.graphics.Color? = null) {
+    val colors = ParlorTheme.colors
+    Row(
+        modifier = Modifier.background(colors.surfaceHigher, CircleShape)
+            .border(1.dp, colors.borderSubtle, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (dot != null) Box(Modifier.size(6.dp).background(dot, CircleShape))
+        LibraryText(
+            text, ParlorTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
+            colors.textSecondary,
+        )
     }
 }
 

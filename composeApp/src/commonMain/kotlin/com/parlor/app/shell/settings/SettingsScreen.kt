@@ -102,13 +102,13 @@ fun SettingsScreen(
     val currentLanguage = languageTag?.let(AppLanguage::fromTag)
     val currentThemeMode = ThemeMode.fromTag(themeModeTag)
 
-    LibrarySurface(modifier = modifier.fillMaxSize()) {
+    LibrarySurface(modifier = modifier.fillMaxSize(), litHeader = false) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .parlorSafeContentPadding(ParlorTheme.spacing.m),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SettingsHeading()
 
@@ -183,7 +183,7 @@ private fun SettingsHeading() {
     if (LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE) {
         ScreenHeader(title = title, eyebrow = stringResource(Res.string.settings_eyebrow), subtitle = summary)
     } else {
-        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+        Column(Modifier.heightIn(min = 46.dp), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
             Text(
                 text = title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary,
                 modifier = Modifier.semantics { heading() },
@@ -342,7 +342,12 @@ private fun SettingsSwitchTrack(checked: Boolean, modifier: Modifier = Modifier)
 @Composable
 private fun ToggleText(title: String, description: String, modifier: Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
-        Text(text = title, style = ParlorTheme.typography.bodyLarge, color = ParlorTheme.colors.textPrimary)
+        Text(
+            text = title,
+            style = if (LocalDensity.current.fontScale >= SETTINGS_STACKED_FONT_SCALE) ParlorTheme.typography.bodyLarge
+            else ParlorTheme.typography.labelLarge,
+            color = ParlorTheme.colors.textPrimary,
+        )
         Text(text = description, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary)
     }
 }

@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.parlor.designsystem.theme.ParlorTheme
 
 /** A destination in the shell dock, with a localized label and accessible description. */
@@ -48,12 +49,12 @@ fun ParlorBottomTabBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = ParlorTheme.colors
-    val dockShape = RoundedCornerShape(ParlorTheme.radii.pill)
-    val tabShape = RoundedCornerShape(ParlorTheme.radii.pill)
+    val dockShape = RoundedCornerShape(24.dp)
+    val tabShape = RoundedCornerShape(19.dp)
     Column(
         modifier = modifier.fillMaxWidth().background(colors.surfaceCanvas)
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-            .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
@@ -64,8 +65,8 @@ fun ParlorBottomTabBar(
                 .background(colors.surfaceElevated)
                 .border(ParlorTheme.borders.hairline, colors.borderSubtle, dockShape)
                 .selectableGroup()
-                .padding(ParlorTheme.spacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             tabs.forEachIndexed { index, tab ->
                 val selected = index == selectedIndex
@@ -74,39 +75,30 @@ fun ParlorBottomTabBar(
                         .weight(1f)
                         .heightIn(min = ParlorTheme.spacing.xxl)
                         .clip(tabShape)
+                        .background(if (selected) colors.accentEmber.copy(alpha = SELECTED_WASH_ALPHA) else colors.transparent)
+                        .libraryFocusOutline(tabShape)
                         .selectable(
                             selected = selected,
                             role = Role.Tab,
                             onClick = { onTabSelected(index) },
                         )
-                        .padding(vertical = ParlorTheme.spacing.xs)
+                        .padding(vertical = 5.dp)
                         .semantics {
                             contentDescription = tab.contentDescription
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
                 ) {
                     val contentColor = if (selected) colors.accentEmber else colors.textTertiary
-                    Box(
-                        modifier = Modifier.size(width = 54.dp, height = 30.dp).clip(tabShape)
-                            .background(if (selected) colors.accentEmber.copy(alpha = SELECTED_WASH_ALPHA) else colors.transparent),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = null,
-                            tint = contentColor,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
+                    Icon(tab.icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
                     Text(
                         text = tab.label,
-                        style = ParlorTheme.typography.bodySmall,
+                        style = ParlorTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 13.sp),
                         color = contentColor,
                         textAlign = TextAlign.Center,
                     )
                     Box(
-                        Modifier.size(14.dp, 2.dp).clip(tabShape)
+                        Modifier.size(18.dp, 2.dp).clip(tabShape)
                             .background(if (selected) colors.accentEmber else colors.transparent),
                     )
                 }

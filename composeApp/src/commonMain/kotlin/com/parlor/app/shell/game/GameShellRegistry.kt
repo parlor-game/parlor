@@ -87,6 +87,7 @@ internal data class GameCatalogPresentation(
     val openLabel: String,
     val openContentDescription: String,
     val kicker: String = title,
+    val genre: String? = null,
     val accent: ParlorAccent = ParlorAccent.Amber,
     val artwork: ParlorArtwork = ParlorArtwork.CaseFile,
 )

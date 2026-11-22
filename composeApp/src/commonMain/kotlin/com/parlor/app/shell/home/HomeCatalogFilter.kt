@@ -1,17 +1,23 @@
 package com.parlor.app.shell.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.catalog_filter_all
 import com.parlor.app.resources.catalog_filter_local
@@ -39,52 +45,46 @@ internal fun HomeCatalogFilter.accepts(capabilities: GameShellCapabilities): Boo
 
 @Composable
 internal fun CatalogFilters(selected: HomeCatalogFilter, games: List<GameShellBinding>, onSelected: (HomeCatalogFilter) -> Unit) {
+    val colors = ParlorTheme.colors
+    val shape = RoundedCornerShape(ParlorTheme.radii.pill)
     FlowRow(
         modifier = Modifier.selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         HomeCatalogFilter.entries.forEach { filter ->
-            FilterChip(
-                selected = filter == selected,
-                onClick = { onSelected(filter) },
-                modifier = Modifier.heightIn(min = ParlorTheme.spacing.xxl).libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.pill)),
-                shape = RoundedCornerShape(ParlorTheme.radii.pill),
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = ParlorTheme.colors.surfaceElevated,
-                    labelColor = ParlorTheme.colors.textSecondary,
-                    selectedContainerColor = ParlorTheme.colors.accentEmber,
-                    selectedLabelColor = ParlorTheme.colors.textOnAccent,
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = filter == selected,
-                    borderColor = ParlorTheme.colors.borderSubtle,
-                    selectedBorderColor = ParlorTheme.colors.accentEmber,
-                ),
-                label = {
-                    val labelColor = if (selected == filter) ParlorTheme.colors.textOnAccent else ParlorTheme.colors.textSecondary
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LibraryText(
-                            text = stringResource(when (filter) {
-                                HomeCatalogFilter.All -> Res.string.catalog_filter_all
-                                HomeCatalogFilter.Local -> Res.string.catalog_filter_local
-                                HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
-                            }),
-                            style = ParlorTheme.typography.bodyMedium,
-                            color = labelColor,
-                        )
-                        LibraryText(
-                            text = games.count { filter.accepts(it.capabilities) }.toString(),
-                            style = ParlorTheme.typography.labelSmall,
-                            color = labelColor,
-                        )
-                    }
-                },
-            )
+            val active = filter == selected
+            val labelColor = if (active) colors.accentEmber else colors.textSecondary
+            Row(
+                modifier = Modifier.heightIn(min = 48.dp).libraryFocusOutline(shape)
+                    .selectable(selected = active, role = Role.Checkbox) { onSelected(filter) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier.clip(shape)
+                        .background(if (active) colors.accentEmber.copy(alpha = ACTIVE_CHIP_WASH) else colors.surfaceElevated)
+                        .border(1.dp, if (active) colors.borderAccent else colors.borderSubtle, shape)
+                        .padding(horizontal = 11.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LibraryText(
+                        text = stringResource(when (filter) {
+                            HomeCatalogFilter.All -> Res.string.catalog_filter_all
+                            HomeCatalogFilter.Local -> Res.string.catalog_filter_local
+                            HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
+                        }),
+                        style = ParlorTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                        color = labelColor,
+                    )
+                    LibraryText(
+                        text = games.count { filter.accepts(it.capabilities) }.toString(),
+                        style = ParlorTheme.typography.labelMedium.copy(fontSize = 10.sp, lineHeight = 14.sp),
+                        color = labelColor,
+                    )
+                }
+            }
         }
     }
 }
+
+private const val ACTIVE_CHIP_WASH = 0.12f

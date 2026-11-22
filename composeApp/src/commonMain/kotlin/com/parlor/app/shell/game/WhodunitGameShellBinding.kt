@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_whodunit
 import com.parlor.app.resources.home_whodunit_open
 import com.parlor.app.resources.home_whodunit_open_description
 import com.parlor.app.resources.home_whodunit_kicker
@@ -66,6 +67,7 @@ internal class WhodunitGameShellBinding(
         openLabel = stringResource(Res.string.home_whodunit_open),
         openContentDescription = stringResource(Res.string.home_whodunit_open_description),
         kicker = stringResource(Res.string.home_whodunit_kicker),
+        genre = stringResource(Res.string.catalog_genre_whodunit),
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.CaseFile,
     )

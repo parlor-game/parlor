@@ -16,6 +16,7 @@ import com.parlor.games.lastlight.ui.LastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightVisibilityReader
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_last_light
 import com.parlor.app.resources.home_lastlight_open
 import com.parlor.app.resources.home_lastlight_open_description
 import com.parlor.app.resources.home_lastlight_kicker
@@ -64,6 +65,7 @@ internal class LastLightGameShellBinding(
         openLabel = stringResource(Res.string.home_lastlight_open),
         openContentDescription = stringResource(Res.string.home_lastlight_open_description),
         kicker = stringResource(Res.string.home_lastlight_kicker),
+        genre = stringResource(Res.string.catalog_genre_last_light),
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.Cards,
     )

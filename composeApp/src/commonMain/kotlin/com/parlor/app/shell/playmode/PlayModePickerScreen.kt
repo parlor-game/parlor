@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -35,7 +38,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.playmode_passandplay_body
@@ -63,6 +68,8 @@ import com.parlor.app.resources.setup_solo_unavailable_title
 import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameEntryMode
 import com.parlor.app.shell.game.GameShellCapabilities
+import com.parlor.app.shell.home.CatalogBadge
+import com.parlor.app.shell.home.catalogModeLabel
 import com.parlor.app.shell.home.playerRangeLabel
 import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.LibrarySurface
@@ -130,7 +137,7 @@ internal fun PlayModePickerScreen(
                 .parlorSafeContentPadding(ParlorTheme.spacing.m),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SelectedGameHeader(presentation, model.supportedPlayerCounts, onBack)
+            SelectedGameHeader(presentation, model, onBack)
             if (availability.solo || availability.passAndPlay) {
                 LocalPlayOptions(model, onModeSelected)
             }
@@ -142,8 +149,10 @@ internal fun PlayModePickerScreen(
 }
 
 @Composable
-private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: IntRange, onBack: () -> Unit) {
-    val coverShape = RoundedCornerShape(ParlorTheme.radii.subtle)
+private fun SelectedGameHeader(presentation: GameCatalogPresentation, model: PlayModePickerModel, onBack: () -> Unit) {
+    val players = model.supportedPlayerCounts
+    val availability = model.availability
+    val coverShape = RoundedCornerShape(16.dp)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
         ParlorIconButton(
             icon = ParlorIcons.Back,
@@ -155,7 +164,9 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
             text = stringResource(Res.string.setup_eyebrow),
             style = ParlorTheme.typography.labelSmall,
             color = ParlorTheme.colors.textSecondary,
+            modifier = Modifier.weight(1f),
         )
+        if (LocalDensity.current.fontScale < PICKER_LARGE_TYPE) CatalogBadge(playerRangeLabel(players))
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val largeText = LocalDensity.current.fontScale >= PICKER_LARGE_TYPE
@@ -164,10 +175,12 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
                 LibraryText(
                     text = presentation.title,
                     modifier = Modifier.semantics { heading() },
-                    style = ParlorTheme.typography.displayMedium,
+                    style = ParlorTheme.typography.headingLarge.copy(fontSize = 22.sp, lineHeight = 27.sp),
                     color = ParlorTheme.colors.textPrimary,
                 )
-                LibraryText(playerRangeLabel(players), style = ParlorTheme.typography.bodyMedium, color = ParlorTheme.colors.textSecondary)
+                if (largeText) {
+                    LibraryText(playerRangeLabel(players), ParlorTheme.typography.bodyMedium, ParlorTheme.colors.textSecondary)
+                }
             }
         }
         if (largeText && maxWidth < NarrowPickerWidth) {
@@ -181,7 +194,10 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                 ) {
-                    CatalogArtworkBadge(presentation.artwork, Modifier.size(HeaderPrintSize).clip(coverShape))
+                    CatalogArtworkBadge(
+                        presentation.artwork,
+                        Modifier.size(68.dp).clip(coverShape).border(1.dp, ParlorTheme.colors.borderSubtle, coverShape),
+                    )
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
@@ -194,6 +210,17 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
                                 color = ParlorTheme.colors.textSecondary,
                                 preferredLines = 2,
                             )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                CatalogBadge(presentation.genre ?: playerRangeLabel(players))
+                                val mode = catalogModeLabel(
+                                    local = availability.solo || availability.passAndPlay,
+                                    nearby = availability.host || availability.join,
+                                )
+                                CatalogBadge(mode)
+                            }
                         }
                     }
                 }
@@ -298,8 +325,8 @@ private fun TopologyHeading(text: String, trailing: @Composable () -> Unit = {})
         LibraryText(
             text = text,
             modifier = Modifier.weight(1f).semantics { heading() },
-            style = ParlorTheme.typography.labelLarge,
-            color = ParlorTheme.colors.textSecondary,
+            style = ParlorTheme.typography.labelSmall,
+            color = ParlorTheme.colors.textTertiary,
         )
         trailing()
     }
@@ -318,33 +345,51 @@ private fun SetupOptionCard(
     val shape = RoundedCornerShape(ParlorTheme.radii.card)
     ParlorCard(
         modifier = Modifier.fillMaxWidth().clip(shape).libraryFocusOutline(shape)
-            .then(if (emphasized) Modifier.border(ParlorTheme.borders.hairline, colors.accentEmber, shape) else Modifier)
             .semantics { this.contentDescription = contentDescription }
             .clickable(role = Role.Button, onClick = onClick),
-        contentPadding = 12.dp,
+        cornerRadius = 17.dp,
+        bordered = !emphasized,
+        contentPadding = 0.dp,
     ) {
-        val label: @Composable () -> Unit = {
-            LibraryText(title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary)
-        }
-        val caption: @Composable () -> Unit = {
-            LibraryText(body, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary, preferredLines = 2)
-        }
-        if (LocalDensity.current.fontScale >= PICKER_LARGE_TYPE) {
-            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s), verticalAlignment = Alignment.CenterVertically) {
-                    ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xl))
-                    label()
-                }
-                caption()
-            }
+        val cardContent = if (emphasized) {
+            Modifier.background(Brush.horizontalGradient(listOf(colors.surfaceHero, colors.surfaceElevated)))
+                .border(1.dp, colors.borderAccent, shape)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m), verticalAlignment = Alignment.CenterVertically) {
-                ModeGlyph(icon, Modifier.size(44.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
-                    label()
+            Modifier
+        }
+        Box(cardContent.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp)) {
+            val label: @Composable () -> Unit = {
+                LibraryText(
+                    title,
+                    style = ParlorTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ParlorTheme.colors.textPrimary,
+                )
+            }
+            val caption: @Composable () -> Unit = {
+                LibraryText(body, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary, preferredLines = 2)
+            }
+            if (LocalDensity.current.fontScale >= PICKER_LARGE_TYPE) {
+                Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                        ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xl))
+                        label()
+                    }
                     caption()
                 }
-                Icon(ParlorIcons.Forward, contentDescription = null, tint = colors.textTertiary)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m), verticalAlignment = Alignment.CenterVertically) {
+                    ModeGlyph(icon, Modifier.size(42.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        label()
+                        caption()
+                    }
+                    Icon(
+                    ParlorIcons.ChevronNext,
+                    contentDescription = null,
+                    tint = colors.textTertiary,
+                    modifier = Modifier.size(16.dp),
+                )
+                }
             }
         }
     }
@@ -353,11 +398,16 @@ private fun SetupOptionCard(
 @Composable
 private fun ModeGlyph(icon: SetupIcon, modifier: Modifier) {
     val emphasized = icon == SetupIcon.PassAndPlay
-    val iconColor = if (emphasized) AmberActionInk else ParlorTheme.colors.accentEmber
+    val colors = ParlorTheme.colors
+    val iconColor = if (emphasized) AmberActionInk else colors.accentEmber
+    val shape = RoundedCornerShape(13.dp)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(ParlorTheme.radii.card))
-            .then(if (emphasized) Modifier.background(AmberActionBrush) else Modifier.background(iconColor.copy(alpha = MODE_GLYPH_ALPHA)))
+            .clip(shape)
+            .then(
+                if (emphasized) Modifier.background(AmberActionBrush)
+                else Modifier.background(colors.surfaceHigher).border(1.dp, colors.borderSubtle, shape),
+            )
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
@@ -464,10 +514,8 @@ private fun soloRequirement(playerCounts: IntRange): String =
 
 private const val PICKER_LARGE_TYPE = 1.5f
 private val NarrowPickerWidth = 420.dp
-private val HeaderPrintSize = 88.dp
 private val PickerWidth = 560.dp
 
-private const val MODE_GLYPH_ALPHA = 0.12f
 private const val ICON_STROKE_RATIO = 0.07f
 private const val PHONE_TOP = 0.08f
 private const val PHONE_HEIGHT = 0.84f

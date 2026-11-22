@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_mafia
 import com.parlor.app.resources.home_mafia_open
 import com.parlor.app.resources.home_mafia_open_description
 import com.parlor.app.resources.home_mafia_kicker
@@ -58,6 +59,7 @@ internal class MafiaGameShellBinding(
         openLabel = stringResource(Res.string.home_mafia_open),
         openContentDescription = stringResource(Res.string.home_mafia_open_description),
         kicker = stringResource(Res.string.home_mafia_kicker),
+        genre = stringResource(Res.string.catalog_genre_mafia),
         accent = ParlorAccent.Crimson,
         artwork = ParlorArtwork.Moon,
     )

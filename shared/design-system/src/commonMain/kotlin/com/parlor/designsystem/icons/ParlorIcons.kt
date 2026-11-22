@@ -111,6 +111,23 @@ object ParlorIcons {
         close()
     }
 
+    val ChevronNext: ImageVector = parlorIcon("ChevronNext", autoMirror = true) {
+        moveTo(9f, 6f)
+        lineTo(15f, 12f)
+        lineTo(9f, 18f)
+        lineTo(7.6f, 16.6f)
+        lineTo(12.2f, 12f)
+        lineTo(7.6f, 7.4f)
+        close()
+    }
+
+    val Play: ImageVector = parlorIcon("Play", autoMirror = true) {
+        moveTo(8f, 5f)
+        lineTo(19f, 12f)
+        lineTo(8f, 19f)
+        close()
+    }
+
     val Forward: ImageVector = parlorIcon("Forward", autoMirror = true) {
         moveTo(12.0f, 4.0f)
         lineToRelative(-1.41f, 1.41f)
