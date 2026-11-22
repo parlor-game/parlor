@@ -20,8 +20,11 @@ def adb(device: str, *args: str) -> str:
     return run("adb", "-s", device, *args)
 
 
-def capture(device: str, output: Path) -> None:
+def capture(device: str, output: Path, skip_existing: bool = False) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
+    if skip_existing and output.exists():
+        print(f"reused existing native capture: {output.name}")
+        return
     image = subprocess.run(["adb", "-s", device, "exec-out", "screencap", "-p"],
                            check=True, capture_output=True).stdout
     if not image.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -37,14 +40,15 @@ def display_metadata(device: str) -> dict[str, str | float]:
     width, height = (int(value) for value in size_line.rsplit(":", 1)[1].strip().split("x"))
     density = int(density_line.rsplit(":", 1)[1].strip())
     scale = float(adb(device, "shell", "settings", "get", "system", "font_scale").strip())
-    rotation = int(adb(device, "shell", "settings", "get", "system", "user_rotation").strip())
-    orientations = {0: "portrait", 1: "landscape", 2: "reverse-portrait", 3: "reverse-landscape"}
     return {
         "resolution_px": f"{width}x{height}",
         "density_dpi": density,
         "logical_viewport_dp": f"{round(width * 160 / density)}x{round(height * 160 / density)}",
         "font_scale": scale,
-        "orientation": orientations.get(rotation, f"rotation-{rotation}"),
+        # user_rotation=0 means natural orientation, which is landscape on
+        # tablets such as Pixel C. Derive the screen orientation from the
+        # actual emulator display dimensions instead.
+        "orientation": "landscape" if width > height else "portrait",
     }
 
 
@@ -59,8 +63,10 @@ def click_text(device: str, candidates: list[str], rounds: int = 8) -> str:
     size_output = adb(device, "shell", "wm", "size")
     size_line = next(line for line in size_output.splitlines() if "Physical size:" in line or "Override size:" in line)
     screen_width, screen_height = (int(value) for value in size_line.rsplit(":", 1)[1].strip().split("x"))
-    center_x = screen_width // 2
-    lower_y = screen_height * 9 // 10
+    # Keep scroll gestures inside the catalog grid. A 90%-height start lands
+    # in the fixed bottom navigation on phone layouts and cannot scroll cards.
+    center_x = screen_width * 3 // 4
+    lower_y = screen_height * 78 // 100
     upper_y = screen_height // 3
     for attempt in range(rounds):
         root = hierarchy(device)
@@ -98,6 +104,7 @@ def main() -> None:
     parser.add_argument("--model", required=True)
     parser.add_argument("--locale", default="en-US")
     parser.add_argument("--theme", choices=["light", "dark"], default="light")
+    parser.add_argument("--skip-existing", action="store_true")
     args = parser.parse_args()
 
     adb(args.device, "shell", "pm", "clear", args.package)
@@ -129,7 +136,7 @@ def main() -> None:
         }, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    capture(args.device, args.output / f"android-{tag}-library.png")
+    capture(args.device, args.output / f"android-{tag}-library.png", skip_existing=args.skip_existing)
 
     english_games = [
         ("whodunit", "Whodunit", ["Open Whodunit", "Whodunit"]),
@@ -154,7 +161,7 @@ def main() -> None:
         time.sleep(3)
         selected = click_text(args.device, selectors)
         time.sleep(1)
-        capture(args.device, args.output / f"android-{tag}-{slug}-mode-picker.png")
+        capture(args.device, args.output / f"android-{tag}-{slug}-mode-picker.png", skip_existing=args.skip_existing)
         print(f"captured game picker: {title} ({selected})")
         adb(args.device, "shell", "input", "keyevent", "KEYCODE_BACK")
         time.sleep(1)
