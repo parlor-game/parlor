@@ -41,6 +41,16 @@ LAST_LIGHT_RESOURCES = "game-modes/last-light/src/commonMain/composeResources"
 LAST_LIGHT_PREFIX = "base/assets/composeResources/com.parlor.games.lastlight.resources"
 LAST_LIGHT_FONTS = {"fraunces_semibold.ttf", "manrope_regular.ttf", "manrope_medium.ttf", "manrope_semibold.ttf"}
 LAST_LIGHT_LICENSES = {"fraunces_ofl.txt", "manrope_ofl.txt"}
+SHARED_RESOURCES = "shared/design-system/src/commonMain/composeResources"
+SHARED_PREFIX = "base/assets/composeResources/parlor.shared.design_system.generated.resources"
+SHARED_FONTS = {"inter.ttf", "jetbrains_mono.ttf", "bricolage_grotesque.ttf", "noto_sans_arabic_ui.ttf"}
+SHARED_LICENSES = {"bricolage_grotesque_ofl.txt", "noto_sans_arabic_ofl.txt"}
+SHARED_TYPOGRAPHY_SHA256 = {
+    "font/bricolage_grotesque.ttf": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+    "font/noto_sans_arabic_ui.ttf": "0a327f4d47b47ffbd81d82505179c49d820de1fff77036166cbc07080fa575f1",
+    "files/licenses/bricolage_grotesque_ofl.txt": "4b5a7d8f37f5602621c8a8d7358a6a2e71317e6c231c661e15aef0275d3e07ba",
+    "files/licenses/noto_sans_arabic_ofl.txt": "a7a5a25eb188bf1cd96982030d53e23c33485c69b1044a562254226857ee13af",
+}
 
 
 def require(condition, message):
@@ -191,17 +201,25 @@ def inspect_dex_output(stream, expected):
 
 def expected_resources(root):
     result = {}
+    shared = root / SHARED_RESOURCES
+    require({path.name for path in (shared / "font").iterdir()} == SHARED_FONTS,
+            "Shared font catalog changed; artifact review required")
+    require({path.name for path in (shared / "files/licenses").iterdir()} == SHARED_LICENSES,
+            "Shared font license catalog changed; artifact review required")
     for source_dir, prefix, extension in (
         ("game-modes/whodunit/src/commonMain/composeResources/files/cases",
          "base/assets/composeResources/com.parlor.games.whodunit.resources/files/cases", ".json"),
-        ("shared/design-system/src/commonMain/composeResources/font",
-         "base/assets/composeResources/parlor.shared.design_system.generated.resources/font", ".ttf"),
+        (SHARED_RESOURCES + "/font", SHARED_PREFIX + "/font", ".ttf"),
+        (SHARED_RESOURCES + "/files/licenses", SHARED_PREFIX + "/files/licenses", ".txt"),
     ):
         for path in sorted((root / source_dir).iterdir()):
             require(path.suffix == extension, "Unreviewed raw resource type")
             path = regular(path, MAX_ENTRY)
             result[prefix + "/" + path.name] = {"bytes": path.stat().st_size, "sha256": sha256(path)}
-    require(len(result) == 9, "Bundled story/font catalog changed; artifact review required")
+    require(len(result) == 13, "Bundled story/font catalog changed; artifact review required")
+    for relative, sha in SHARED_TYPOGRAPHY_SHA256.items():
+        require(result[SHARED_PREFIX + "/" + relative]["sha256"] == sha,
+                "Shared font or license differs from its reviewed upstream bytes")
     # The port's four OFL fonts have a closed, byte-bound provenance catalog.
     # Do not accept arbitrary new /font/ entries merely because they are in source.
     resource_root = root / LAST_LIGHT_RESOURCES
@@ -218,7 +236,7 @@ def expected_resources(root):
                 and all(entry.get(key) == value for key, value in actual.items()),
                 "Last Light font/license provenance mismatch")
         result[LAST_LIGHT_PREFIX + "/" + relative] = actual
-    require(len(result) == 15, "Bundled story/font/license catalog changed; artifact review required")
+    require(len(result) == 19, "Bundled story/font/license catalog changed; artifact review required")
     return result
 
 
@@ -298,7 +316,7 @@ def inspect(root, aab, bundletool, dexdump):
         by_path = {row["path"]: {k: row[k] for k in ("bytes", "sha256")} for row in rows}
         require(all(by_path.get(name) == value for name, value in expected.items()), "Packaged story/font bytes differ")
         for name in by_path:
-            if "/files/cases/" in name or "/font/" in name:
+            if "/files/cases/" in name or "/font/" in name or name.startswith(SHARED_PREFIX + "/files/licenses/"):
                 require(name in expected, "Unexpected shipped story/font resource")
         require(len(natives) == 4 and {item["abi"] for item in natives} == set(NATIVE), "Missing native ABI")
         require(dex and any(item["contains_main_activity"] for item in dex), "DEX lacks application entry point")
