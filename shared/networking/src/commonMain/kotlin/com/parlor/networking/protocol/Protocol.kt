@@ -76,6 +76,7 @@ data class GameProtocolRef(val gameId: GameId, val gameVersion: Int) {
 enum class AdmissionRejection {
     WrongCode,
     WrongGame,
+    ApprovalExpired,
     HostDeclined,
     RoomFull,
     SessionStarted,

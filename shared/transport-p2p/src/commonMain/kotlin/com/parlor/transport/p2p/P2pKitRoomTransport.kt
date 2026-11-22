@@ -74,6 +74,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
 internal interface AppLifecycleAwareRoom {
@@ -1627,6 +1629,7 @@ private fun NetError.toDiagnosticResult(): P2pDiagnosticResult = when (this) {
 private fun NetError.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
     NetError.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
     NetError.WrongGame -> P2pDiagnosticReason.WRONG_GAME
+    NetError.ApprovalExpired -> P2pDiagnosticReason.APPROVAL_EXPIRED
     NetError.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     NetError.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     NetError.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1649,6 +1652,7 @@ private fun NetError.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
 private fun AdmissionRejection.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
     AdmissionRejection.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
     AdmissionRejection.WrongGame -> P2pDiagnosticReason.WRONG_GAME
+    AdmissionRejection.ApprovalExpired -> P2pDiagnosticReason.APPROVAL_EXPIRED
     AdmissionRejection.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     AdmissionRejection.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     AdmissionRejection.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1771,6 +1775,7 @@ private fun HostedGameProtocol.toGameProtocolRef() = GameProtocolRef(gameId, gam
 private fun AdmissionRejection.toNetError(): NetError = when (this) {
     AdmissionRejection.WrongCode -> NetError.WrongCode
     AdmissionRejection.WrongGame -> NetError.WrongGame
+    AdmissionRejection.ApprovalExpired -> NetError.ApprovalExpired
     AdmissionRejection.HostDeclined -> NetError.HostDeclined
     AdmissionRejection.RoomFull -> NetError.RoomFull
     AdmissionRejection.SessionStarted -> NetError.SessionStarted
@@ -1808,6 +1813,7 @@ internal class HostP2pRoom(
         P2pKitRoomTransport.FIRST_APPLICATION_MESSAGE_TIMEOUT_MS,
     private val currentTimeMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val recoveryElapsedMillis: () -> Long = ::platformRecoveryElapsedMillis,
+    private val admissionTimeSource: TimeSource = TimeSource.Monotonic,
 ) : LocalRoom, AppLifecycleAwareRoom {
 
     init {
@@ -1866,6 +1872,7 @@ internal class HostP2pRoom(
         val isRejoin: Boolean,
         val peerFingerprint: String,
         var transaction: AdmissionOfferTransaction? = null,
+        val approvalDeadline: TimeMark? = null,
     )
     private data class AdmissionOfferTransaction(
         val offer: ResumableCredentialOffer,
@@ -1906,6 +1913,9 @@ internal class HostP2pRoom(
         val credential: HostCredential?,
     )
     private val pendingByPlayer: MutableMap<PlayerId, PendingConnection> = mutableMapOf()
+    private val pendingApprovalChanged = Channel<Unit>(Channel.CONFLATED)
+    /** Prevent a stale retransmission from reopening an expired physical connection. */
+    private val expiredApprovalSessions = mutableSetOf<P2pSession>()
     /** Seats approved by the host but not yet committed after acceptance delivery. */
     private val admissionReservations: MutableSet<PlayerId> = mutableSetOf()
     private val credentialsByPlayer: MutableMap<PlayerId, HostCredential> = mutableMapOf()
@@ -1952,6 +1962,7 @@ internal class HostP2pRoom(
     private var left = false
 
     init {
+        sessionScope.launch { reapExpiredApprovals() }
         sessionScope.launch(start = CoroutineStart.UNDISPATCHED) {
             kit.incomingSessions.collect { session ->
                 handleIncomingSession(session)
@@ -2301,6 +2312,7 @@ internal class HostP2pRoom(
                             }
                             trackedSessions.remove(session)
                             lifecycleRetiredSessions.remove(session)
+                            expiredApprovalSessions.remove(session)
                             if (sessionsByPlayer[playerId] === session) {
                                 connectionRetention.connectionLost()
                                 sessionsByPlayer.remove(playerId)
@@ -2384,6 +2396,7 @@ internal class HostP2pRoom(
             val existing = pendingByPlayer[playerId]
             val isKnownPlayer = playerId in previouslySeenPlayerIds
             when {
+                session in expiredApprovalSessions -> AdmissionRequestResult.Rejected(AdmissionRejection.ApprovalExpired)
                 admissionsClosed -> AdmissionRequestResult.Rejected(
                     AdmissionRejection.SessionStarted,
                 )
@@ -2401,6 +2414,8 @@ internal class HostP2pRoom(
                         displayName = displayName,
                         isRejoin = isKnownPlayer,
                         peerFingerprint = peerFingerprint,
+                        approvalDeadline = admissionTimeSource.markNow() +
+                            P2pKitRoomTransport.HOST_APPROVAL_TIMEOUT_MS.milliseconds,
                     )
                     publishPendingAdmissions()
                     AdmissionRequestResult.Accepted(
@@ -3010,6 +3025,12 @@ internal class HostP2pRoom(
                 pending?.session !== session -> null
                 connectionRetention.isBackgrounded -> null
                 playerId in admissionReservations -> AdmissionPreparation.InFlight
+                pending.approvalDeadline?.hasPassedNow() == true -> {
+                    pendingByPlayer.remove(playerId)
+                    expiredApprovalSessions += session
+                    publishPendingAdmissions()
+                    AdmissionPreparation.Rejected(NetError.ApprovalExpired, AdmissionRejection.ApprovalExpired)
+                }
                 admissionsClosed -> {
                     pendingByPlayer.remove(playerId)
                     publishPendingAdmissions()
@@ -3343,7 +3364,38 @@ internal class HostP2pRoom(
         _members.value = membersByPlayer.values.toList()
     }
 
+    private suspend fun reapExpiredApprovals() {
+        while (true) {
+            val (expired, nextDelayMs) = stateMutex.withLock {
+                val waiting = pendingByPlayer.filterValues { it.transaction == null }
+                val due = waiting.filterValues { it.approvalDeadline?.hasPassedNow() == true }
+                if (due.isNotEmpty()) {
+                    due.forEach { (id, pending) ->
+                        pendingByPlayer.remove(id)
+                        expiredApprovalSessions += pending.session
+                    }
+                    publishPendingAdmissions()
+                }
+                val waitMs = (waiting - due.keys).values.mapNotNull { it.approvalDeadline }
+                    .minOfOrNull { -it.elapsedNow().inWholeMilliseconds }
+                due.values to waitMs
+            }
+            // Closing one physical connection must not delay other deadlines.
+            expired.forEach { pending ->
+                sessionScope.launch {
+                    rejectSession(pending.session, AdmissionRejection.ApprovalExpired)
+                }
+            }
+            if (nextDelayMs == null) {
+                pendingApprovalChanged.receive()
+            } else {
+                withTimeoutOrNull(nextDelayMs.coerceAtLeast(1L)) { pendingApprovalChanged.receive() }
+            }
+        }
+    }
+
     private fun publishPendingAdmissions() {
+        pendingApprovalChanged.trySend(Unit)
         _pendingAdmissions.value = pendingByPlayer.map { (playerId, pending) ->
             PendingAdmission(playerId, pending.displayName, pending.isRejoin)
         }
@@ -3744,6 +3796,7 @@ internal class HostP2pRoom(
                 pendingByPlayer.clear()
                 trackedSessions.clear()
                 lifecycleRetiredSessions.clear()
+                expiredApprovalSessions.clear()
                 admissionReservations.clear()
                 membersByPlayer.clear()
                 previouslySeenPlayerIds.clear()

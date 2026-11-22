@@ -91,7 +91,9 @@ import com.parlor.storage.secure.SecureStorage
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TestTimeSource
 
 /**
  * Lifecycle regression tests for [HostP2pRoom] / [PeerP2pRoom].
@@ -351,6 +353,70 @@ class P2pKitRoomTransportLifecycleTest {
         } finally {
             room.leave()
         }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun an_expired_pending_approval_cannot_be_reopened_on_the_same_connection() = runTest {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val room = HostP2pRoom(
+            kit = kit,
+            roomCode = "ABCDEF",
+            hostDisplayName = "Host",
+            hostPlayerId = PlayerId("host-pid"),
+            maxRemotePlayers = 1,
+            scope = backgroundScope,
+            codec = codec,
+            admissionTimeSource = testScheduler.timeSource,
+        )
+        val session = FakeP2pSession(peer("expiring-peer", "Alice"))
+        emitAdmissionRequest(kit, session)
+        runCurrent()
+        assertThat(room.pendingAdmissions.value).hasSize(1)
+
+        advanceTimeBy(P2pKitRoomTransport.HOST_APPROVAL_TIMEOUT_MS - 1)
+        runCurrent()
+        assertThat(room.pendingAdmissions.value).hasSize(1)
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertThat(room.pendingAdmissions.value).isEmpty()
+        assertThat(session.admissionRejections()).containsExactly(AdmissionRejection.ApprovalExpired)
+        assertThat(room.approveAdmission(PlayerId("expiring-peer"))).isInstanceOf(Result.Failure::class)
+        sendAdmissionRequest(session)
+        runCurrent()
+        assertThat(room.pendingAdmissions.value).isEmpty()
+        assertThat(room.members.value).isEmpty()
+        room.leave()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun approval_cannot_reserve_a_seat_after_the_deadline_even_before_the_reaper_runs() = runTest {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val clock = TestTimeSource()
+        val room = HostP2pRoom(
+            kit = kit,
+            roomCode = "ABCDEF",
+            hostDisplayName = "Host",
+            hostPlayerId = PlayerId("host-pid"),
+            maxRemotePlayers = 1,
+            scope = backgroundScope,
+            codec = codec,
+            admissionTimeSource = clock,
+        )
+        val session = FakeP2pSession(peer("late-peer", "Alice"))
+        emitAdmissionRequest(kit, session)
+        runCurrent()
+        assertThat(room.pendingAdmissions.value).hasSize(1)
+
+        clock += P2pKitRoomTransport.HOST_APPROVAL_TIMEOUT_MS.milliseconds
+        assertThat(room.approveAdmission(PlayerId("late-peer")))
+            .isEqualTo(Result.Failure(NetError.ApprovalExpired))
+        assertThat(session.admissionRejections()).containsExactly(AdmissionRejection.ApprovalExpired)
+        assertThat(room.pendingAdmissions.value).isEmpty()
+        assertThat(room.members.value).isEmpty()
+        room.leave()
     }
 
     @Test

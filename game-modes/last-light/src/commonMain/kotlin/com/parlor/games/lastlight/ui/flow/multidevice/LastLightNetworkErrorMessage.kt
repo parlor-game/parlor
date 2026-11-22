@@ -21,6 +21,7 @@ import com.parlor.games.lastlight.resources.md_net_error_transport
 import com.parlor.games.lastlight.resources.md_net_error_unauthorized
 import com.parlor.games.lastlight.resources.md_net_error_wrong_code
 import com.parlor.games.lastlight.resources.md_net_error_wrong_game
+import com.parlor.games.lastlight.resources.md_net_error_approval_expired
 import com.parlor.networking.room.NetError
 import org.jetbrains.compose.resources.stringResource
 
@@ -32,6 +33,7 @@ internal fun lastlightNetworkErrorMessage(error: NetError): String = stringResou
         LastLightNetworkErrorMessageKey.PayloadTooLarge -> Res.string.md_net_error_payload_too_large
         LastLightNetworkErrorMessageKey.WrongCode -> Res.string.md_net_error_wrong_code
         LastLightNetworkErrorMessageKey.WrongGame -> Res.string.md_net_error_wrong_game
+        LastLightNetworkErrorMessageKey.ApprovalExpired -> Res.string.md_net_error_approval_expired
         LastLightNetworkErrorMessageKey.HostDeclined -> Res.string.md_net_error_host_declined
         LastLightNetworkErrorMessageKey.RoomFull -> Res.string.md_net_error_room_full
         LastLightNetworkErrorMessageKey.SessionStarted -> Res.string.md_net_error_session_started
@@ -55,6 +57,7 @@ internal enum class LastLightNetworkErrorMessageKey {
     PayloadTooLarge,
     WrongCode,
     WrongGame,
+    ApprovalExpired,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -78,6 +81,7 @@ internal fun lastlightNetworkErrorMessageKey(error: NetError): LastLightNetworkE
         NetError.PayloadTooLarge -> LastLightNetworkErrorMessageKey.PayloadTooLarge
         NetError.WrongCode -> LastLightNetworkErrorMessageKey.WrongCode
         NetError.WrongGame -> LastLightNetworkErrorMessageKey.WrongGame
+        NetError.ApprovalExpired -> LastLightNetworkErrorMessageKey.ApprovalExpired
         NetError.HostDeclined -> LastLightNetworkErrorMessageKey.HostDeclined
         NetError.RoomFull -> LastLightNetworkErrorMessageKey.RoomFull
         NetError.SessionStarted -> LastLightNetworkErrorMessageKey.SessionStarted

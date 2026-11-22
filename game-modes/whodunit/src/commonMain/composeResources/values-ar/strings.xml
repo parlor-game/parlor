@@ -371,4 +371,5 @@
     <string name="whodunit_list_separator">، </string>
     <string name="timer_elapsed_format">%1$s:%2$s</string>
     <string name="timer_total_format">/ %1$s:%2$s</string>
+    <string name="net_error_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
 </resources>

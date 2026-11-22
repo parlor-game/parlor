@@ -74,6 +74,7 @@ internal enum class P2pDiagnosticReason {
     PERMISSION,
     WRONG_ROOM,
     WRONG_GAME,
+    APPROVAL_EXPIRED,
     ROOM_FULL,
     SESSION_STARTED,
     INCOMPATIBLE_PROTOCOL,

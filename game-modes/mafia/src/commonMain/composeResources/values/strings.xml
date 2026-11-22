@@ -312,4 +312,5 @@
     <string name="discussion_how_to">Share your suspicions and ask each other questions. Keep your private role and night screen hidden.</string>
     <string name="vote_public_label">Public vote</string>
     <string name="vote_public_detail">Your vote is visible to everyone.</string>
+    <string name="md_net_error_approval_expired">This join request expired. Ask the player to join again.</string>
 </resources>
