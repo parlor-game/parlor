@@ -25,7 +25,7 @@ baseline above until the complete change is reviewed and integrated.
 
 | Area | Implementation in this branch | Remaining qualification |
 |---|---|---|
-| Admission | Exact game/version admission before approval, host-side approval expiry, a fresh room identity, and v2 protected rejoin with room/game binding. The obsolete v1 slot is removed when read and cannot restore a room. | Live Android and iOS admission and reconnect; approval countdown and encrypted pre-approval lobby metadata are still outstanding. |
+| Admission | Exact game/version admission before approval, host-side approval expiry, a fresh room identity, v2 protected rejoin with room/game binding, and an authenticated game/room preview before the approval wait. The obsolete v1 slot is removed when read and cannot restore a room. | Live Android and iOS admission and reconnect; the host and peer countdown UI remains outstanding. |
 | Discovery | Game-scoped advertisements and dial selection, bounded nearby room rows, public room tags on both host and peer UI, and exact candidate selection in all six game flows. | Native discovery and removal; the legacy-version banner, network-change refresh and quarantine acceptance rows are still outstanding. |
 | Invitations | Local QR render, OS sharing, strict versioned link parsing, game/version routing, and fingerprint-pinned admission using the exact room identity. | Verify the system camera, share sheet, native deep linking and join/reject behavior on devices. |
 | Party and rematch | Game rooms keep their existing single-game game-start behavior. | Party-scoped membership, authoritative game changes, per-match transition and rematch, recovery and the physical-device matrix. |
@@ -367,9 +367,8 @@ with physical evidence of dial cost (§14).
 
 The initial wire slice sends and checks the selected game and version before
 approval. It reports a reason-only `WrongGame` and the peer keeps its selected
-game. The remaining 4.3 work includes room identity, approval expiration,
-credential migration, and the discovery dependency in ADR-0003. This initial
-slice is not independently release-qualified.
+game. The admission preview, credential handoff, and resume verify the same
+room/game context. Release qualification remains subject to ADR-0003.
 
 ### 6.1 Wire changes
 

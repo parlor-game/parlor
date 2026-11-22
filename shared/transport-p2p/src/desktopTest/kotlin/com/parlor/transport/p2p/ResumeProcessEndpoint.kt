@@ -5,6 +5,7 @@ import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PartyAdmissionContext
@@ -52,7 +53,7 @@ object ResumeProcessEndpoint {
     fun main(args: Array<String>) {
         try {
             check(args.size in 2..3 && args[0] in setOf("host", "peer"))
-            check(args.getOrNull(2)?.let { it == "party" } ?: true)
+            check(args.getOrNull(2)?.let { it in setOf("party", "invite") } ?: true)
             check(args[1].matches(Regex("[a-f0-9]{32}")))
             Executors.newFixedThreadPool(4).asCoroutineDispatcher().use { dispatcher ->
                 executeEndpoint(args, dispatcher)
@@ -74,6 +75,7 @@ object ResumeProcessEndpoint {
         } else {
             null
         }
+        val inviteMode = args.getOrNull(2) == "invite"
         try {
             withTimeout(90_000) {
                 val fixture = LoopbackDeviceFixture(dispatcher)
@@ -87,16 +89,13 @@ object ResumeProcessEndpoint {
                     ))
                     check(result is Result.Success)
                     room = result.data
-                    verifyHost(result.data)
+                    verifyHost(result.data, inviteMode)
                 } else {
-                    val code = readln()
-                    check(code.matches(Regex("[A-Z0-9]{6}")))
-                    val result = transport.join(JoinConfig(
-                        code, "process-peer", expectedGameProtocol = game.takeIf { party == null },
-                        party = party?.let { PartyAdmissionContext(it.id, listOf(GameProtocolRef(game.gameId, game.gameVersion))) },
-                    ))
+                    val config = joinInput(readln(), inviteMode, party)
+                    val result = transport.join(config)
                     check(result is Result.Success)
                     room = result.data
+                    if (inviteMode) println("PINNED_INVITE_JOIN_PASS")
                     verifyPeer(result.data, fixture, transport, party?.id) { room = it }
                 }
             }
@@ -113,7 +112,20 @@ object ResumeProcessEndpoint {
         }
     }
 
-    private suspend fun verifyHost(room: LocalRoom) = coroutineScope {
+    private fun joinInput(raw: String, inviteMode: Boolean, party: HostedPartyProtocol?): JoinConfig {
+        if (!inviteMode) {
+            check(raw.matches(Regex("[A-Z0-9]{6}")))
+            return JoinConfig(
+                raw, "process-peer", expectedGameProtocol = game.takeIf { party == null },
+                party = party?.let { PartyAdmissionContext(it.id, listOf(GameProtocolRef(game.gameId, game.gameVersion))) },
+            )
+        }
+        val decoded = JoinLinkCodec.decode(raw)
+        check(decoded is JoinLinkCodec.Decoded.Valid && decoded.invitation.game == game)
+        return JoinConfig(decoded.invitation.code, "process-peer", expectedGameProtocol = game, invitation = decoded.invitation)
+    }
+
+    private suspend fun verifyHost(room: LocalRoom, inviteMode: Boolean) = coroutineScope {
         check(room.isHost)
         val admission = async(start = CoroutineStart.UNDISPATCHED) {
             val pending = withTimeout(35_000) { room.pendingAdmissions.first { it.size == 1 }.single() }
@@ -124,7 +136,12 @@ object ResumeProcessEndpoint {
         val first = async(start = CoroutineStart.UNDISPATCHED) {
             withTimeout(45_000) { room.incoming.first() }
         }
-        println("ROOM_CODE " + room.info.value.code)
+        if (inviteMode) {
+            // Synthetic invite for the other owned process, in the bounded private fixture log.
+            println("ROOM_INVITATION " + checkNotNull(room.createJoinLink()))
+        } else {
+            println("ROOM_CODE " + room.info.value.code)
+        }
         System.out.flush()
         val player = admission.await()
         val message = first.await()

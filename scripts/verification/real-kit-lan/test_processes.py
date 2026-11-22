@@ -64,7 +64,8 @@ class ProcessPreconditionTest(unittest.TestCase):
             command = probe.endpoint_command('peer', '0' * 32, 'classpath', scenario)
             expected = ['java', '-Xmx512m', '-cp', 'classpath',
                         'com.parlor.transport.p2p.' + endpoint, 'peer', '0' * 32]
-            self.assertEqual(command, expected + (['party'] if scenario == 'party-resume' else []))
+            mode = {'party-resume': 'party', 'invite-resume': 'invite'}.get(scenario)
+            self.assertEqual(command, expected if mode is None else expected + [mode])
         with self.assertRaisesRegex(RuntimeError, 'Unsupported'):
             probe.endpoint_command('peer', '0' * 32, 'classpath', 'untrusted-class')
 
@@ -83,6 +84,14 @@ class ProcessPreconditionTest(unittest.TestCase):
         self.assertEqual(probe.advertised_code(b'ROOM_CODE AAAAAA\n'), b'AAAAAA')
         with self.assertRaisesRegex(RuntimeError, 'Ambiguous'):
             probe.advertised_code(b'ROOM_CODE AAAAAA\nROOM_CODE BBBBBB\n')
+
+    def test_synthetic_invitation_is_bounded_and_unambiguous(self):
+        invite = b'parlor://join?v=1&g=mafia'
+        self.assertEqual(probe.advertised_invite(b'ROOM_INVITATION ' + invite + b'\n'), invite)
+        self.assertIsNone(probe.advertised_invite(b'ROOM_INVITATION https://join/\n'))
+        self.assertIsNone(probe.advertised_invite(b'ROOM_INVITATION ' + invite + b'#fragment\n'))
+        with self.assertRaisesRegex(RuntimeError, 'Ambiguous'):
+            probe.advertised_invite((b'ROOM_INVITATION ' + invite + b'\n') * 2)
 
     def test_log_read_is_bounded_before_full_materialization(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -10,6 +10,7 @@ import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.invitation.JoinLinkCodec
+import com.parlor.networking.protocol.AdmissionLobbyInfo
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
@@ -1139,13 +1140,13 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     }
                 },
             ) ?: return@coroutineScope AdmissionOutcome.TransientFailure(NetError.Timeout)
-            val decision = if (first is HostMessage.AdmissionPending) {
-                if (first.playerId != selfPlayerId) {
-                    return@coroutineScope AdmissionOutcome.Rejected(
-                        AdmissionRejection.InvalidCredential,
-                    )
+            val pending = first as? HostMessage.AdmissionPending
+            val decision = if (pending != null) {
+                pending.validateLobby(expectedGameProtocol, expectedRoomId, party)?.let {
+                    return@coroutineScope AdmissionOutcome.Failed(it)
                 }
-                withTimeoutOrNull(HOST_APPROVAL_TIMEOUT_MS) {
+                val window = pending.approvalWindowMillis ?: HOST_APPROVAL_TIMEOUT_MS
+                withTimeoutOrNull(minOf(window, HOST_APPROVAL_TIMEOUT_MS)) {
                     responses.receiveMatching { response ->
                         when (response) {
                             is HostMessage.AdmissionOffered ->
@@ -1186,7 +1187,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     // The encrypted offer identifies the authoritative game. Reject
                     // before staging secrets or confirming membership: discovery text
                     // is not authority and waiting for SessionStarting is too late.
-                    decision.offer.validateAdmissionTarget(expectedGameProtocol, expectedRoomId, party)?.let {
+                    decision.validateOfferedLobby(pending?.lobby, expectedGameProtocol, expectedRoomId, party)?.let {
                         return@coroutineScope AdmissionOutcome.Failed(it)
                     }
                     when (credentialStore.stage(credential)) {
@@ -1963,6 +1964,44 @@ private fun ResumableSessionCredential.toResumeRequest(): PeerMessage.ResumeRequ
         game = gameId?.let { GameProtocolRef(GameId(it), checkNotNull(gameVersion)) },
     )
 
+private fun HostMessage.AdmissionPending.validateLobby(
+    expectedGame: HostedGameProtocol?,
+    expectedRoom: RoomId?,
+    expectedParty: PartyAdmissionContext?,
+): NetError? {
+    val window = approvalWindowMillis ?: P2pKitRoomTransport.HOST_APPROVAL_TIMEOUT_MS
+    if (window <= 0L) return NetError.Unauthorized
+    val identity = lobby ?: return if (expectedGame == null && expectedParty == null) null else NetError.IncompatibleProtocol
+    if (!identity.hostDisplayName.isCanonicalDisplayName() || !identity.hasValidCapacity()) return NetError.Unauthorized
+    if (expectedRoom != null && identity.roomId != expectedRoom) return NetError.StaleRoom
+    if (expectedParty != null) {
+        return when {
+            identity.partyId == null -> NetError.IncompatibleProtocol
+            expectedParty.expectedPartyId?.let { it != identity.partyId } == true -> NetError.StaleRoom
+            identity.game !in expectedParty.supportedGames -> NetError.WrongGame
+            else -> null
+        }
+    }
+    return if (identity.partyId == null && identity.game == expectedGame?.toGameProtocolRef()) null else NetError.WrongGame
+}
+
+private fun HostMessage.AdmissionOffered.validateOfferedLobby(
+    shownLobby: AdmissionLobbyInfo?,
+    expectedGame: HostedGameProtocol?,
+    expectedRoom: RoomId?,
+    expectedParty: PartyAdmissionContext?,
+): NetError? {
+    if (shownLobby != null && hostDisplayName != shownLobby.hostDisplayName) return NetError.Unauthorized
+    val room = expectedRoom ?: shownLobby?.roomId
+    val party = expectedParty?.copy(expectedPartyId = expectedParty.expectedPartyId ?: shownLobby?.partyId)
+    return offer.validateAdmissionTarget(expectedGame, room, party)
+}
+
+private fun AdmissionLobbyInfo.hasValidCapacity(): Boolean =
+    seatLimit in 2..MAX_ROOM_SEATS && seatsTaken in 1..seatLimit
+
+private const val MAX_ROOM_SEATS = 18
+
 private fun ResumableCredentialOffer.validateAdmissionTarget(
     expectedGame: HostedGameProtocol?,
     expectedRoom: RoomId?,
@@ -2644,6 +2683,7 @@ internal class HostP2pRoom(
                 existing?.session === session -> AdmissionRequestResult.Accepted(
                     PendingAdmission(playerId, displayName, isRejoin = isKnownPlayer),
                     emitEvent = false,
+                    lobby = admissionLobbyInfo(),
                 )
                 isDisplayNameReservedByAnotherSeat(playerId, displayName) ->
                     AdmissionRequestResult.Rejected(AdmissionRejection.DisplayNameInUse)
@@ -2663,6 +2703,7 @@ internal class HostP2pRoom(
                     AdmissionRequestResult.Accepted(
                         PendingAdmission(playerId, displayName, isRejoin = isKnownPlayer),
                         emitEvent = true,
+                        lobby = admissionLobbyInfo(),
                     )
                 }
             }
@@ -2673,7 +2714,11 @@ internal class HostP2pRoom(
                 try {
                     sendRaw(
                         session,
-                        HostMessage.AdmissionPending(requestEvent.admission.playerId),
+                        HostMessage.AdmissionPending(
+                            playerId = requestEvent.admission.playerId,
+                            lobby = requestEvent.lobby,
+                            approvalWindowMillis = P2pKitRoomTransport.HOST_APPROVAL_TIMEOUT_MS,
+                        ),
                     )
                 } catch (@Suppress("TooGenericExceptionCaught") failure: Exception) {
                     failure.rethrowIfCancellation()
@@ -2751,6 +2796,13 @@ internal class HostP2pRoom(
         if (target?.expectedPartyId?.let { it != party?.id } == true) return AdmissionRejection.StaleRoom
         if (request.roomCode != roomCode) return AdmissionRejection.WrongCode
         return if (request.expectedGame != gameProtocol?.toGameProtocolRef()) AdmissionRejection.WrongGame else null
+    }
+
+    /** Called under the admission mutex and only after the requester proves the code. */
+    private fun admissionLobbyInfo(): AdmissionLobbyInfo? {
+        val game = partyGame ?: gameProtocol?.toGameProtocolRef() ?: return null
+        val taken = membersByPlayer.size + admissionReservations.count { it !in membersByPlayer } + 1
+        return AdmissionLobbyInfo(roomId, game, _info.value.hostDisplayName, taken, remoteSeatLimit + 1, partyId)
     }
 
     @Suppress("LongMethod", "CyclomaticComplexMethod") // Authenticated resume preparation is one fail-closed transaction.
@@ -3617,6 +3669,7 @@ internal class HostP2pRoom(
         data class Accepted(
             val admission: PendingAdmission,
             val emitEvent: Boolean,
+            val lobby: AdmissionLobbyInfo?,
         ) : AdmissionRequestResult
 
         data class Rejected(val reason: AdmissionRejection) : AdmissionRequestResult
