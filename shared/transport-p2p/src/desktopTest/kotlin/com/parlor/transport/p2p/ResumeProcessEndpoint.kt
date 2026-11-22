@@ -4,6 +4,7 @@ import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
@@ -47,7 +48,8 @@ object ResumeProcessEndpoint {
     @JvmStatic
     fun main(args: Array<String>) {
         try {
-            check(args.size == 2 && args[0] in setOf("host", "peer"))
+            check(args.size in 2..3 && args[0] in setOf("host", "peer"))
+            check(args.getOrNull(2)?.let { it == "invite" } ?: true)
             check(args[1].matches(Regex("[a-f0-9]{32}")))
             Executors.newFixedThreadPool(4).asCoroutineDispatcher().use { dispatcher ->
                 executeEndpoint(args, dispatcher)
@@ -64,6 +66,7 @@ object ResumeProcessEndpoint {
     private fun executeEndpoint(args: Array<String>, dispatcher: CoroutineDispatcher) = runBlocking {
         val scope = CoroutineScope(dispatcher + SupervisorJob())
         var room: LocalRoom? = null
+        val inviteMode = args.getOrNull(2) == "invite"
         try {
             withTimeout(90_000) {
                 val fixture = LoopbackDeviceFixture(dispatcher)
@@ -74,13 +77,13 @@ object ResumeProcessEndpoint {
                     val result = transport.host(HostConfig("Process Fixture", maxRemotePlayers = 1, gameProtocol = game))
                     check(result is Result.Success)
                     room = result.data
-                    verifyHost(result.data)
+                    verifyHost(result.data, inviteMode)
                 } else {
-                    val code = readln()
-                    check(code.matches(Regex("[A-Z0-9]{6}")))
-                    val result = transport.join(JoinConfig(code, "process-peer", expectedGameProtocol = game))
+                    val config = joinInput(readln(), inviteMode)
+                    val result = transport.join(config)
                     check(result is Result.Success)
                     room = result.data
+                    if (inviteMode) println("PINNED_INVITE_JOIN_PASS")
                     verifyPeer(result.data, fixture, transport) { room = it }
                 }
             }
@@ -97,7 +100,17 @@ object ResumeProcessEndpoint {
         }
     }
 
-    private suspend fun verifyHost(room: LocalRoom) = coroutineScope {
+    private fun joinInput(raw: String, inviteMode: Boolean): JoinConfig {
+        if (!inviteMode) {
+            check(raw.matches(Regex("[A-Z0-9]{6}")))
+            return JoinConfig(raw, "process-peer", expectedGameProtocol = game)
+        }
+        val decoded = JoinLinkCodec.decode(raw)
+        check(decoded is JoinLinkCodec.Decoded.Valid && decoded.invitation.game == game)
+        return JoinConfig(decoded.invitation.code, "process-peer", expectedGameProtocol = game, invitation = decoded.invitation)
+    }
+
+    private suspend fun verifyHost(room: LocalRoom, inviteMode: Boolean) = coroutineScope {
         check(room.isHost)
         val admission = async(start = CoroutineStart.UNDISPATCHED) {
             val pending = withTimeout(35_000) { room.pendingAdmissions.first { it.size == 1 }.single() }
@@ -108,7 +121,12 @@ object ResumeProcessEndpoint {
         val first = async(start = CoroutineStart.UNDISPATCHED) {
             withTimeout(45_000) { room.incoming.first() }
         }
-        println("ROOM_CODE " + room.info.value.code)
+        if (inviteMode) {
+            // Synthetic invite for the other owned process, in the bounded private fixture log.
+            println("ROOM_INVITATION " + checkNotNull(room.createJoinLink()))
+        } else {
+            println("ROOM_CODE " + room.info.value.code)
+        }
         System.out.flush()
         val player = admission.await()
         val message = first.await()

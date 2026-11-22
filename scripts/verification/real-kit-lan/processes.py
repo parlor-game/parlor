@@ -64,7 +64,8 @@ def prepare(out, deadline):
     return cp.read_text()
 
 
-SCENARIOS = {'admission': 'MultiProcessEndpoint', 'resume': 'ResumeProcessEndpoint'}
+SCENARIOS = {'admission': 'MultiProcessEndpoint', 'resume': 'ResumeProcessEndpoint',
+             'invite-resume': 'ResumeProcessEndpoint'}
 RESUME_MARKERS = {
     'host': (b'FROZEN_ROSTER_PASS\n', b'PHYSICAL_CLOSE_PASS\n', b'REJOIN_SAME_SEAT_PASS\n'),
     'peer': (b'SELECTED_GAME_REJECTION_PASS\n', b'SELECTED_VERSION_REJECTION_PASS\n',
@@ -74,7 +75,8 @@ RESUME_MARKERS = {
 
 def endpoint_command(role, namespace, classpath, scenario='admission'):
     probe.require(scenario in SCENARIOS, 'Unsupported process scenario')
-    return ['java', '-Xmx512m', '-cp', classpath, 'com.parlor.transport.p2p.' + SCENARIOS[scenario], role, namespace]
+    args = ['java', '-Xmx512m', '-cp', classpath, 'com.parlor.transport.p2p.' + SCENARIOS[scenario], role, namespace]
+    return args + ['invite'] if scenario == 'invite-resume' else args
 
 
 def bounded_log(path):
@@ -87,6 +89,12 @@ def bounded_log(path):
 def advertised_code(data):
     matches = re.findall(rb'(?m)^ROOM_CODE ([A-Z0-9]{6})\r?$', data)
     probe.require(len(matches) <= 1, 'Ambiguous host advertisement')
+    return matches[0] if matches else None
+
+
+def advertised_invite(data):
+    matches = re.findall(rb'(?m)^ROOM_INVITATION (parlor://join\?[A-Za-z0-9_=&.~\-]{1,242})\r?$', data)
+    probe.require(len(matches) <= 1, 'Ambiguous synthetic room invitation')
     return matches[0] if matches else None
 
 
@@ -115,26 +123,27 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
             return process
 
         host = spawn('host')
-        code = None
+        entry_input = None
+        advertised = advertised_invite if scenario == 'invite-resume' else advertised_code
         while time.monotonic() < min(deadline, started + 40):
             probe.require(host.poll() is None, 'Host ended before advertisement')
-            code = advertised_code(bounded_log(directory / 'host.log'))
-            if code is not None:
+            entry_input = advertised(bounded_log(directory / 'host.log'))
+            if entry_input is not None:
                 break
             probe.sample_process(host.pid, roles['host'])
             time.sleep(.1)
-        probe.require(code is not None, 'No advertised room code within bound')
+        probe.require(entry_input is not None, 'No synthetic room entry within bound')
         probe.remaining(deadline, PAIR_TIMEOUT)
         peer = spawn('peer')
         probe.require(host.pid != peer.pid, 'Host and peer must have distinct processes')
-        peer.stdin.write(code + b'\n')
+        peer.stdin.write(entry_input + b'\n')
         peer.stdin.flush()
         if scenario == 'admission':
             peer.stdin.close()
         host.stdin.close()
         close_observed = False
         while any(process.poll() is None for process in processes.values()):
-            if scenario == 'resume' and not close_observed and b'PHYSICAL_CLOSE_PASS\n' in bounded_log(directory / 'host.log'):
+            if scenario != 'admission' and not close_observed and b'PHYSICAL_CLOSE_PASS\n' in bounded_log(directory / 'host.log'):
                 peer.stdin.write(b'CLOSE_OBSERVED\n')
                 peer.stdin.flush()
                 peer.stdin.close()
@@ -153,8 +162,10 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
                           'Endpoint or teardown failed')
             expected = (b'AUTHENTICATED_ACTOR_PASS\n', b'PEER_DISCONNECT_PASS\n') if role == 'host' else (b'BIDIRECTIONAL_PASS\n',)
             probe.require(all(marker in data for marker in expected), 'Required endpoint assertions missing')
-            if scenario == 'resume':
+            if scenario != 'admission':
                 probe.require(all(marker in data for marker in RESUME_MARKERS[role]), 'Required resume assertions missing')
+            if scenario == 'invite-resume' and role == 'peer':
+                probe.require(b'PINNED_INVITE_JOIN_PASS\n' in data, 'Pinned invitation assertion missing')
         successful = True
     except BaseException as failure:
         failure_type = type(failure).__name__
