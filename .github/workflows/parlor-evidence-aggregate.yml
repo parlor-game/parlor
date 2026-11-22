@@ -1,0 +1,185 @@
+name: Package Parlor screenshot evidence
+
+on:
+  push:
+    branches: [capture/native-screens-2026-11-22]
+    paths:
+      - .github/workflows/parlor-evidence-aggregate.yml
+      - scripts/screenshots/assemble_evidence.py
+  workflow_dispatch:
+    inputs:
+      android_phone_run_id:
+        description: Android small/standard/large phone capture run
+        required: true
+        default: '45007491810'
+        type: string
+      android_tablet_run_id:
+        description: Android tablet capture run
+        required: true
+        default: '45006277598'
+        type: string
+      ios_capture_run_id:
+        description: iOS simulator profile capture run
+        required: true
+        default: '45003845633'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  package-evidence:
+    if: ${{ github.ref == 'refs/heads/capture/native-screens-2026-11-22' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Package screenshot evidence')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Verify the requested profile runs have finished
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_PHONE_RUN_ID: ${{ inputs.android_phone_run_id || '45007491810' }}
+          ANDROID_TABLET_RUN_ID: ${{ inputs.android_tablet_run_id || '45006277598' }}
+          IOS_RUN_ID: ${{ inputs.ios_capture_run_id || '45003845633' }}
+        run: |
+          set -euo pipefail
+          for run_id in "$ANDROID_PHONE_RUN_ID" "$ANDROID_TABLET_RUN_ID" "$IOS_RUN_ID"; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+              --jq '"run " + (.id|tostring) + ": " + .status + "/" + (.conclusion // "pending") + " on " + .head_branch'
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)"
+            branch="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .head_branch)"
+            test "$status" = completed
+            test "$branch" = capture/native-screens-2026-11-22
+          done
+      - name: Download the three Android phone profile artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.android_phone_run_id || '45007491810' }}
+          pattern: parlor-native-android-*
+          path: build/native-artifacts
+          merge-multiple: false
+          if-no-files-found: error
+      - name: Download the Android tablet artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.android_tablet_run_id || '45006277598' }}
+          pattern: parlor-native-android-tablet-*
+          path: build/native-artifacts
+          merge-multiple: false
+          if-no-files-found: error
+      - name: Download all four iOS profile artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.ios_capture_run_id || '45003845633' }}
+          pattern: parlor-native-ios-*
+          path: build/native-artifacts
+          merge-multiple: false
+          if-no-files-found: error
+      - name: Confirm all requested device profiles are represented
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          roots = [p.name for p in Path("build/native-artifacts").iterdir() if p.is_dir()]
+          required = (
+              "parlor-native-android-small-phone-",
+              "parlor-native-android-standard-phone-",
+              "parlor-native-android-large-phone-",
+              "parlor-native-android-tablet-",
+              "parlor-native-ios-small-phone-",
+              "parlor-native-ios-standard-phone-",
+              "parlor-native-ios-large-phone-",
+              "parlor-native-ios-tablet-",
+          )
+          for prefix in required:
+              if not any(name.startswith(prefix) for name in roots):
+                  raise SystemExit(f"Missing requested profile artifact: {prefix}")
+          print(f"Collected {len(roots)} profile artifacts: " + ", ".join(sorted(roots)))
+          PYTHON
+      - name: Capture the existing production-composable Desktop fixtures
+        env:
+          PARLOR_UI_SCREENSHOT_DIR: ${{ github.workspace }}/build/desktop-screens
+        run: |
+          ./gradlew \
+            :composeApp:desktopTest --tests '*HomeCatalogVisualEvidenceTest*' --tests '*SettingsAccessibilityAcceptanceTest*' --tests '*RoomCodeAccessibilityAcceptanceTest*' \
+            :game-modes:whodunit:desktopTest --tests '*WhodunitDiscussionLayoutTest*' \
+            :game-modes:mafia:desktopTest --tests '*TargetPickerInteractionTest*' \
+            :game-modes:last-light:desktopTest --tests '*GameplayLayoutTest*' --tests '*GameplayResultDesignTest*' --tests '*GameplayChallengeGuideTest*' --tests '*GameplayHandCountsTest*' --tests '*GameplayChromeTest*' --tests '*FuseCylinderTest*' \
+            :game-modes:egyptian-dominoes:desktopTest --tests '*DominoTableTest*' --tests '*DominoRosterAccessibilityTest*' \
+            :game-modes:ghamza:desktopTest --tests '*GhamzaTableTest*' \
+            :game-modes:word-impostor:desktopTest --tests '*WordImpostorTableTest*' \
+            --dependency-verification=strict --no-configuration-cache
+      - name: Record exact capture run jobs and source revisions
+        id: run-records
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_PHONE_RUN_ID: ${{ inputs.android_phone_run_id || '45007491810' }}
+          ANDROID_TABLET_RUN_ID: ${{ inputs.android_tablet_run_id || '45006277598' }}
+          IOS_RUN_ID: ${{ inputs.ios_capture_run_id || '45003845633' }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import subprocess
+          ids = {
+              "android_phone": os.environ["ANDROID_PHONE_RUN_ID"],
+              "android_tablet": os.environ["ANDROID_TABLET_RUN_ID"],
+              "ios": os.environ["IOS_RUN_ID"],
+          }
+          jobs = []
+          heads = {}
+          for source, run_id in ids.items():
+              run = json.loads(subprocess.check_output(
+                  ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"],
+                  text=True,
+              ))
+              heads[source] = run["head_sha"]
+              result = json.loads(subprocess.check_output(
+                  ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}/jobs?per_page=100"],
+                  text=True,
+              ))
+              for job in result.get("jobs", []):
+                  job["capture_run_id"] = run_id
+                  job["capture_source"] = source
+                  jobs.append(job)
+          with open("build/native-run-jobs.json", "w", encoding="utf-8") as f:
+              json.dump({"jobs": jobs, "run_heads": heads}, f, indent=2)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"android_reuse_sha={heads['android_tablet']}\n")
+          PYTHON
+      - name: Validate PNGs and assemble route checklist and gallery
+        env:
+          ANDROID_PHONE_RUN_ID: ${{ inputs.android_phone_run_id || '45007491810' }}
+          ANDROID_TABLET_RUN_ID: ${{ inputs.android_tablet_run_id || '45006277598' }}
+          IOS_RUN_ID: ${{ inputs.ios_capture_run_id || '45003845633' }}
+          ANDROID_REUSE_SHA: ${{ steps.run-records.outputs.android_reuse_sha }}
+        run: |
+          python3 scripts/screenshots/assemble_evidence.py \
+            --native-dir build/native-artifacts \
+            --desktop-dir build/desktop-screens \
+            --output-dir build/final-evidence \
+            --android-run-id "$ANDROID_TABLET_RUN_ID,$ANDROID_PHONE_RUN_ID" \
+            --android-reuse-run-id "$ANDROID_TABLET_RUN_ID" \
+            --android-reuse-source-sha "$ANDROID_REUSE_SHA" \
+            --ios-run-id "$IOS_RUN_ID" \
+            --source-sha "$(git rev-parse HEAD)" \
+            --run-jobs build/native-run-jobs.json
+      - name: Upload full screenshot evidence, gallery, and manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-full-app-screens-${{ inputs.android_tablet_run_id || '45006277598' }}-${{ inputs.android_phone_run_id || '45007491810' }}-${{ inputs.ios_capture_run_id || '45003845633' }}
+          path: build/final-evidence/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
