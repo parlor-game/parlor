@@ -26,6 +26,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.tokens.AmberActionBrush
+import com.parlor.designsystem.tokens.AmberActionInk
 
 internal val ParlorButtonMinimumHeight = 52.dp
 
@@ -44,7 +46,7 @@ internal val ParlorButtonMinimumHeight = 52.dp
 enum class ParlorButtonVariant { Primary, Secondary, Ghost, CoverGhost, Destructive }
 
 /**
- * Editorial action button. Flat, no decoration, no lift. Press feedback
+ * An action button with optional illuminated shell styling. Press feedback
  * is a brief background-tint shift only. Enforces a 52dp minimum touch
  * target and requires a contentDescription for screen readers.
  */
@@ -57,11 +59,13 @@ fun ParlorButton(
     enabled: Boolean = true,
     variant: ParlorButtonVariant = ParlorButtonVariant.Primary,
     loading: Boolean = false,
+    illuminated: Boolean = false,
 ) {
     val colors = ParlorTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val isPressed by interaction.collectIsPressedAsState()
     val interactive = enabled && !loading
+    val amberAction = interactive && illuminated && variant == ParlorButtonVariant.Primary
 
     val style = ParlorButtonVariantStyle.of(variant, colors)
 
@@ -82,7 +86,7 @@ fun ParlorButton(
         borderColor = if (variant == ParlorButtonVariant.CoverGhost) colors.transparent else colors.borderSubtle
     } else {
         containerColor = style.background
-        contentColor = style.foreground
+        contentColor = if (amberAction) AmberActionInk else style.foreground
         borderColor = style.border
     }
 
@@ -107,7 +111,7 @@ fun ParlorButton(
             // not a feature-UI hardcoded value. Lives here, not in screens.
             .heightIn(min = ParlorButtonMinimumHeight)
             .clip(shape)
-            .background(containerColor)
+            .then(if (amberAction) Modifier.background(AmberActionBrush) else Modifier.background(containerColor))
             .background(pressedTint)
             .border(
                 width = ParlorTheme.borders.hairline,

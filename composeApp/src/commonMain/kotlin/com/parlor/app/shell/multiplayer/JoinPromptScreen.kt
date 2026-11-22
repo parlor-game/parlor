@@ -125,6 +125,7 @@ fun JoinPromptScreen(
                         },
                         modifier = Modifier.widthIn(max = RoomEntryMaxWidth).fillMaxWidth(),
                         enabled = RoomInputPolicy.isValidRoomCode(code),
+                        illuminated = true,
                     )
                 }
             },

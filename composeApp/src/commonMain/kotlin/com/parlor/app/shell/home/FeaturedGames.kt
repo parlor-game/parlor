@@ -28,12 +28,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.featured_accent
@@ -49,7 +53,11 @@ import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.LibraryText
 import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.tokens.AmberActionBrush
+import com.parlor.designsystem.tokens.AmberActionGlow
+import com.parlor.designsystem.tokens.AmberActionInk
 import com.parlor.designsystem.tokens.CozyNoirPalette
+import com.parlor.designsystem.tokens.isLight
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -66,7 +74,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
             .border(ParlorTheme.borders.hairline, colors.borderSubtle, shape),
         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
     ) {
-        FeaturedCover(presentation)
+        FeaturedCover(presentation, activeGame.multiplayerContract?.supportedPlayerCounts ?: activeGame.definition.supportedPlayerCounts)
         Row(
             modifier = Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState())
                 .padding(horizontal = ParlorTheme.spacing.m),
@@ -105,11 +113,12 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s, Alignment.CenterHorizontally),
         ) {
-            IconButton(onClick = { selected = (index + games.size - 1) % games.size }, enabled = games.size > 1) {
+            val arrow = Modifier.border(ParlorTheme.borders.hairline, colors.borderSubtle, RoundedCornerShape(ParlorTheme.radii.pill))
+            IconButton(onClick = { selected = (index + games.size - 1) % games.size }, modifier = arrow, enabled = games.size > 1) {
                 Icon(ParlorIcons.Back, stringResource(Res.string.featured_previous), tint = colors.textSecondary)
             }
             FeaturedPlayButton(playLabel, Modifier.weight(1f, fill = false)) { onPlay(activeGame.definition.id) }
-            IconButton(onClick = { selected = (index + 1) % games.size }, enabled = games.size > 1) {
+            IconButton(onClick = { selected = (index + 1) % games.size }, modifier = arrow, enabled = games.size > 1) {
                 Icon(ParlorIcons.Forward, stringResource(Res.string.featured_next), tint = colors.textSecondary)
             }
         }
@@ -118,31 +127,43 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
 
 @Composable
 private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> Unit) {
-    val colors = ParlorTheme.colors
     val pill = RoundedCornerShape(ParlorTheme.radii.pill)
-    val amber = CozyNoirPalette.accentEmber
     Box(
         modifier = modifier.widthIn(max = 240.dp).heightIn(min = ParlorTheme.spacing.xxl)
-            .clip(pill).background(Brush.horizontalGradient(listOf(amber, FeaturedAmberEdge)))
+            .drawWithCache {
+                val halo = Brush.radialGradient(
+                    listOf(AmberActionGlow.copy(alpha = PLAY_GLOW_ALPHA), AmberActionGlow.copy(alpha = 0f)),
+                    center = Offset(size.width / 2f, size.height),
+                    radius = size.width / 2f,
+                )
+                onDrawBehind { drawCircle(halo, radius = size.width / 2f, center = Offset(size.width / 2f, size.height)) }
+            }
+            .clip(pill).background(AmberActionBrush)
             .clickable(role = Role.Button, onClick = onPlay)
             .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.s),
         contentAlignment = Alignment.Center,
     ) {
-        LibraryText(label, ParlorTheme.typography.labelLarge, colors.coverScreen, textAlign = TextAlign.Center)
+        LibraryText(
+            text = label,
+            style = ParlorTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp),
+            color = AmberActionInk,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
 @Composable
-private fun FeaturedCover(presentation: GameCatalogPresentation) {
+private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRange) {
     val colors = ParlorTheme.colors
     Box(Modifier.fillMaxWidth().heightIn(min = 198.dp)) {
         CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize())
         Box(
             Modifier.matchParentSize().background(
                 Brush.verticalGradient(
-                    0f to colors.coverScreen.copy(alpha = 0.84f),
+                    0f to colors.coverScreen.copy(alpha = 0.28f),
                     FEATURED_SCRIM_CLEAR_STOP to colors.transparent,
-                    1f to colors.coverScreen.copy(alpha = 0.96f),
+                    FEATURED_SCRIM_FADE_STOP to colors.coverScreen.copy(alpha = 0.84f),
+                    1f to if (colors.isLight) colors.coverScreen else colors.surfaceElevated,
                 ),
             ),
         )
@@ -150,15 +171,37 @@ private fun FeaturedCover(presentation: GameCatalogPresentation) {
             LibraryText(stringResource(Res.string.featured_top), ParlorTheme.typography.headingMedium, colors.coverScreenTextPrimary)
             LibraryText(stringResource(Res.string.featured_accent), ParlorTheme.typography.headingMedium, CozyNoirPalette.accentEmberGlow)
         }
+        LibraryText(
+            text = playerRangeLabel(players),
+            style = ParlorTheme.typography.labelSmall,
+            color = colors.coverScreenTextPrimary,
+            modifier = Modifier.align(Alignment.TopEnd).padding(ParlorTheme.spacing.m)
+                .background(colors.coverScreen.copy(alpha = HERO_BADGE_ALPHA), RoundedCornerShape(ParlorTheme.radii.pill))
+                .padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.xs),
+        )
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = 42.dp).blur(8.dp)
+            .background(colors.coverScreen.copy(alpha = HERO_COPY_GLASS_ALPHA)))
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(ParlorTheme.spacing.m),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(ParlorTheme.spacing.s),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            LibraryText(presentation.title, ParlorTheme.typography.headingLarge, colors.coverScreenTextPrimary)
-            LibraryText(presentation.tagline, ParlorTheme.typography.bodyMedium, colors.coverScreenTextPrimary)
+            LibraryText(
+                text = presentation.title,
+                style = ParlorTheme.typography.headingLarge.copy(fontSize = 21.sp, fontWeight = FontWeight.ExtraBold),
+                color = colors.coverScreenTextPrimary,
+            )
+            LibraryText(
+                text = presentation.tagline,
+                style = ParlorTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                color = colors.coverScreenTextSecondary,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
 private const val FEATURED_SCRIM_CLEAR_STOP = 0.43f
-private val FeaturedAmberEdge = Color(0xFFEE6D16)
+private const val PLAY_GLOW_ALPHA = 0.44f
+private const val HERO_COPY_GLASS_ALPHA = 0.38f
+private const val HERO_BADGE_ALPHA = 0.65f
+private const val FEATURED_SCRIM_FADE_STOP = 0.8f

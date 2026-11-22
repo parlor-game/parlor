@@ -2,6 +2,7 @@ package com.parlor.designsystem.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,8 +48,8 @@ fun ParlorBottomTabBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = ParlorTheme.colors
-    val dockShape = RoundedCornerShape(ParlorTheme.radii.elevated)
-    val tabShape = RoundedCornerShape(ParlorTheme.radii.card)
+    val dockShape = RoundedCornerShape(ParlorTheme.radii.pill)
+    val tabShape = RoundedCornerShape(ParlorTheme.radii.pill)
     Column(
         modifier = modifier.fillMaxWidth().background(colors.surfaceCanvas)
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
@@ -73,13 +74,13 @@ fun ParlorBottomTabBar(
                         .weight(1f)
                         .heightIn(min = ParlorTheme.spacing.xxl)
                         .clip(tabShape)
-                        .background(if (selected) colors.surfaceHero else colors.transparent)
+                        .background(if (selected) colors.accentEmber.copy(alpha = SELECTED_WASH_ALPHA) else colors.transparent)
                         .selectable(
                             selected = selected,
                             role = Role.Tab,
                             onClick = { onTabSelected(index) },
                         )
-                        .padding(vertical = ParlorTheme.spacing.s)
+                        .padding(vertical = ParlorTheme.spacing.xs)
                         .semantics {
                             contentDescription = tab.contentDescription
                         },
@@ -91,13 +92,17 @@ fun ParlorBottomTabBar(
                         imageVector = tab.icon,
                         contentDescription = null,
                         tint = contentColor,
-                        modifier = Modifier.size(ParlorTheme.iconSize.m),
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = tab.label,
-                        style = ParlorTheme.typography.labelSmall,
+                        style = ParlorTheme.typography.bodySmall,
                         color = contentColor,
                         textAlign = TextAlign.Center,
+                    )
+                    Box(
+                        Modifier.size(14.dp, 2.dp).clip(tabShape)
+                            .background(if (selected) colors.accentEmber else colors.transparent),
                     )
                 }
             }
@@ -106,3 +111,4 @@ fun ParlorBottomTabBar(
 }
 
 private val DockMaxWidth = 480.dp
+private const val SELECTED_WASH_ALPHA = 0.12f

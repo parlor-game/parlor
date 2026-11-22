@@ -30,6 +30,24 @@ import androidx.compose.ui.unit.dp
  * to Compose's automatic RTL mirroring.
  */
 object ParlorIcons {
+    val GamesGrid: ImageVector = parlorIcon("GamesGrid") {
+        for (top in listOf(3f, 13f)) {
+            for (left in listOf(3f, 13f)) {
+                moveTo(left, top)
+                lineTo(left + 8f, top)
+                lineTo(left + 8f, top + 8f)
+                lineTo(left, top + 8f)
+                close()
+                moveTo(left + 2f, top + 2f)
+                lineTo(left + 2f, top + 6f)
+                lineTo(left + 6f, top + 6f)
+                lineTo(left + 6f, top + 2f)
+                close()
+            }
+        }
+    }
+
+
     val Settings: ImageVector = parlorIcon("Settings") {
         moveTo(19.14f, 12.94f)
         curveToRelative(0.04f, -0.3f, 0.06f, -0.61f, 0.06f, -0.94f)

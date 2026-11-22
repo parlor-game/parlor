@@ -1,6 +1,7 @@
 package com.parlor.designsystem.tokens
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -158,3 +159,9 @@ val ParlorColors.isLight: Boolean
     get() = surfaceCanvas.luminance() > 0.5f
 
 private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+
+
+/** The shell's illuminated action has its own foreground on both themes. */
+val AmberActionBrush = Brush.horizontalGradient(listOf(Color(0xFFFFBA4E), Color(0xFFEE6D16)))
+val AmberActionInk = Color(0xFF140B04)
+val AmberActionGlow = Color(0xFFF17218)

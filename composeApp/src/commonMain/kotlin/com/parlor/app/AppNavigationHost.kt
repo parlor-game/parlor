@@ -124,7 +124,7 @@ internal fun AppNavigationBar(
         ParlorBottomTab(
             label = stringResource(Res.string.navigation_games_label),
             contentDescription = stringResource(Res.string.navigation_games_description),
-            icon = ParlorIcons.FolderOpen,
+            icon = ParlorIcons.GamesGrid,
         ),
         ParlorBottomTab(
             label = stringResource(Res.string.navigation_settings_label),

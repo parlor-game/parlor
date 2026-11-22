@@ -2,6 +2,7 @@ package com.parlor.app.shell.playmode
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,13 +11,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import com.parlor.designsystem.components.LibraryText
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +70,8 @@ import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.tokens.AmberActionBrush
+import com.parlor.designsystem.tokens.AmberActionInk
 import com.parlor.session.PlayMode
 import org.jetbrains.compose.resources.stringResource
 
@@ -200,11 +203,19 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
 @Composable
 private fun NearbyPlayOptions(availability: PlayModePickerAvailability, onHost: () -> Unit, onJoin: () -> Unit) {
     TopologyHeading(stringResource(Res.string.setup_each_device_label))
-    LibraryText(
-        text = stringResource(Res.string.setup_lan_note),
-        style = ParlorTheme.typography.bodyMedium,
-        color = ParlorTheme.colors.textSecondary,
-    )
+    ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.s) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        ) {
+            ModeGlyph(SetupIcon.Host, Modifier.size(ParlorTheme.spacing.l))
+            LibraryText(
+                text = stringResource(Res.string.setup_lan_note),
+                style = ParlorTheme.typography.bodySmall,
+                color = ParlorTheme.colors.textSecondary,
+            )
+        }
+    }
     if (availability.host) {
         SetupOptionCard(
             icon = SetupIcon.Host,
@@ -228,7 +239,10 @@ private fun NearbyPlayOptions(availability: PlayModePickerAvailability, onHost: 
 @Composable
 private fun LocalPlayOptions(model: PlayModePickerModel, onModeSelected: (PlayMode) -> Unit) {
     val availability = model.availability
-    TopologyHeading(stringResource(Res.string.setup_one_device_label))
+    val inlineHint = !availability.solo && LocalDensity.current.fontScale < PICKER_LARGE_TYPE
+    TopologyHeading(stringResource(Res.string.setup_one_device_label)) {
+        if (inlineHint) SoloUnavailable(model.supportedPlayerCounts)
+    }
     if (availability.solo) {
         SetupOptionCard(
             icon = SetupIcon.Solo,
@@ -247,39 +261,37 @@ private fun LocalPlayOptions(model: PlayModePickerModel, onModeSelected: (PlayMo
             onClick = { onModeSelected(PlayMode.PassAndPlay) },
         )
     }
-    if (!availability.solo) {
-        val explanation = stringResource(Res.string.setup_solo_unavailable_description_format, soloRequirement(model.supportedPlayerCounts))
-        LibraryText(
-            text = stringResource(Res.string.setup_solo_unavailable_title),
-            modifier = Modifier.semantics {
-                disabled()
-                contentDescription = explanation
-            },
-            style = ParlorTheme.typography.bodySmall,
-            color = ParlorTheme.colors.textSecondary,
-        )
-    }
+    if (!availability.solo && !inlineHint) SoloUnavailable(model.supportedPlayerCounts)
 }
 
 @Composable
-private fun TopologyHeading(text: String) {
+private fun SoloUnavailable(players: IntRange) {
+    val explanation = stringResource(Res.string.setup_solo_unavailable_description_format, soloRequirement(players))
+    LibraryText(
+        text = stringResource(Res.string.setup_solo_unavailable_title),
+        modifier = Modifier.semantics {
+            disabled()
+            contentDescription = explanation
+        },
+        style = ParlorTheme.typography.labelSmall,
+        color = ParlorTheme.colors.textSecondary,
+    )
+}
+
+@Composable
+private fun TopologyHeading(text: String, trailing: @Composable () -> Unit = {}) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LibraryText(
             text = text,
-            modifier = Modifier.semantics { heading() },
-            style = ParlorTheme.typography.headingMedium,
-            color = ParlorTheme.colors.textPrimary,
+            modifier = Modifier.weight(1f).semantics { heading() },
+            style = ParlorTheme.typography.labelLarge,
+            color = ParlorTheme.colors.textSecondary,
         )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(ParlorTheme.borders.hairline)
-                .background(ParlorTheme.colors.borderSubtle),
-        )
+        trailing()
     }
 }
 
@@ -291,18 +303,21 @@ private fun SetupOptionCard(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
+    val colors = ParlorTheme.colors
+    val emphasized = icon == SetupIcon.PassAndPlay
     val shape = RoundedCornerShape(ParlorTheme.radii.card)
     ParlorCard(
         modifier = Modifier.fillMaxWidth().clip(shape).libraryFocusOutline(shape)
+            .then(if (emphasized) Modifier.border(ParlorTheme.borders.hairline, colors.accentEmber, shape) else Modifier)
             .semantics { this.contentDescription = contentDescription }
             .clickable(role = Role.Button, onClick = onClick),
-        contentPadding = ParlorTheme.spacing.m,
+        contentPadding = ParlorTheme.spacing.s,
     ) {
         val label: @Composable () -> Unit = {
             LibraryText(title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary)
         }
         val caption: @Composable () -> Unit = {
-            LibraryText(body, style = ParlorTheme.typography.bodyMedium, color = ParlorTheme.colors.textSecondary, preferredLines = 2)
+            LibraryText(body, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary, preferredLines = 2)
         }
         if (LocalDensity.current.fontScale >= PICKER_LARGE_TYPE) {
             Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
@@ -314,11 +329,12 @@ private fun SetupOptionCard(
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m), verticalAlignment = Alignment.CenterVertically) {
-                ModeGlyph(icon, Modifier.size(ParlorTheme.spacing.xxl))
+                ModeGlyph(icon, Modifier.size(44.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
                     label()
                     caption()
                 }
+                Icon(ParlorIcons.Forward, contentDescription = null, tint = colors.textTertiary)
             }
         }
     }
@@ -326,11 +342,12 @@ private fun SetupOptionCard(
 
 @Composable
 private fun ModeGlyph(icon: SetupIcon, modifier: Modifier) {
-    val iconColor = ParlorTheme.colors.accentEmber
+    val emphasized = icon == SetupIcon.PassAndPlay
+    val iconColor = if (emphasized) AmberActionInk else ParlorTheme.colors.accentEmber
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(ParlorTheme.radii.card))
-            .background(iconColor.copy(alpha = MODE_GLYPH_ALPHA))
+            .then(if (emphasized) Modifier.background(AmberActionBrush) else Modifier.background(iconColor.copy(alpha = MODE_GLYPH_ALPHA)))
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {

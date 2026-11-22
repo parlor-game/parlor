@@ -10,15 +10,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -62,6 +63,9 @@ import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
+import com.parlor.designsystem.tokens.AmberActionBrush
+import com.parlor.designsystem.tokens.AmberActionInk
+import androidx.compose.ui.graphics.Color
 import com.parlor.storage.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
@@ -243,7 +247,7 @@ private fun SettingsChoices(options: List<SettingsChoice>) {
                 options.forEach { option ->
                     Box(
                         Modifier.weight(1f).heightIn(min = ParlorTheme.spacing.xxl).clip(shape)
-                            .background(if (option.selected) colors.accentEmber else colors.transparent)
+                            .then(if (option.selected) Modifier.background(AmberActionBrush) else Modifier)
                             .selectable(selected = option.selected, role = Role.RadioButton, onClick = option.select)
                             .padding(ParlorTheme.spacing.xs),
                         contentAlignment = Alignment.Center,
@@ -251,7 +255,7 @@ private fun SettingsChoices(options: List<SettingsChoice>) {
                         Text(
                             text = option.label,
                             style = ParlorTheme.typography.labelLarge,
-                            color = if (option.selected) colors.textOnAccent else colors.textSecondary,
+                            color = if (option.selected) AmberActionInk else colors.textSecondary,
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -270,29 +274,29 @@ private fun ToggleOption(
 ) {
     val colors = ParlorTheme.colors
     val fontScale = LocalDensity.current.fontScale
+    val enlarged = fontScale >= SETTINGS_STACKED_FONT_SCALE
+    val shape = RoundedCornerShape(ParlorTheme.radii.card)
+    val container = if (enlarged) {
+        Modifier.clip(shape).background(colors.surfaceHigher)
+            .border(ParlorTheme.borders.hairline, colors.borderElevated, shape)
+    } else Modifier
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ParlorTheme.radii.card))
-            .background(colors.surfaceHigher)
-            .border(
-                width = ParlorTheme.borders.hairline,
-                color = colors.borderElevated,
-                shape = RoundedCornerShape(ParlorTheme.radii.card),
-            )
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = onCheckedChange,
-            )
-            .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.m),
+            .heightIn(min = ParlorTheme.spacing.xxl)
+            .then(container)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(
+                horizontal = if (enlarged) ParlorTheme.spacing.l else 0.dp,
+                vertical = if (enlarged) ParlorTheme.spacing.m else ParlorTheme.spacing.xs,
+            ),
     ) {
         // A fixed switch must not squeeze enlarged text into a narrow column.
         // Keep one whole-card toggle action; the visual switch is not a second target.
         if (maxWidth / fontScale < ToggleRowMinimumWidth) {
             Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
                 ToggleText(title, description, Modifier.fillMaxWidth())
-                Switch(checked = checked, onCheckedChange = null, modifier = Modifier.align(Alignment.End))
+                SettingsSwitchTrack(checked, Modifier.align(Alignment.End))
             }
         } else {
             Row(
@@ -300,9 +304,23 @@ private fun ToggleOption(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ToggleText(title, description, Modifier.weight(1f))
-                Switch(checked = checked, onCheckedChange = null)
+                SettingsSwitchTrack(checked)
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsSwitchTrack(checked: Boolean, modifier: Modifier = Modifier) {
+    val colors = ParlorTheme.colors
+    Box(
+        modifier = modifier.size(width = 46.dp, height = 26.dp).clip(CircleShape)
+            .then(if (checked) Modifier.background(AmberActionBrush) else Modifier.background(colors.surfaceHigher))
+            .border(ParlorTheme.borders.hairline, colors.borderElevated, CircleShape)
+            .padding(horizontal = ParlorTheme.spacing.xs),
+        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
+        Box(Modifier.size(18.dp).background(Color.White, CircleShape))
     }
 }
 

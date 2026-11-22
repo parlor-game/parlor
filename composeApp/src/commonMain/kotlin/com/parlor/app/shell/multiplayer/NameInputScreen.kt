@@ -134,6 +134,7 @@ fun NameInputScreen(
                         },
                         modifier = Modifier.widthIn(max = RoomEntryMaxWidth).fillMaxWidth(),
                         enabled = RoomInputPolicy.isValidDisplayName(sanitized),
+                        illuminated = true,
                     )
                 }
             },

@@ -46,6 +46,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
@@ -260,7 +262,7 @@ private fun HomeTopBar() {
         Column(Modifier.weight(1f)) {
             LibraryText(
                 text = stringResource(Res.string.home_guest_greeting),
-                style = ParlorTheme.typography.headingMedium,
+                style = ParlorTheme.typography.headingMedium.copy(fontWeight = FontWeight.ExtraBold),
                 color = ParlorTheme.colors.textPrimary,
                 modifier = Modifier.testTag(HOME_BRAND_TEST_TAG),
             )
@@ -548,7 +550,11 @@ private fun CompactGameRow(presentation: GameCatalogPresentation, players: Strin
     ) {
         CatalogArtworkBadge(presentation.artwork, Modifier.size(56.dp).clip(RoundedCornerShape(ParlorTheme.radii.subtle)))
         Column(Modifier.weight(1f)) {
-            LibraryText(presentation.title, ParlorTheme.typography.headingMedium, colors.textPrimary)
+            LibraryText(
+                presentation.title,
+                ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                colors.textPrimary,
+            )
             LibraryText(players, ParlorTheme.typography.labelMedium, colors.textSecondary)
             LibraryText(modes, ParlorTheme.typography.labelMedium, colors.accentEmber)
         }
