@@ -184,7 +184,8 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_APP_IDS": package,
         "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
-        "UI_TEST_IOS_AXE": "",
+        "UI_TEST_IOS_AXE": (temp / "parlor-axe-path").read_text().strip()
+        if target == "ios" and pairing == "mixed" else "",
         "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
@@ -212,8 +213,12 @@ def start_one(temp, index, device, digest, pairing):
             print(f"{target} guest {index} controller startup attempt {attempt}: "
                   f"{clues or 'no recognized diagnostic marker'}", flush=True)
             # Never retry after a session receipt could already have been issued.
-            if target != "android" or attempt == 2 or any(root.glob("ui-session-*")):
+            if attempt == 2 or any(root.glob("ui-session-*")):
                 raise
+            if target == "ios":
+                # An AXe startup can fail before allocating a controller.
+                # Preserve the installed simulator, then retry via its window.
+                environment["UI_TEST_IOS_AXE"] = ""
             time.sleep(4 + index)
     connection, = root.glob("ui-session-*/connection.json")
     data = json.loads(connection.read_text())

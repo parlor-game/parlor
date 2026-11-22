@@ -254,9 +254,8 @@ install() {
     if [[ "$PAIRING_NAME" == android ]]; then python3 "$verification" wifi; fi
   else
     install_ios
-    if [[ "$PAIRING_NAME" == ios ]]; then
-      open -a Simulator --args -CurrentDeviceUDID "$(head -n 1 "$devices")"
-    fi
+    if [[ "$PAIRING_NAME" == mixed ]]; then install_ios_controller; fi
+    open -a Simulator --args -CurrentDeviceUDID "$(head -n 1 "$devices")"
   fi
 }
 
