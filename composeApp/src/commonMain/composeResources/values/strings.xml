@@ -59,9 +59,8 @@
     <string name="name_back_description">Return to the home screen.</string>
 
     <!-- Join prompt. -->
-    <string name="join_eyebrow">JOIN A GAME</string>
-    <string name="join_title">Enter the room code.</string>
-    <string name="join_code_help">Six letters and digits the host showed you.</string>
+    <string name="join_title">Join with a code</string>
+    <string name="join_code_help">Get the six characters from the host.</string>
     <string name="join_code_field">Room code</string>
     <string name="join_confirm">Find the room</string>
     <string name="join_confirm_description">Connect to the host using the entered room code.</string>
@@ -208,10 +207,8 @@
     <string name="catalog_nearby_only_meta">Nearby phones</string>
     <string name="catalog_empty_title">No games for this setup</string>
     <string name="catalog_empty_body">Choose All games to see another way to play.</string>
-    <string name="join_steps_title">Join in three steps</string>
-    <string name="join_steps_network">Connect every device to the same Wi-Fi.</string>
-    <string name="join_steps_code">Ask your host for the room code.</string>
-    <string name="join_steps_approval">Find the room, then wait for the host to let you in.</string>
+    <string name="join_steps_network">Use the same Wi-Fi as the host.</string>
+    <string name="join_steps_approval">Wait for the host to approve your request.</string>
     <string name="lobby_welcome_title">Your room is open</string>
     <string name="lobby_welcome_body">Share the code with your friends. Approve their requests, then start when everyone is here.</string>
     <string name="lobby_player_ready">Connected</string>

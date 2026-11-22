@@ -59,9 +59,8 @@
     <string name="name_back_description">العودة إلى الشاشة الرئيسية.</string>
 
     <!-- نافذة الانضمام. -->
-    <string name="join_eyebrow">انضمّ إلى لعبة</string>
-    <string name="join_title">أدخل رمز الغرفة.</string>
-    <string name="join_code_help">ستة حروف وأرقام يعرضها المضيف.</string>
+    <string name="join_title">الانضمام برمز</string>
+    <string name="join_code_help">خذ الرمز من المضيف (٦ خانات).</string>
     <string name="join_code_field">رمز الغرفة</string>
     <string name="join_confirm">العثور على الغرفة</string>
     <string name="join_confirm_description">الاتصال بالمضيف باستخدام الرمز المُدخل.</string>
@@ -216,10 +215,8 @@
     <string name="catalog_nearby_only_meta">هواتف قريبة</string>
     <string name="catalog_empty_title">لا توجد ألعاب بهذا الإعداد</string>
     <string name="catalog_empty_body">اختر كل الألعاب لتجد طريقة أخرى للعب.</string>
-    <string name="join_steps_title">انضم في ثلاث خطوات</string>
-    <string name="join_steps_network">وصّل كل الأجهزة بشبكة الواي فاي نفسها.</string>
-    <string name="join_steps_code">اطلب رمز الغرفة من المضيف.</string>
-    <string name="join_steps_approval">ابحث عن الغرفة ثم انتظر موافقة المضيف.</string>
+    <string name="join_steps_network">استخدم شبكة الواي فاي نفسها.</string>
+    <string name="join_steps_approval">انتظر موافقة المضيف.</string>
     <string name="lobby_welcome_title">غرفتك مفتوحة</string>
     <string name="lobby_welcome_body">شارك الرمز مع أصدقائك. وافق على طلباتهم ثم ابدأ عندما يكتمل الجميع.</string>
     <string name="lobby_player_ready">متصل</string>

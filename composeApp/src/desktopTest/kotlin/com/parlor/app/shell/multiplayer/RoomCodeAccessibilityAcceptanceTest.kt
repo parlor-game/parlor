@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -77,12 +78,15 @@ class RoomCodeAccessibilityAcceptanceTest {
             if (arabic) "الاتصال بالمضيف باستخدام الرمز المُدخل." else "Connect to the host using the entered room code.",
         )
         val input = onNode(hasSetTextAction())
-        confirm.assertIsNotEnabled()
-        input.performScrollTo().performTextReplacement("01oiا")
+        confirm.assertIsDisplayed().assertIsNotEnabled()
+        input.assertIsDisplayed().performTextReplacement("01oiا")
         confirm.assertIsNotEnabled()
         input.performTextReplacement("wx2y3")
         input.assertTextContains("WX2Y3")
         confirm.assertIsNotEnabled()
+        input.performTextReplacement(DIGIT_CODE)
+        confirm.assertIsEnabled()
+        assertCompleteCode(input.fullTextLayout(), DIGIT_CODE)
         input.performTextReplacement(" wx-2y 3zأ EXTRA")
         input.assertTextContains(CODE)
         assertCompleteCode(input.fullTextLayout())
@@ -100,10 +104,10 @@ class RoomCodeAccessibilityAcceptanceTest {
         runOnIdle { assertEquals(1, canceled) }
     }
 
-    private fun assertCompleteCode(layout: TextLayoutResult) {
-        assertEquals(CODE, layout.layoutInput.text.text)
+    private fun assertCompleteCode(layout: TextLayoutResult, code: String = CODE) {
+        assertEquals(code, layout.layoutInput.text.text)
         assertEquals(1, layout.lineCount, "The six-character code must not wrap")
-        for (index in CODE.indices) {
+        for (index in code.indices) {
             val glyph = layout.getBoundingBox(index)
             assertTrue(glyph.left >= 0 && glyph.right <= layout.size.width, "Character $index is clipped")
             if (index > 0) {
@@ -114,5 +118,6 @@ class RoomCodeAccessibilityAcceptanceTest {
 
     private companion object {
         const val CODE = "WX2Y3Z"
+        const val DIGIT_CODE = "234567"
     }
 }
