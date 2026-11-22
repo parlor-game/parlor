@@ -56,6 +56,12 @@ def hierarchy(device: str) -> ET.Element:
 
 
 def click_text(device: str, candidates: list[str], rounds: int = 8) -> str:
+    size_output = adb(device, "shell", "wm", "size")
+    size_line = next(line for line in size_output.splitlines() if "Physical size:" in line or "Override size:" in line)
+    screen_width, screen_height = (int(value) for value in size_line.rsplit(":", 1)[1].strip().split("x"))
+    center_x = screen_width // 2
+    lower_y = screen_height * 9 // 10
+    upper_y = screen_height // 3
     for attempt in range(rounds):
         root = hierarchy(device)
         parents: dict[ET.Element, ET.Element] = {}
@@ -77,7 +83,7 @@ def click_text(device: str, candidates: list[str], rounds: int = 8) -> str:
                     time.sleep(1.2)
                     return label.strip()
         if attempt + 1 < rounds:
-            adb(device, "shell", "input", "swipe", "540", "1950", "540", "700", "350")
+            adb(device, "shell", "input", "swipe", str(center_x), str(lower_y), str(center_x), str(upper_y), "350")
             time.sleep(0.4)
     raise RuntimeError(f"No visible native control matched any of: {candidates}")
 
@@ -95,22 +101,15 @@ def main() -> None:
     args = parser.parse_args()
 
     adb(args.device, "shell", "pm", "clear", args.package)
-    active_locale = adb(args.device, "shell", "getprop", "persist.sys.locale").strip()
-    if active_locale.casefold() != args.locale.casefold():
-        adb(args.device, "shell", "setprop", "persist.sys.locale", args.locale)
-        adb(args.device, "shell", "stop")
-        time.sleep(5)
-        adb(args.device, "shell", "start")
-        adb(args.device, "wait-for-device")
-        for _ in range(90):
-            if adb(args.device, "shell", "getprop", "sys.boot_completed").strip() == "1":
-                break
-            time.sleep(2)
-        else:
-            raise RuntimeError(f"Android framework did not return after locale change to {args.locale}")
     adb(args.device, "shell", "cmd", "uimode", "night", "yes" if args.theme == "dark" else "no")
     adb(args.device, "shell", "am", "start", "-W", "-n", f"{args.package}/{args.activity}")
     time.sleep(5)
+    if args.locale.startswith("ar"):
+        click_text(args.device, ["Open settings."])
+        click_text(args.device, ["العربية"])
+        time.sleep(1.5)
+        click_text(args.device, ["افتح مكتبة الألعاب."])
+        time.sleep(1.5)
     viewport = display_metadata(args.device)
     width, height = viewport["resolution_px"].split("x")
     tag = f"{args.profile}-{args.locale}-{args.theme}-{viewport['font_scale']}x-{width}x{height}"
@@ -120,7 +119,9 @@ def main() -> None:
             "platform": "Android Emulator",
             "profile": args.profile,
             "device_model": args.model,
-            "locale": args.locale,
+            "locale": "Arabic (app language override `ar`; emulator system default remains English)" if args.locale.startswith("ar") else "English (emulator system default)",
+            "locale_tag": "ar" if args.locale.startswith("ar") else "en-US",
+            "locale_method": "Selected the production Arabic language option in Settings through the Android accessibility tree." if args.locale.startswith("ar") else "Fresh app data on an English-default Android emulator.",
             "theme": args.theme,
             **viewport,
             "source_sha": run("git", "rev-parse", "HEAD").strip(),
