@@ -74,7 +74,6 @@ fun ParlorBottomTabBar(
                         .weight(1f)
                         .heightIn(min = ParlorTheme.spacing.xxl)
                         .clip(tabShape)
-                        .background(if (selected) colors.accentEmber.copy(alpha = SELECTED_WASH_ALPHA) else colors.transparent)
                         .selectable(
                             selected = selected,
                             role = Role.Tab,
@@ -88,12 +87,18 @@ fun ParlorBottomTabBar(
                     verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
                 ) {
                     val contentColor = if (selected) colors.accentEmber else colors.textTertiary
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier.size(20.dp),
-                    )
+                    Box(
+                        modifier = Modifier.size(width = 54.dp, height = 30.dp).clip(tabShape)
+                            .background(if (selected) colors.accentEmber.copy(alpha = SELECTED_WASH_ALPHA) else colors.transparent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                     Text(
                         text = tab.label,
                         style = ParlorTheme.typography.bodySmall,

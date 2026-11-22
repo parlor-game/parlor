@@ -246,18 +246,24 @@ private fun SettingsChoices(options: List<SettingsChoice>) {
             ) {
                 options.forEach { option ->
                     Box(
-                        Modifier.weight(1f).heightIn(min = ParlorTheme.spacing.xxl).clip(shape)
-                            .then(if (option.selected) Modifier.background(AmberActionBrush) else Modifier)
-                            .selectable(selected = option.selected, role = Role.RadioButton, onClick = option.select)
-                            .padding(ParlorTheme.spacing.xs),
+                        modifier = Modifier.weight(1f).heightIn(min = ParlorTheme.spacing.xxl)
+                            .clip(shape)
+                            .selectable(selected = option.selected, role = Role.RadioButton, onClick = option.select),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = option.label,
-                            style = ParlorTheme.typography.labelLarge,
-                            color = if (option.selected) AmberActionInk else colors.textSecondary,
-                            textAlign = TextAlign.Center,
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp).clip(shape)
+                                .then(if (option.selected) Modifier.background(AmberActionBrush) else Modifier)
+                                .padding(horizontal = ParlorTheme.spacing.xs),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = option.label,
+                                style = ParlorTheme.typography.labelMedium,
+                                color = if (option.selected) AmberActionInk else colors.textSecondary,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }

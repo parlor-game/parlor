@@ -126,7 +126,7 @@ internal fun PlayModePickerScreen(
             modifier = Modifier.widthIn(max = PickerWidth).fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .parlorSafeContentPadding(ParlorTheme.spacing.m),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SelectedGameHeader(presentation, model.supportedPlayerCounts, onBack)
             if (availability.solo || availability.passAndPlay) {
@@ -311,7 +311,7 @@ private fun SetupOptionCard(
             .then(if (emphasized) Modifier.border(ParlorTheme.borders.hairline, colors.accentEmber, shape) else Modifier)
             .semantics { this.contentDescription = contentDescription }
             .clickable(role = Role.Button, onClick = onClick),
-        contentPadding = ParlorTheme.spacing.s,
+        contentPadding = 12.dp,
     ) {
         val label: @Composable () -> Unit = {
             LibraryText(title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary)
