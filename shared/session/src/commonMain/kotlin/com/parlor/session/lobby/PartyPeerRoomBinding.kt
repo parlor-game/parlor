@@ -138,7 +138,9 @@ internal class PartyPeerRoomBinding(
     private fun canInstall(update: HostMessage.PartySnapshot): Boolean {
         val previous = installed.value
         if (ended || update.revision < 1 || update.header.sequence != update.revision ||
-            update.nextExpectedClientSequence < 1 || update.lobby.selectedGame !in supportedGames ||
+            update.nextExpectedClientSequence < 1
+        ) return false
+        if (update.lobby.selectedGame !in supportedGames ||
             update.lobby.members.none { it.playerId == self } ||
             update.lobby.members.none { it.playerId == hostId }
         ) return false

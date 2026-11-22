@@ -186,15 +186,17 @@ internal class PartyHostRoomBinding(
             reconcileMembers()
             if (room.acceptsRemoteGameCommands) host.handleReady(message.actor, message, messageId()) else null
         } ?: return
-        room.send(SendTarget.Direct(message.actor), receipt)
+        withTimeoutOrNull(CONTROL_DELIVERY_MS) { room.send(SendTarget.Direct(message.actor), receipt) }
         // A rejected command can consume a client sequence without changing the lobby revision.
         publishState(message.actor)
     }
 
     private suspend fun publishState(onePlayer: PlayerId? = null) = publishing.withLock {
         val messages = transactions.withLock { snapshotFrames(onePlayer) }
-        for ((recipient, message) in messages) {
-            room.send(recipient, message)
+        coroutineScope {
+            messages.forEach { (recipient, message) ->
+                launch { withTimeoutOrNull(CONTROL_DELIVERY_MS) { room.send(recipient, message) } }
+            }
         }
     }
 
@@ -210,5 +212,6 @@ internal class PartyHostRoomBinding(
 
     private companion object {
         const val TERMINAL_DELIVERY_MS = 1_500L
+        const val CONTROL_DELIVERY_MS = 2_000L
     }
 }

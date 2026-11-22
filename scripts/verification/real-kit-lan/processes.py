@@ -171,6 +171,8 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
                 if role == 'peer':
                     probe.require(b'PARTY_MATCH_END_RETAINS_MEMBERSHIP_PASS\n' in data,
                                   'Required match-end membership assertion missing')
+                    probe.require(b'PARTY_SWITCHED_GAME_SAME_CHANNEL_PASS\n' in data,
+                                  'Required switched-game channel assertion missing')
             if scenario == 'invite-resume' and role == 'peer':
                 probe.require(b'PINNED_INVITE_JOIN_PASS\n' in data, 'Pinned invitation assertion missing')
         successful = True
