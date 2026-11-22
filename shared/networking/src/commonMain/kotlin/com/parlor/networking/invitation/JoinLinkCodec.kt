@@ -8,6 +8,7 @@ import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.transport.HostedGameProtocol
 
 /** A same-LAN invitation. The code is private and the fingerprint is a connection pin. */
+@ConsistentCopyVisibility
 data class JoinInvitation internal constructor(
     val game: HostedGameProtocol,
     val roomId: RoomId,

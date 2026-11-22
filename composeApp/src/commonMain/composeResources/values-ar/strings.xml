@@ -237,4 +237,7 @@
     <string name="resume_delete_busy">جارٍ حذف الجلسة المحفوظة…</string>
     <string name="room_game_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
     <string name="room_game_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
+    <string name="invite_busy">ارجع إلى مكتبة الألعاب قبل فتح الدعوة.</string>
+    <string name="invite_invalid">دعوة الغرفة هذه غير صالحة.</string>
+    <string name="invite_update_required">حدّث بارلور أو اطلب من المضيف استخدام الإصدار نفسه.</string>
 </resources>

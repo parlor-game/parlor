@@ -17,6 +17,19 @@ determine which phases are available.
 Paths are relative to the repository root. `file:line` references point at the
 baseline SHA above.
 
+### Local implementation checkpoint
+
+Work is on `feat/smart-lobby-game-admission` for one consolidated PR.
+The protocol and user interface on protected `main` still follow the
+baseline above until the complete change is reviewed and integrated.
+
+| Area | Implementation in this branch | Remaining qualification |
+|---|---|---|
+| Admission | Exact game/version admission before approval, host-side approval expiry, a fresh room identity, and v2 protected rejoin with room/game binding. The obsolete v1 slot is removed when read and cannot restore a room. | Live Android and iOS admission and reconnect; approval countdown and encrypted pre-approval lobby metadata are still outstanding. |
+| Discovery | Game-scoped advertisements and dial selection, bounded nearby room rows, public room tags on both host and peer UI, and exact candidate selection in all six game flows. | Native discovery and removal; the legacy-version banner, network-change refresh and quarantine acceptance rows are still outstanding. |
+| Invitations | Local QR render, OS sharing, strict versioned link parsing, game/version routing, and fingerprint-pinned admission using the exact room identity. | Verify the system camera, share sheet, native deep linking and join/reject behavior on devices. |
+| Party and rematch | Game rooms keep their existing single-game game-start behavior. | Party-scoped membership, authoritative game changes, per-match transition and rematch, recovery and the physical-device matrix. |
+
 ---
 
 ## 1. Summary

@@ -162,14 +162,10 @@ private fun LastLightShellContent(
             },
         )
     }
+    val invitation = launch.joinInvitation
     var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Peer }
-                ?.roomCode
-                .orEmpty(),
-        )
+        mutableStateOf(restoredRoute?.roomCode ?: invitation?.code.orEmpty())
     }
 
     LaunchedEffect(backRequest.id) {
@@ -260,7 +256,11 @@ private fun LastLightShellContent(
             onConfirm = { name ->
                 if (screen == LastLightShellScreen.JoinName) {
                     peerName = name
-                    screen = LastLightShellScreen.JoinPrompt
+                    screen = if (invitation == null) {
+                        LastLightShellScreen.JoinPrompt
+                    } else {
+                        LastLightShellScreen.PeerLobby
+                    }
                 }
             },
             onBack = onExit,
@@ -290,6 +290,7 @@ private fun LastLightShellContent(
                     transport = transport,
                     code = pendingJoinCode,
                     discoveredRoom = discoveredRoom,
+                    invitation = invitation,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
@@ -321,6 +322,7 @@ private fun LastLightShellContent(
 }
 
 private fun GameShellLaunch.initialLastLightScreen(): LastLightShellScreen = when (this) {
+    is GameShellLaunch.JoinByInvitation -> LastLightShellScreen.JoinPermission
     is GameShellLaunch.New -> LastLightShellScreen.Setup
     is GameShellLaunch.ResumeLocal -> LastLightShellScreen.LocalGame
     is GameShellLaunch.ResumeMultiplayer -> LastLightShellScreen.ResumePermission

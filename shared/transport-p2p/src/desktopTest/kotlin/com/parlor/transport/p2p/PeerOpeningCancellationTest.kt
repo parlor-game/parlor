@@ -63,7 +63,7 @@ class PeerOpeningCancellationTest {
 
     @Test
     fun an_offer_without_the_selected_room_identity_cannot_install_membership() = runTest {
-        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame)
+        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame, omitRoomId = true)
         fixture.prepare()
         try {
             val result = fixture.transport.join(JoinConfig(
@@ -95,6 +95,7 @@ class PeerOpeningCancellationTest {
         try {
             assertEquals("fixture-game", fixture.committedCredential().gameId)
             assertEquals(1, fixture.committedCredential().gameVersion)
+            assertEquals(fixture.offer.roomId, room.info.value.roomId)
             assertTrue(fixture.session.sent.filterIsInstance<P2pMessage.Binary>().any {
                 RoomMessageCodec().decode(it.bytes) is PeerMessage.AdmissionConfirmed
             })
@@ -493,6 +494,7 @@ private class OpeningFixture(
     private val resume: Boolean,
     missingGame: Boolean = false,
     advertisedGame: HostedGameProtocol? = null,
+    omitRoomId: Boolean = false,
 ) {
     val fake = FakeP2pKit(PeerId("opening-peer"))
     private val host = Peer(
@@ -553,6 +555,7 @@ private class OpeningFixture(
         expiresAtEpochMillis = kotlin.time.Clock.System.now().toEpochMilliseconds() + 86_400_000L,
         gameId = if (missingGame) null else "fixture-game",
         gameVersion = if (missingGame) null else 1,
+        roomId = if (advertisedGame != null && !omitRoomId) RoomId("a".repeat(32)) else null,
     )
     val offer = ResumableCredentialOffer(
         offerId = if (resume) "opening-offer-2" else initial.offerId,
@@ -565,6 +568,7 @@ private class OpeningFixture(
         expiresAtEpochMillis = initial.expiresAtEpochMillis,
         gameId = initial.gameId,
         gameVersion = initial.gameVersion,
+        roomId = initial.roomId,
     )
 
     suspend fun prepare() {

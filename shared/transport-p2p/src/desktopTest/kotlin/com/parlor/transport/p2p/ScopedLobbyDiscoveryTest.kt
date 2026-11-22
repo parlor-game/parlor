@@ -1,14 +1,18 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.DiscoveredRoom
 import com.parlor.networking.room.LobbyAdvertisement
+import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
+import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
 import dev.p2pkit.core.AppId
@@ -16,6 +20,7 @@ import dev.p2pkit.core.P2pKit
 import dev.p2pkit.core.P2pMessage
 import dev.p2pkit.core.Peer
 import dev.p2pkit.core.PeerId
+import dev.p2pkit.core.PeerIdentity
 import dev.p2pkit.core.Platform
 import dev.p2pkit.core.TransportKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +35,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -99,6 +105,71 @@ class ScopedLobbyDiscoveryTest {
         assertEquals(listOf(selectedRoom.id), attempts)
         assertEquals(1, browser.stopCalls)
         assertEquals(1, joining.stopCalls)
+    }
+
+    @Test
+    fun invitation_requires_the_exact_game_tag_and_authenticates_before_sending_the_code() = runTest {
+        val kit = FakeP2pKit(PeerId("join-by-link"))
+        val unrelated = room("other-game", "K7QX", dominoes)
+        val otherRoom = room("other-room", "ABCD", mafia)
+        val wrongIdentity = room("wrong-fingerprint", "K7QX", mafia)
+        val host = room("actual-host", "K7QX", mafia)
+        val untrusted = FakeP2pSession(wrongIdentity, peerIdentity = PeerIdentity(wrongIdentity.id, fingerprint = null))
+        val session = FakeP2pSession(host)
+        val attempts = mutableListOf<PeerId>()
+        val codec = RoomMessageCodec()
+        val roomId = RoomId("f".repeat(32))
+        val link = assertNotNull(JoinLinkCodec.encode(mafia, roomId, "K7QX", "ABCDEF", kit.localFingerprint.value))
+        val invite = assertIs<JoinLinkCodec.Decoded.Valid>(JoinLinkCodec.decode(link)).invitation
+        kit.peersFlow.value = listOf(unrelated, otherRoom, wrongIdentity)
+        kit.connectHandler = { peer ->
+            attempts += peer.id
+            if (peer.id == wrongIdentity.id) {
+                kit.peersFlow.value += host
+                untrusted
+            } else {
+                session
+            }
+        }
+        session.sendHandler = { frame ->
+            val request = assertIs<PeerMessage.AdmissionRequest>(codec.decode(assertIs<P2pMessage.Binary>(frame).bytes))
+            assertEquals(invite.roomId, request.expectedRoomId)
+            assertEquals(invite.code, request.roomCode)
+            session.incomingFlow.emit(P2pMessage.Binary(
+                codec.encode(HostMessage.AdmissionRejected(AdmissionRejection.HostDeclined)),
+            ))
+        }
+        var created = 0
+        val transport = transport { created++; kit }
+        val config = JoinConfig(invite.code, "Guest", expectedGameProtocol = invite.game, invitation = invite)
+        assertEquals(Result.Failure(NetError.InvalidInput), transport.join(config.copy(expectedGameProtocol = dominoes)))
+        assertEquals(0, created)
+        assertEquals(Result.Failure(NetError.HostDeclined), transport.join(config))
+        assertEquals(listOf(wrongIdentity.id, host.id), attempts)
+        assertTrue(untrusted.sent.isEmpty())
+        assertEquals(kit.localFingerprint, kit.lastExpectedFingerprint)
+    }
+
+    @Test
+    fun host_creates_an_invitation_for_its_active_room_only() = runTest {
+        val kit = FakeP2pKit(PeerId("host"))
+        val transport = transport { kit }
+        val room = assertIs<Result.Success<LocalRoom>>(
+            transport.host(HostConfig("Guest", gameProtocol = mafia)),
+        ).data
+        try {
+            val link = assertNotNull(room.createJoinLink())
+            val invitation = assertIs<JoinLinkCodec.Decoded.Valid>(JoinLinkCodec.decode(link)).invitation
+            assertEquals(mafia, invitation.game)
+            assertEquals(room.info.value.code, invitation.code)
+            assertEquals(room.info.value.roomId, invitation.roomId)
+            assertEquals(room.info.value.roomTag, invitation.roomTag)
+            assertEquals(kit.localFingerprint.value, invitation.hostFingerprint)
+            assertIs<Result.Success<*>>(room.closeAdmissions())
+            assertNull(room.createJoinLink())
+        } finally {
+            room.leave()
+        }
     }
 
     private fun TestScope.transport(kit: () -> P2pKit) = P2pKitRoomTransport(

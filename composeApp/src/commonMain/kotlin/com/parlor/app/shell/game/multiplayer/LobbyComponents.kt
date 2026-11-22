@@ -21,6 +21,7 @@ import com.parlor.app.resources.room_game_host
 import com.parlor.app.resources.room_game_players
 import com.parlor.app.resources.room_game_wait
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.InviteToLobbyButton
 import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.localization.asBidiArgument
@@ -29,7 +30,9 @@ import com.parlor.networking.room.RoomMember
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun LobbyInvitation(code: String, hostName: String, roomTag: String? = null) {
+internal fun LobbyInvitation(
+    code: String, hostName: String, roomTag: String? = null, createLink: (suspend () -> String?)? = null,
+) {
     ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.l, hero = true) {
         Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
             Text(
@@ -41,6 +44,7 @@ internal fun LobbyInvitation(code: String, hostName: String, roomTag: String? = 
             Text(stringResource(Res.string.room_game_code), color = ParlorTheme.colors.textSecondary)
             RoomCodeText(code = code)
             LobbyRoomTag(roomTag)
+            if (roomTag != null && createLink != null) InviteToLobbyButton(createLink)
             Text(stringResource(Res.string.room_game_host, hostName.asBidiArgument()),
                 color = ParlorTheme.colors.textPrimary)
             Text(stringResource(Res.string.lobby_welcome_body), color = ParlorTheme.colors.textSecondary,

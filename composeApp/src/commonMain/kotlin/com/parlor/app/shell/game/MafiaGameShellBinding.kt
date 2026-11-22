@@ -140,14 +140,10 @@ private fun MafiaShellContent(
             },
         )
     }
+    val invitation = launch.joinInvitation
     var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Peer }
-                ?.roomCode
-                .orEmpty(),
-        )
+        mutableStateOf(restoredRoute?.roomCode ?: invitation?.code.orEmpty())
     }
 
     LaunchedEffect(backRequest.id) {
@@ -238,7 +234,11 @@ private fun MafiaShellContent(
             onConfirm = { name ->
                 if (screen == MafiaShellScreen.JoinName) {
                     peerName = name
-                    screen = MafiaShellScreen.JoinPrompt
+                    screen = if (invitation == null) {
+                        MafiaShellScreen.JoinPrompt
+                    } else {
+                        MafiaShellScreen.PeerLobby
+                    }
                 }
             },
             onBack = onExit,
@@ -268,6 +268,7 @@ private fun MafiaShellContent(
                     transport = transport,
                     code = pendingJoinCode,
                     discoveredRoom = discoveredRoom,
+                    invitation = invitation,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
@@ -299,6 +300,7 @@ private fun MafiaShellContent(
 }
 
 private fun GameShellLaunch.initialMafiaScreen(): MafiaShellScreen = when (this) {
+    is GameShellLaunch.JoinByInvitation -> MafiaShellScreen.JoinPermission
     is GameShellLaunch.New -> MafiaShellScreen.Setup
     is GameShellLaunch.ResumeLocal -> MafiaShellScreen.LocalGame
     is GameShellLaunch.ResumeMultiplayer -> MafiaShellScreen.ResumePermission

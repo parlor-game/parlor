@@ -56,6 +56,7 @@ import com.parlor.games.lastlight.resources.md_network_retry
 import com.parlor.games.lastlight.resources.md_network_retry_description
 import com.parlor.games.lastlight.resources.md_back
 import com.parlor.games.lastlight.resources.md_back_description
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
@@ -97,9 +98,10 @@ fun LastLightPeerLobbyFlow(
     backRequestId: Long = 0L,
     modifier: Modifier = Modifier,
     discoveredRoom: DiscoveredRoomSelection? = null,
+    invitation: JoinInvitation? = null,
 ) {
     val sessionOwner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom) {
+    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom, invitation) {
         MultiplayerSessionRoute.peer(
             gameId = LastLightIds.GameId,
             displayName = peerName,
@@ -107,6 +109,7 @@ fun LastLightPeerLobbyFlow(
             resumeExistingSession = resumeExistingSession,
             resumeSelection = resumeSelection,
             discoveredRoom = discoveredRoom,
+            invitation = invitation,
         )
     }
     val ownerState by sessionOwner.state.collectAsState()
@@ -170,6 +173,7 @@ fun LastLightPeerLobbyFlow(
                     displayName = peerName,
                     expectedGameProtocol = HostedGameProtocol(LastLightIds.GameId, LastLightHostRoomBridge.GAME_VERSION),
                     discoveredRoom = route.discoveredRoom,
+                    invitation = route.invitation,
                 ))
                 MultiplayerOpenMode.Host -> error("Peer route requested host acquisition")
             }

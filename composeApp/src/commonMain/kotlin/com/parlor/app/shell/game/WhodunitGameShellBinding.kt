@@ -173,14 +173,10 @@ private fun WhodunitShellContent(
             },
         )
     }
+    val invitation = launch.joinInvitation
     var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Peer }
-                ?.roomCode
-                .orEmpty(),
-        )
+        mutableStateOf(restoredRoute?.roomCode ?: invitation?.code.orEmpty())
     }
 
     LaunchedEffect(backRequest.id) {
@@ -318,7 +314,7 @@ private fun WhodunitShellContent(
             onConfirm = { name ->
                 if (screen == WhodunitShellScreen.JoinName) {
                     peerName = name
-                    screen = WhodunitShellScreen.JoinPrompt
+                    screen = whodunitRouteAfterPeerName(invitation != null)
                 }
             },
             onBack = onExit,
@@ -348,6 +344,7 @@ private fun WhodunitShellContent(
                     transport = transport,
                     code = pendingJoinCode,
                     discoveredRoom = discoveredRoom,
+                    invitation = invitation,
                     peerName = peerName,
                     onBackToLibrary = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
@@ -378,7 +375,11 @@ private fun WhodunitShellContent(
     }
 }
 
+private fun whodunitRouteAfterPeerName(hasInvitation: Boolean): WhodunitShellScreen =
+    if (hasInvitation) WhodunitShellScreen.PeerLobby else WhodunitShellScreen.JoinPrompt
+
 private fun GameShellLaunch.initialWhodunitScreen(): WhodunitShellScreen = when (this) {
+    is GameShellLaunch.JoinByInvitation -> WhodunitShellScreen.JoinPermission
     is GameShellLaunch.New -> WhodunitShellScreen.Setup
     is GameShellLaunch.ResumeLocal -> WhodunitShellScreen.LocalGame
     is GameShellLaunch.ResumeMultiplayer -> WhodunitShellScreen.ResumePermission

@@ -20,6 +20,13 @@ SIL Open Font License notices and source provenance live in
 These game resources are additional to the dependency supplement below; they
 do not replace or alter its exact 26-file verification contract.
 
+## QRCode-Kotlin
+
+The Smart Lobby invitation QR encoder uses QRCode-Kotlin 4.5.0 under MIT.
+The verbatim upstream license ships in
+`shared/design-system/src/commonMain/composeResources/files/licenses/`.
+This is separate from the 26-file dependency supplement.
+
 ## Scope and shipped materials
 
 `composeApp/src/commonMain/composeResources/files/legal/` contains 25 verbatim

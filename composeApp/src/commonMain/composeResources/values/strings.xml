@@ -229,4 +229,7 @@
     <string name="resume_delete_busy">Removing saved session…</string>
     <string name="room_game_approval_expired">This join request expired. Ask the player to join again.</string>
     <string name="room_game_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
+    <string name="invite_busy">Return to the library before opening an invitation.</string>
+    <string name="invite_invalid">This room invitation is invalid.</string>
+    <string name="invite_update_required">Update Parlor or ask the host to use the same version.</string>
 </resources>

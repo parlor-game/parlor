@@ -3,6 +3,7 @@ package com.parlor.session.multidevice
 import com.parlor.core.ids.GameId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
@@ -51,13 +52,30 @@ class MultiplayerSessionRoute private constructor(
     val contentId: String?,
     val modeId: String?,
     val resumeSelection: ResumableSessionSelection?,
-    val discoveredRoom: DiscoveredRoomSelection?,
+    private val joinTarget: JoinTarget?,
 ) {
+    private sealed interface JoinTarget {
+        data class Nearby(val selection: DiscoveredRoomSelection) : JoinTarget
+        data class Pinned(val link: JoinInvitation) : JoinTarget
+    }
+
+    val discoveredRoom: DiscoveredRoomSelection? get() = (joinTarget as? JoinTarget.Nearby)?.selection
+    val invitation: JoinInvitation? get() = (joinTarget as? JoinTarget.Pinned)?.link
+
     init {
         require(gameId.raw.isNotBlank()) { "gameId must not be blank" }
         if (discoveredRoom != null) {
             require(role == MultiplayerSessionRole.Peer && !resumeExistingSession) {
                 "Only a new peer join may carry a discovered room"
+            }
+        }
+        val invite = invitation
+        if (invite != null) {
+            require(role == MultiplayerSessionRole.Peer && !resumeExistingSession) {
+                "Only a new invite join can carry a pinned invitation"
+            }
+            require(invite.game.gameId == gameId && invite.code == roomCode) {
+                "Invite route must preserve the exact game and code"
             }
         }
         when (role) {
@@ -94,7 +112,7 @@ class MultiplayerSessionRoute private constructor(
             contentId == other.contentId &&
             modeId == other.modeId &&
             resumeSelection == other.resumeSelection &&
-            discoveredRoom == other.discoveredRoom
+            joinTarget == other.joinTarget
 
     override fun hashCode(): Int {
         var result = gameId.hashCode()
@@ -105,7 +123,7 @@ class MultiplayerSessionRoute private constructor(
         result = 31 * result + (contentId?.hashCode() ?: 0)
         result = 31 * result + (modeId?.hashCode() ?: 0)
         result = 31 * result + (resumeSelection?.hashCode() ?: 0)
-        result = 31 * result + (discoveredRoom?.hashCode() ?: 0)
+        result = 31 * result + (joinTarget?.hashCode() ?: 0)
         return result
     }
 
@@ -140,7 +158,7 @@ class MultiplayerSessionRoute private constructor(
             contentId = contentId,
             modeId = modeId,
             resumeSelection = null,
-            discoveredRoom = null,
+            joinTarget = null,
         )
 
         fun peer(
@@ -150,17 +168,26 @@ class MultiplayerSessionRoute private constructor(
             resumeExistingSession: Boolean = false,
             resumeSelection: ResumableSessionSelection? = null,
             discoveredRoom: DiscoveredRoomSelection? = null,
-        ): MultiplayerSessionRoute = MultiplayerSessionRoute(
-            gameId = gameId,
-            role = MultiplayerSessionRole.Peer,
-            displayName = displayName,
-            roomCode = roomCode.takeUnless(String::isBlank),
-            resumeExistingSession = resumeExistingSession,
-            contentId = null,
-            modeId = null,
-            resumeSelection = resumeSelection,
-            discoveredRoom = discoveredRoom,
-        )
+            invitation: JoinInvitation? = null,
+        ): MultiplayerSessionRoute {
+            require(discoveredRoom == null || invitation == null) { "A join can have only one target" }
+            val target = when {
+                invitation != null -> JoinTarget.Pinned(invitation)
+                discoveredRoom != null -> JoinTarget.Nearby(discoveredRoom)
+                else -> null
+            }
+            return MultiplayerSessionRoute(
+                gameId = gameId,
+                role = MultiplayerSessionRole.Peer,
+                displayName = displayName,
+                roomCode = roomCode.takeUnless(String::isBlank),
+                resumeExistingSession = resumeExistingSession,
+                contentId = null,
+                modeId = null,
+                resumeSelection = resumeSelection,
+                joinTarget = target,
+            )
+        }
     }
 }
 

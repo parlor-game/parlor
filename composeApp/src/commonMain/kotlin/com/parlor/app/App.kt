@@ -21,6 +21,7 @@ import com.parlor.session.multidevice.ProcessMultiplayerState
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.home_resume_open_failed
 import com.parlor.app.resources.local_resume_failure_discard_failed
+import com.parlor.app.shell.multiplayer.OpenIncomingJoinLink
 import com.parlor.app.shell.game.GameShellLaunch
 import com.parlor.app.shell.game.GameShellBackRequest
 import com.parlor.app.shell.game.GameShellRegistry
@@ -147,6 +148,14 @@ internal fun App(settings: SettingsStore) {
                     router = gameShellRouter,
                 )
 
+                OpenIncomingJoinLink(
+                    active = !visibility.privateContentCovered,
+                    ownerIdle = multiplayerOwnerState is ProcessMultiplayerState.Idle,
+                    openingRecovery = localResumeBusy,
+                    deletingRecovery = deletionState.request != null,
+                    navigator = navigator,
+                    router = gameShellRouter,
+                )
                 AttemptStartupMultiplayerRecovery(
                     recovery = homeRecovery,
                     visibility = visibility.appVisibility,

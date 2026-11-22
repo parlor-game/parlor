@@ -31,6 +31,7 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.InviteToLobbyButton
 import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.components.ParlorContextTone
@@ -388,6 +389,7 @@ private fun LastLightHostLobbyContent(
                             EyebrowLabel(text = stringResource(Res.string.md_host_room_code), accent = false)
                             RoomCodeText(code = info.code)
                             LobbyRoomTag(info.roomTag)
+                            if (info.roomTag != null) InviteToLobbyButton(room::createJoinLink)
                             Text(
                                 text = stringResource(Res.string.md_host_hosting_as_format, hostName),
                                 style = ParlorTheme.typography.bodyMedium,

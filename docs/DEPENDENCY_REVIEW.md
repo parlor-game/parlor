@@ -91,3 +91,15 @@ Before shipping:
 Do not manually copy license names from memory into a release notice. The
 notice must be generated from the exact resolved artifact set and then
 reviewed.
+
+
+## QRCode-Kotlin
+
+Room invites use `io.github.g0dkar:qrcode-kotlin:4.5.0` to encode standard
+QR matrices locally. The shared UI uses the raw matrix only. The Maven
+Central variants for Android, Desktop JVM, iOS arm64, iOS simulator arm64
+and iOS x64 declare only Kotlin stdlib 2.1.21, which resolves to the
+project's existing stdlib. SHA-256 pins cover the publication metadata and
+applicable binaries. The [v4.5.0 MIT license](https://github.com/g0dkar/qrcode-kotlin/blob/v4.5.0/LICENSE)
+ships in the design system resources. The encoder does not receive any
+game state beyond the invite displayed by the host.

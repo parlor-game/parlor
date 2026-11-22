@@ -7,6 +7,10 @@ import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
+import com.parlor.networking.invitation.JoinLinkCodec
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.engine.testing.fakes.RoundRobinAnnounceGame
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,9 +20,30 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /** Desktop-runtime proof that shell resolution executes a third game's content. */
 class GameShellRegistryCompositionTest {
+    @Test
+    fun invitations_can_only_open_the_registered_game_and_its_exact_version() {
+        val definition = RoundRobinAnnounceGame()
+        val binding = RenderingFixtureBinding(definition) { _, _ -> }
+        val router = GameShellRouter(DefaultGameShellRegistry(listOf(binding)))
+        val roomId = RoomId("a".repeat(32))
+        val game = HostedGameProtocol(definition.id, 1)
+        val fingerprint = "p2f1-zlmerarbaugm753v5mvipavkkhwxbvlu3cpx4unzvuvov7zu7dkq"
+        fun invite(target: HostedGameProtocol) = assertIs<JoinLinkCodec.Decoded.Valid>(JoinLinkCodec.decode(
+            assertNotNull(JoinLinkCodec.encode(target, roomId, "K7QX", "ABCDEF", fingerprint)),
+        )).invitation
+
+        val launch = assertNotNull(router.joinByInvitation(invite(game)))
+        assertEquals(game.gameId, launch.gameId)
+        assertEquals(binding, router.bindingFor(launch))
+        assertNull(router.joinByInvitation(invite(game.copy(gameVersion = 2))))
+        assertNull(router.joinByInvitation(invite(game.copy(gameId = GameId("another-game")))))
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun registered_fixture_content_is_composed_by_the_resolved_binding() = runTest {

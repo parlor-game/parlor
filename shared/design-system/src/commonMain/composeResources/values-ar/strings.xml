@@ -17,4 +17,10 @@
     <string name="session_exit_peer_body">ستُحذف عضويتك وبيانات إعادة الانضمام نهائيًا، ولن تتمكن من العودة إلى هذه الجلسة بعد المغادرة.</string>
     <string name="session_exit_peer_confirm">مغادرة الغرفة</string>
     <string name="session_exit_peer_confirm_description">مغادرة غرفة اللعب الجماعي نهائيًا والعودة إلى الصفحة الرئيسية.</string>
+    <string name="lobby_invite_players">ادعُ لاعبين</string>
+    <string name="lobby_invite_qr">رمز QR للغرفة</string>
+    <string name="lobby_invite_help">يجب أن يتصل الجميع بشبكة Wi-Fi نفسها. يحتاج اللاعبون إلى موافقة المضيف.</string>
+    <string name="lobby_invite_share">شارك الدعوة</string>
+    <string name="lobby_invite_close">إغلاق</string>
+    <string name="lobby_invite_unavailable">هذه الغرفة لم تعد تقبل الدعوات.</string>
 </resources>

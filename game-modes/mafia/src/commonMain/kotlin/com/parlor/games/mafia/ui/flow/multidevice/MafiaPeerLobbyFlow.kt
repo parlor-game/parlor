@@ -63,6 +63,7 @@ import com.parlor.games.mafia.resources.md_network_retry
 import com.parlor.games.mafia.resources.md_network_retry_description
 import com.parlor.games.mafia.resources.setup_back
 import com.parlor.games.mafia.resources.setup_back_description
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
@@ -109,9 +110,10 @@ fun MafiaPeerLobbyFlow(
     backRequestId: Long = 0L,
     modifier: Modifier = Modifier,
     discoveredRoom: DiscoveredRoomSelection? = null,
+    invitation: JoinInvitation? = null,
 ) {
     val sessionOwner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom) {
+    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom, invitation) {
         MultiplayerSessionRoute.peer(
             gameId = MafiaIds.GameId,
             displayName = peerName,
@@ -119,6 +121,7 @@ fun MafiaPeerLobbyFlow(
             resumeExistingSession = resumeExistingSession,
             resumeSelection = resumeSelection,
             discoveredRoom = discoveredRoom,
+            invitation = invitation,
         )
     }
     val ownerState by sessionOwner.state.collectAsState()
@@ -184,6 +187,7 @@ fun MafiaPeerLobbyFlow(
                     displayName = peerName,
                     expectedGameProtocol = HostedGameProtocol(MafiaIds.GameId, MafiaHostRoomBridge.GAME_VERSION),
                     discoveredRoom = route.discoveredRoom,
+                    invitation = route.invitation,
                 ))
                 MultiplayerOpenMode.Host -> error("Peer route requested host acquisition")
             }

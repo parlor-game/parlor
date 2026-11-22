@@ -6,6 +6,8 @@ import com.parlor.core.ids.RoomId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinInvitation
+import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
@@ -421,9 +423,13 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 it.owner === this && it.game == config.expectedGameProtocol
             } ?: return Result.Failure(NetError.StaleRoom)
         }
+        val invitation = config.invitation
+        if (invitation != null && !invitation.matches(config)) return Result.Failure(NetError.InvalidInput)
+        val pinnedFingerprint = invitation?.let { PeerFingerprint(it.hostFingerprint) }
         val effectiveConfig = config.copy(
             code = normalizedCode,
             displayName = normalizedName,
+            expectedRoomId = invitation?.roomId ?: config.expectedRoomId,
         )
         _localNetworkAccess.value = LocalNetworkAccess.Attempting
         diagnostics.event(P2pDiagnosticEventName.SESSION_CREATE_STARTED, P2pDiagnosticRole.PEER)
@@ -477,7 +483,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 val visiblePeers = kit.peers.value.filter { peer ->
                     peer.hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis) &&
                         peer.matchesJoinAdvertisement(effectiveConfig.expectedGameProtocol) &&
-                        (selectedRoom == null || selectedRoom.matches(peer))
+                        (selectedRoom == null || selectedRoom.matches(peer)) &&
+                        (invitation == null || peer.compatibleGameAdvertisement(invitation.game)?.roomTag == invitation.roomTag)
                 }
                 if (lastVisibleCount != visiblePeers.size) {
                     lastVisibleCount = visiblePeers.size
@@ -535,7 +542,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 )
                 val session = try {
                     withTimeoutOrNull(remainingDialBudgetMs) {
-                        kit.connect(hostPeer)
+                        if (pinnedFingerprint == null) kit.connect(hostPeer) else kit.connect(hostPeer, pinnedFingerprint)
                     }
                 } catch (@Suppress("TooGenericExceptionCaught") failure: Exception) {
                     failure.rethrowIfCancellation()
@@ -551,6 +558,15 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     scheduler.recordResult(
                         scheduledAttempt,
                         DiscoveryAttemptResult.TransientFailure,
+                        startedAt.elapsedNow().inWholeMilliseconds,
+                    )
+                    continue
+                }
+                if (pinnedFingerprint != null && !session.matchesPinnedHost(hostPeer, pinnedFingerprint)) {
+                    attemptCleanup(diagnostics, P2pDiagnosticRole.PEER) { session.close() }
+                    scheduler.recordResult(
+                        scheduledAttempt,
+                        DiscoveryAttemptResult.WrongRoom,
                         startedAt.elapsedNow().inWholeMilliseconds,
                     )
                     continue
@@ -1578,6 +1594,13 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis)
     }
 
+    private fun JoinInvitation.matches(config: JoinConfig): Boolean =
+        config.discoveredRoom == null && code == config.code && game == config.expectedGameProtocol &&
+            (config.expectedRoomId == null || config.expectedRoomId == roomId)
+
+    private fun P2pSession.matchesPinnedHost(host: Peer, fingerprint: PeerFingerprint): Boolean =
+        peer.id == host.id && peerIdentity.peerId == host.id && peerIdentity.fingerprint == fingerprint
+
     private fun Peer.compatibleGameAdvertisement(game: HostedGameProtocol): LobbyAdvertisement.Entry.GameRoom? =
         (LobbyAdvertisement.parse(name) as? LobbyAdvertisement.Entry.GameRoom)
             ?.takeIf { it.game == game && it.protocol == ProtocolVersion() }
@@ -1879,6 +1902,7 @@ private fun ResumableCredentialOffer.validateAdmissionTarget(
     expectedRoom != null && roomId != expectedRoom -> NetError.StaleRoom
     expectedGame != null && (gameId != expectedGame.gameId.raw || gameVersion != expectedGame.gameVersion) ->
         NetError.IncompatibleProtocol
+    expectedGame != null && roomId == null -> NetError.StaleRoom
     else -> null
 }
 
@@ -1958,6 +1982,14 @@ internal class HostP2pRoom(
     override val info = _info.asStateFlow()
     override val members = _members.asStateFlow()
     override val isHost: Boolean = true
+
+    override suspend fun createJoinLink(): String? = stateMutex.withLock {
+        if (left || admissionsClosed || _lifecycle.value != RoomLifecycleState.Active) return@withLock null
+        val game = gameProtocol ?: return@withLock null
+        val tag = _info.value.roomTag ?: return@withLock null
+        val fingerprint = kit.localFingerprint ?: return@withLock null
+        JoinLinkCodec.encode(game, roomId, tag, roomCode, fingerprint.value)
+    }
     override val peerEvents: SharedFlow<PeerEvent> = _peerEvents.asSharedFlow()
     override val pendingAdmissions = _pendingAdmissions.asStateFlow()
     override val lifecycle = _lifecycle.asStateFlow()

@@ -1,5 +1,6 @@
 package com.parlor.networking.transport
 
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
@@ -41,7 +42,9 @@ interface RoomTransport {
     suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError>
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-        if (config.expectedGameProtocol != null || config.expectedRoomId != null || config.discoveredRoom != null) {
+        if (config.expectedGameProtocol != null || config.expectedRoomId != null ||
+            config.discoveredRoom != null || config.invitation != null
+        ) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
             join(config.code, config.displayName)
@@ -196,6 +199,7 @@ data class JoinConfig(
     val expectedGameProtocol: HostedGameProtocol? = null,
     val expectedRoomId: RoomId? = null,
     val discoveredRoom: DiscoveredRoomSelection? = null,
+    val invitation: JoinInvitation? = null,
 )
 
 data class ResumableSessionInfo(

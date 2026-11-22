@@ -68,6 +68,9 @@ interface LocalRoom {
     val peerEvents: SharedFlow<PeerEvent>
         get() = emptyPeerEvents
 
+    /** Creates a same-LAN invitation while initial admission is open. Host only. */
+    suspend fun createJoinLink(): String? = null
+
     /** Authenticated peers that supplied the correct room code and await host approval. */
     val pendingAdmissions: StateFlow<List<PendingAdmission>>
         get() = emptyPendingAdmissions

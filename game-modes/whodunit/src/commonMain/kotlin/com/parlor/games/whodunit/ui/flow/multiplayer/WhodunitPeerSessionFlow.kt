@@ -74,6 +74,7 @@ import com.parlor.games.whodunit.content.WhodunitCase
 import com.parlor.games.whodunit.content.matches
 import com.parlor.games.whodunit.domain.rules.WhodunitRules
 import com.parlor.games.whodunit.ui.flow.WhodunitMultiplayerPeerFlow
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
@@ -135,12 +136,13 @@ fun WhodunitPeerSessionFlow(
     backRequestId: Long = 0L,
     modifier: Modifier = Modifier,
     discoveredRoom: DiscoveredRoomSelection? = null,
+    invitation: JoinInvitation? = null,
 ) {
     val repository: CaseRepository = koinInject()
     val payloadValidator: PayloadValidator<WhodunitCase> =
         koinInject(qualifier = named("whodunit"))
     val sessionOwner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom) {
+    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom, invitation) {
         MultiplayerSessionRoute.peer(
             gameId = WhodunitIds.GameId,
             displayName = peerName,
@@ -148,6 +150,7 @@ fun WhodunitPeerSessionFlow(
             resumeExistingSession = resumeExistingSession,
             resumeSelection = resumeSelection,
             discoveredRoom = discoveredRoom,
+            invitation = invitation,
         )
     }
     val ownerState by sessionOwner.state.collectAsState()
@@ -215,6 +218,7 @@ fun WhodunitPeerSessionFlow(
                     displayName = peerName,
                     expectedGameProtocol = HostedGameProtocol(WhodunitIds.GameId, WhodunitHostRoomBridge.GAME_VERSION),
                     discoveredRoom = route.discoveredRoom,
+                    invitation = route.invitation,
                 ))
                 MultiplayerOpenMode.Host -> error("Peer route requested host acquisition")
             }
