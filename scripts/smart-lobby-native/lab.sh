@@ -26,7 +26,7 @@ build() {
     [[ "$(uname -m)" == arm64 ]]
     xcodebuild -version | tee "$package/xcode.txt"
     grep -Fxq 'Build version 17C529' "$package/xcode.txt"
-    xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+    xcodebuild -quiet -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
       -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
       -derivedDataPath "$work/parlor-xcode" \
       ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build

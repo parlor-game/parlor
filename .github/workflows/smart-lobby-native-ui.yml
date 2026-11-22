@@ -45,7 +45,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.build) }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
       CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
@@ -67,6 +67,12 @@ jobs:
           python-version: '3.12'
       - name: Build the exact source and bind the binary to it
         shell: bash
+        env:
+          GRADLE_OPTS: >-
+            -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+            -Dorg.gradle.jvmargs=-Xmx4g
+            -Dorg.gradle.parallel=false
+            -Dorg.gradle.workers.max=2
         run: bash scripts/smart-lobby-native/lab.sh build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
