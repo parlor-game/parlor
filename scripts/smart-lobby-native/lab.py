@@ -189,20 +189,32 @@ def start_one(temp, index, device, digest, pairing):
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
-    # Lifecycle startup can log control endpoints. Keep its output outside uploaded paths.
-    try:
-        with (root / "start.log").open("wb") as log:
-            subprocess.run([sys.executable, str(lifecycle), "start"], env=environment,
-                           stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        lines = (root / "start.log").read_text(errors="replace").lower()
-        markers = ("timed out", "screen capture", "accessibility", "booted ios simulator", "mid-session",
-                   "did not report the geometry", "out of alignment", "modulenotfounderror", "no display",
-                   "no supported", "failed to start tunnel", "did not publish")
-        clues = ", ".join(marker for marker in markers if marker in lines)
-        print(f"{target} guest {index} controller startup: {clues or 'no recognized diagnostic marker'}",
-              flush=True)
-        raise
+    # Lifecycle output can contain control endpoints. Send only closed-vocabulary
+    # startup categories to Actions and retain raw output in the job's private dir.
+    markers = (
+        "timed out", "identity", "screen capture", "accessibility", "booted ios simulator",
+        "mid-session", "did not report the geometry", "out of alignment", "modulenotfounderror",
+        "no display", "no supported", "failed to start tunnel", "did not publish", "connection refused",
+        "rate limit", "too many requests", "failed to fetch", "cloudflared", "device offline",
+        "device not found", "no devices/emulators found", "cannot connect", "permission denied",
+        "temporary failure", "address already in use", "screenshot", "http 429", "status 429",
+    )
+    for attempt in range(1, 3):
+        logfile = root / f"start-{attempt}.log"
+        try:
+            with logfile.open("wb") as log:
+                subprocess.run([sys.executable, str(lifecycle), "start"], env=environment,
+                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
+            break
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            lines = logfile.read_text(errors="replace").lower()
+            clues = ", ".join(marker for marker in markers if marker in lines)
+            print(f"{target} guest {index} controller startup attempt {attempt}: "
+                  f"{clues or 'no recognized diagnostic marker'}", flush=True)
+            # Never retry after a session receipt could already have been issued.
+            if target != "android" or attempt == 2 or any(root.glob("ui-session-*")):
+                raise
+            time.sleep(4 + index)
     connection, = root.glob("ui-session-*/connection.json")
     data = json.loads(connection.read_text())
     origin = urlsplit(data["url"])
@@ -237,7 +249,7 @@ def start():
         # between their named simulator windows; multiple controllers would compete for focus.
         devices, digests = devices[:1], digests[:1]
     (temp / "parlor-connections").mkdir()
-    with ThreadPoolExecutor(max_workers=len(devices)) as pool:
+    with ThreadPoolExecutor(max_workers=min(2, len(devices))) as pool:
         jobs = [pool.submit(start_one, temp, index, device, digest, pairing)
                 for index, (device, digest) in enumerate(zip(devices, digests), 1)]
         for job in jobs:
