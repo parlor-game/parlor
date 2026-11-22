@@ -1,5 +1,9 @@
 package com.parlor.games.wordimpostor.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,9 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import com.parlor.designsystem.localization.asBidiArgument
+import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.PlayerId
+import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.InPlaceBackHandler
+import com.parlor.designsystem.components.SectionDivider
+import com.parlor.designsystem.localization.asBidiArgument
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.wordimpostor.domain.WordImpostorAction
 import com.parlor.games.wordimpostor.domain.WordImpostorPhase
 import com.parlor.games.wordimpostor.domain.WordImpostorState
@@ -20,6 +28,7 @@ import com.parlor.games.wordimpostor.domain.WordRole
 import com.parlor.games.wordimpostor.resources.Res
 import com.parlor.games.wordimpostor.resources.wi_cancel
 import com.parlor.games.wordimpostor.resources.wi_champions
+import com.parlor.games.wordimpostor.resources.wi_correct_voters
 import com.parlor.games.wordimpostor.resources.wi_guess_confirm
 import com.parlor.games.wordimpostor.resources.wi_guess_count
 import com.parlor.games.wordimpostor.resources.wi_guess_hint
@@ -33,7 +42,6 @@ import com.parlor.games.wordimpostor.resources.wi_lock_guess
 import com.parlor.games.wordimpostor.resources.wi_lock_vote
 import com.parlor.games.wordimpostor.resources.wi_next
 import com.parlor.games.wordimpostor.resources.wi_no_correct_voters
-import com.parlor.games.wordimpostor.resources.wi_correct_voters
 import com.parlor.games.wordimpostor.resources.wi_rematch
 import com.parlor.games.wordimpostor.resources.wi_result
 import com.parlor.games.wordimpostor.resources.wi_reveal
@@ -53,17 +61,28 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun WordVoting(
-    state: WordImpostorState, self: PlayerId, enabled: Boolean, privacyEpoch: Long, onAction: (WordImpostorAction) -> Unit,
+    state: WordImpostorState,
+    self: PlayerId,
+    enabled: Boolean,
+    privacyEpoch: Long,
+    onAction: (WordImpostorAction) -> Unit,
 ) {
     var selected by remember(state.public.token, privacyEpoch) { mutableStateOf<PlayerId?>(null) }
     InPlaceBackHandler(selected != null) { selected = null }
     WordTitle(stringResource(Res.string.wi_voting))
-    WordBody(stringResource(Res.string.wi_voted_count, state.public.voted.size, state.players.size),
-        Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-    WordPanel {
+    WordBody(
+        text = stringResource(Res.string.wi_voted_count, state.public.voted.size, state.players.size),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    )
+    WordPanel(hero = selected != null) {
         if (self in state.public.voted) {
             WordEmblem(false, Modifier.align(Alignment.CenterHorizontally))
-            WordBody(stringResource(Res.string.wi_vote_recorded))
+            WordBody(
+                text = stringResource(Res.string.wi_vote_recorded),
+                emphasized = true,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             val target = selected
             if (target == null) {
@@ -84,7 +103,11 @@ internal fun WordVoting(
 
 @Composable
 internal fun WordGuessing(
-    state: WordImpostorState, self: PlayerId, enabled: Boolean, privacyEpoch: Long, onAction: (WordImpostorAction) -> Unit,
+    state: WordImpostorState,
+    self: PlayerId,
+    enabled: Boolean,
+    privacyEpoch: Long,
+    onAction: (WordImpostorAction) -> Unit,
 ) {
     val own = state.privatePerPlayer.getValue(self)
     // Guesses/role screens do not survive recovery or an interrupted app surface.
@@ -95,14 +118,14 @@ internal fun WordGuessing(
     }
     WordTitle(stringResource(Res.string.wi_guessing))
     WordBody(stringResource(Res.string.wi_guess_count, state.public.guessCount, state.public.settings.impostors))
-    WordPanel {
+    WordPanel(hero = revealed) {
         when {
             !revealed -> {
                 WordBody(stringResource(Res.string.wi_reveal_hint))
                 WordButton(stringResource(Res.string.wi_reveal), enabled) { revealed = true }
             }
             own.role != WordRole.Impostor -> WordBody(stringResource(Res.string.wi_guess_wait))
-            own.guess != null -> WordBody(stringResource(Res.string.wi_guess_recorded))
+            own.guess != null -> WordBody(stringResource(Res.string.wi_guess_recorded), emphasized = true)
             else -> {
                 val choice = selected
                 WordBody(stringResource(Res.string.wi_guess_hint))
@@ -130,52 +153,99 @@ internal fun WordGuessing(
 @Composable
 private fun WordVoteCounts(state: WordImpostorState) {
     val counts = checkNotNull(state.public.voteCounts)
-    WordBody(stringResource(Res.string.wi_vote_counts))
-    state.players.sortedByDescending { counts.getValue(it.id) }.forEach { player ->
-        WordScoreBar(stringResource(Res.string.wi_vote_count, player.displayName.asBidiArgument(), counts.getValue(player.id)),
-            counts.getValue(player.id), state.players.size)
+    WordPanel {
+        EyebrowLabel(text = stringResource(Res.string.wi_vote_counts), accent = false)
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            state.players.sortedByDescending { counts.getValue(it.id) }.forEach { player ->
+                WordScoreBar(
+                    label = stringResource(Res.string.wi_vote_count, player.displayName.asBidiArgument(), counts.getValue(player.id)),
+                    score = counts.getValue(player.id),
+                    maximum = state.players.size,
+                )
+            }
+        }
     }
 }
 
 @Composable
-internal fun WordResults(state: WordImpostorState, host: Boolean, enabled: Boolean, onAction: (WordImpostorAction) -> Unit) {
+internal fun WordResults(
+    state: WordImpostorState,
+    host: Boolean,
+    enabled: Boolean,
+    onAction: (WordImpostorAction) -> Unit,
+) {
     val result = checkNotNull(state.public.result)
     val matchFinished = state.phase == WordImpostorPhase.MatchResult
+    val highScore = state.public.scores.values.max()
     if (matchFinished) {
-        val high = state.public.scores.values.max()
-        val winners = state.players.filter { state.public.scores.getValue(it.id) == high }.map { it.id }.toSet()
+        val winners = state.players.filter { state.public.scores.getValue(it.id) == highScore }.map { it.id }.toSet()
         WordTitle(stringResource(Res.string.wi_champions, state.names(winners)))
     } else {
         WordTitle(stringResource(Res.string.wi_result))
     }
 
-    WordPanel {
-        WordBody(stringResource(Res.string.wi_word_was))
-        WordTitle(stringResource(WordContentResources.word(result.wordId)))
-        WordBody(stringResource(Res.string.wi_impostors_were, state.names(result.impostors)))
+    WordPanel(hero = true) {
+        EyebrowLabel(text = stringResource(Res.string.wi_word_was), accent = true)
+        Text(
+            text = stringResource(WordContentResources.word(result.wordId)),
+            style = ParlorTheme.typography.displayLarge,
+            color = ParlorTheme.colors.textPrimary,
+        )
+        SectionDivider()
+        WordBody(
+            text = stringResource(Res.string.wi_impostors_were, state.names(result.impostors)),
+            emphasized = true,
+        )
     }
+
     if (host) {
         WordButton(stringResource(if (matchFinished) Res.string.wi_rematch else Res.string.wi_next), enabled) {
-            onAction(if (matchFinished) WordImpostorAction.Rematch(state.public.token)
-                else WordImpostorAction.NextRound(state.public.token))
+            onAction(
+                if (matchFinished) WordImpostorAction.Rematch(state.public.token)
+                else WordImpostorAction.NextRound(state.public.token),
+            )
         }
     } else {
-        WordBody(stringResource(Res.string.wi_wait_host))
+        WordStatusPill(text = stringResource(Res.string.wi_wait_host), accent = false)
     }
 
     WordPanel {
-        WordBody(if (result.correctVoters.isEmpty()) stringResource(Res.string.wi_no_correct_voters) else
-            stringResource(Res.string.wi_correct_voters, state.names(result.correctVoters)))
+        WordBody(
+            text = if (result.correctVoters.isEmpty()) stringResource(Res.string.wi_no_correct_voters)
+                else stringResource(Res.string.wi_correct_voters, state.names(result.correctVoters)),
+            emphasized = result.correctVoters.isNotEmpty(),
+        )
         state.players.filter { it.id in result.impostors }.forEach { player ->
-            WordBody(stringResource(Res.string.wi_guess_result, player.displayName.asBidiArgument(),
-                stringResource(WordContentResources.word(result.guesses.getValue(player.id))), result.awarded.getValue(player.id)))
+            WordBody(
+                stringResource(
+                    Res.string.wi_guess_result,
+                    player.displayName.asBidiArgument(),
+                    stringResource(WordContentResources.word(result.guesses.getValue(player.id))),
+                    result.awarded.getValue(player.id),
+                ),
+            )
         }
     }
+
     WordVoteCounts(state)
-    WordBody(stringResource(Res.string.wi_scoreboard))
-    state.players.sortedByDescending { state.public.scores.getValue(it.id) }.forEach { player ->
-        WordScoreBar(stringResource(Res.string.wi_score, player.displayName.asBidiArgument(),
-            state.public.scores.getValue(player.id), result.awarded.getValue(player.id)),
-            state.public.scores.getValue(player.id), state.public.settings.rounds)
+
+    WordPanel {
+        EyebrowLabel(text = stringResource(Res.string.wi_scoreboard), accent = true)
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            state.players.sortedByDescending { state.public.scores.getValue(it.id) }.forEach { player ->
+                val playerScore = state.public.scores.getValue(player.id)
+                WordScoreBar(
+                    label = stringResource(
+                        Res.string.wi_score,
+                        player.displayName.asBidiArgument(),
+                        playerScore,
+                        result.awarded.getValue(player.id),
+                    ),
+                    score = playerScore,
+                    maximum = state.public.settings.rounds,
+                    highlight = matchFinished && playerScore == highScore && highScore > 0,
+                )
+            }
+        }
     }
 }
