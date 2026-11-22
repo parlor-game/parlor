@@ -49,6 +49,7 @@ jobs:
           adb -s emulator-5554 shell settings put system font_scale 1.0
           adb -s emulator-5554 shell wm size 1080x2400
           adb -s emulator-5554 shell wm density 420
+          adb -s emulator-5554 install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk
           python3 scripts/android/capture_public_screens.py --device emulator-5554 --output evidence/screenshots/android
           printf '{"platform":"Android Emulator","runner":"ubuntu-24.04","device":"Pixel 2 API 35 x86_64","viewport_px":"1080x2400","font_scale":1.0,"source_sha":"%s","method":"adb install/launch, uiautomator accessibility-tree targeting, adb screencap"}\n' "$(git rev-parse HEAD)" > evidence/screenshots/android/provenance.json
       - name: Upload Android emulator PNG evidence
