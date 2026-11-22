@@ -51,6 +51,7 @@ boot_android_group() {
   local index port serial major minor
   export ANDROID_AVD_HOME="$work/parlor-avds"
   mkdir -p "$ANDROID_AVD_HOME"
+  export PATH="$ANDROID_HOME/platform-tools:$PATH"
   test -c /dev/kvm
   sudo chmod a+rw /dev/kvm
   "$sdk/sdkmanager" emulator platform-tools "$image"
@@ -59,6 +60,7 @@ boot_android_group() {
   IFS=. read -r major minor _ < <(sed -n 's/^Pkg.Revision *= *//p' "$ANDROID_HOME/emulator/source.properties")
   (( major > 36 || (major == 36 && minor >= 5) ))
   awk -v count="$DEVICE_COUNT" '/^MemAvailable:/ {exit !($2 >= (count * 2 + 3) * 1024 * 1024)}' /proc/meminfo
+  adb version > "$proof/adb-version.txt"
   adb start-server
   for ((index=0; index<DEVICE_COUNT; index++)); do
     port=$((5554 + 2 * index))
@@ -189,6 +191,12 @@ install() {
 
 cleanup() {
   python3 "$verification" stop
+  if [[ "$TARGET" == android ]]; then
+    for emulator_log in "$work"/parlor-emulator-*.log; do
+      [[ -f "$emulator_log" ]] || continue
+      grep -Ei '(^|: )(ERROR|PANIC|FATAL)( |:)' "$emulator_log" | tail -50         > "$proof/${emulator_log##*/}.errors.txt" || true
+    done
+  fi
   if [[ "$LAB_PAIRING" == mixed ]]; then
     (cd "$LAN_UI_DIR" && bash verification/mobile-lan/trial.sh cleanup "$TARGET")
   elif [[ -f "$devices" ]]; then
