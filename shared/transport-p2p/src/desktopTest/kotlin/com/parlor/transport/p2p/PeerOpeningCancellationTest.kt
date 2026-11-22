@@ -9,6 +9,7 @@ import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ResumableCredentialOffer
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.NetError
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
@@ -62,7 +63,7 @@ class PeerOpeningCancellationTest {
 
     @Test
     fun an_offer_without_the_selected_room_identity_cannot_install_membership() = runTest {
-        val fixture = OpeningFixture(backgroundScope, resume = false)
+        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame)
         fixture.prepare()
         try {
             val result = fixture.transport.join(JoinConfig(
@@ -84,7 +85,7 @@ class PeerOpeningCancellationTest {
 
     @Test
     fun matchingGameAdmissionConfirmsAndRetainsTheSelectedBinding() = runTest {
-        val fixture = OpeningFixture(backgroundScope, resume = false)
+        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame)
         fixture.prepare()
         val joined = fixture.transport.join(JoinConfig(
             code = "ABCDEF", displayName = "Alice",
@@ -106,7 +107,7 @@ class PeerOpeningCancellationTest {
         expected: HostedGameProtocol,
         missingGame: Boolean = false,
     ) {
-        val fixture = OpeningFixture(backgroundScope, resume = false, missingGame = missingGame)
+        val fixture = OpeningFixture(backgroundScope, resume = false, missingGame = missingGame, advertisedGame = expected)
         fixture.prepare()
         try {
             assertEquals(Result.Failure(NetError.IncompatibleProtocol), fixture.transport.join(JoinConfig(
@@ -485,15 +486,22 @@ class PeerOpeningCancellationTest {
 }
 
 /** Drives the production adapter and codec, not a replacement room/session owner. */
+private val fixtureGame = HostedGameProtocol(GameId("fixture-game"), 1)
+
 private class OpeningFixture(
     scope: CoroutineScope,
     private val resume: Boolean,
     missingGame: Boolean = false,
+    advertisedGame: HostedGameProtocol? = null,
 ) {
     val fake = FakeP2pKit(PeerId("opening-peer"))
     private val host = Peer(
         id = PeerId("opening-host"),
-        name = "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Synthetic Host",
+        name = if (advertisedGame == null) {
+            "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Synthetic Host"
+        } else {
+            checkNotNull(LobbyAdvertisement.encodeGame(advertisedGame, "K7QX"))
+        },
         platform = Platform.UNKNOWN,
         supportedTransports = setOf(TransportKind.LAN),
     )

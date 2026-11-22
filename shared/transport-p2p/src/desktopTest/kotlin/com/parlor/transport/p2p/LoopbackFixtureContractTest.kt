@@ -174,6 +174,7 @@ class LoopbackFixtureContractTest {
         val kits = mutableListOf<FakeP2pKit>()
         private val rooms = mutableListOf<LocalRoom>()
         private val hostKit = FakeP2pKit(PeerId("fixture-host")).also(kits::add)
+        private lateinit var hostAdvertisement: String
 
         fun own(room: LocalRoom) { rooms += room }
 
@@ -185,7 +186,7 @@ class LoopbackFixtureContractTest {
 
         fun peer(host: LocalRoom, name: String): Device {
             val kit = FakeP2pKit(PeerId("fixture-$name")).also(kits::add)
-            val hostPeer = peerInfo(PeerId(host.selfPlayerId.raw), "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host")
+            val hostPeer = peerInfo(PeerId(host.selfPlayerId.raw), hostAdvertisement)
             val hostSide = FakeP2pSession(peerInfo(kit.localPeerId, name))
             val peerSide = FakeP2pSession(hostPeer)
             val toHost = linkedEndpoint(peerSide, hostSide)
@@ -217,7 +218,10 @@ class LoopbackFixtureContractTest {
         private fun device(kit: FakeP2pKit): LoopbackDeviceFixture = LoopbackDeviceFixture(
             StandardTestDispatcher(scope.testScheduler),
             object : P2pKitFactory {
-                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit = kit
+                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit {
+                    if (kit === hostKit) hostAdvertisement = deviceName
+                    return kit
+                }
             },
         )
     }

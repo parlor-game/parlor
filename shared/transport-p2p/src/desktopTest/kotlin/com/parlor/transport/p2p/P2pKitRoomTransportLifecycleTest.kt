@@ -28,6 +28,7 @@ import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.protocol.SessionEnvelopeHeader
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomInfo
@@ -3852,11 +3853,20 @@ class P2pKitRoomTransportLifecycleTest {
     }
 
     @Test
-    fun scoped_join_sends_the_selected_game_and_stops_on_wrong_game() = runBlocking {
+    fun scoped_join_dials_only_a_compatible_game_and_still_checks_authenticated_admission() = runBlocking {
         val kit = FakeP2pKit(P2pPeerId("self-pid"))
-        val hostPeer = peer("host-pid", "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host")
-        val session = FakeP2pSession(hostPeer)
         val selected = HostedGameProtocol(GameId("mafia"), 2)
+        val hostPeer = peer("host-pid", checkNotNull(LobbyAdvertisement.encodeGame(selected, "K7QX")))
+        val session = FakeP2pSession(hostPeer)
+        val wrongGame = selected.copy(gameId = GameId("word-impostor"))
+        val wrongVersion = selected.copy(gameVersion = 1)
+        val nearby = listOf(
+            peer("other-game", checkNotNull(LobbyAdvertisement.encodeGame(wrongGame, "K7QX"))),
+            peer("other-version", checkNotNull(LobbyAdvertisement.encodeGame(wrongVersion, "K7QX"))),
+            peer("old-protocol", checkNotNull(LobbyAdvertisement.encodeGame(selected, "K7QX", ProtocolVersion(4, 2)))),
+            peer("legacy", "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host"),
+            peer("party", "parlor-lobby|1|5.0|p|-|-|K7QX"),
+        )
         session.sendHandler = { message ->
             val request = codec.decode((message as P2pMessage.Binary).bytes) as PeerMessage.AdmissionRequest
             assertThat(request.expectedGame).isEqualTo(GameProtocolRef(selected.gameId, selected.gameVersion))
@@ -3864,8 +3874,12 @@ class P2pKitRoomTransportLifecycleTest {
                 P2pMessage.Binary(codec.encode(HostMessage.AdmissionRejected(AdmissionRejection.WrongGame))),
             )
         }
-        kit.connectHandler = { session }
-        kit.peersFlow.value = listOf(hostPeer)
+        val attempts = mutableListOf<P2pPeerId>()
+        kit.connectHandler = { candidate ->
+            attempts += candidate.id
+            session
+        }
+        kit.peersFlow.value = nearby + hostPeer
         val transport = P2pKitRoomTransport(
             appId = AppId("com.parlor.test"),
             deviceName = "self-device",
@@ -3878,6 +3892,7 @@ class P2pKitRoomTransportLifecycleTest {
 
         assertThat(transport.join(JoinConfig("ABCDEF", "Alice", expectedGameProtocol = selected)))
             .isEqualTo(Result.Failure(NetError.WrongGame))
+        assertThat(attempts).containsExactly(hostPeer.id)
         assertThat(kit.stopCalls).isEqualTo(1)
     }
 

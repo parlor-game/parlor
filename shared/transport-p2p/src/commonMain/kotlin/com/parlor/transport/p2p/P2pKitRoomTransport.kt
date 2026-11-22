@@ -17,6 +17,7 @@ import com.parlor.networking.protocol.ResumableCredentialOffer
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.ForegroundConnectionValidator
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PendingAdmission
@@ -97,7 +98,7 @@ private const val MAX_STAGED_TERMINAL_FRAMES: Int =
  *
  * The mapping:
  *  - **host(config)** generates a short room code, builds a P2pKit with the
- *    `lan()` transport, advertises only a generic Parlor service name,
+ *    `lan()` transport, advertises the exact game and protocol,
  *    and returns a [HostP2pRoom]. Approved inbound sessions become Parlor
  *    [RoomMember]s; outbound `HostMessage` rides each session's binary channel.
  *  - **join(code, displayName)** builds a P2pKit with `lan()`, discovers
@@ -269,13 +270,12 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         if (!RoomInputPolicy.isValidDisplayName(hostDisplayName)) {
             return Result.Failure(NetError.InvalidInput)
         }
+        val advertisedDeviceName = hostAdvertisement(config.gameProtocol)
+            ?: return Result.Failure(NetError.InvalidInput)
         _localNetworkAccess.value = LocalNetworkAccess.Attempting
         diagnostics.event(P2pDiagnosticEventName.SESSION_CREATE_STARTED, P2pDiagnosticRole.HOST)
         return try {
             val roomCode = generateRoomCode()
-            // The low-entropy admission code never leaves the encrypted
-            // channel. Discovery advertises only a generic Parlor room.
-            val advertisedDeviceName = "$P2P_ROOM_PREFIX$deviceName"
             val lifecycleRegistrationId = SecureIds.id128()
             val kit = kitFactory.createKit(
                 appId = appId,
@@ -417,8 +417,9 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             var lastVisibleCount: Int? = null
             while (result == null && startedAt.elapsedNow().inWholeMilliseconds < joinTimeoutMs) {
                 val elapsedMs = startedAt.elapsedNow().inWholeMilliseconds
-                val visiblePeers = kit.peers.value.filter {
-                    it.isCurrentParlorHost(kit, discoveryStartedAtEpochMillis)
+                val visiblePeers = kit.peers.value.filter { peer ->
+                    peer.hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis) &&
+                        peer.matchesJoinAdvertisement(effectiveConfig.expectedGameProtocol)
                 }
                 if (lastVisibleCount != visiblePeers.size) {
                     lastVisibleCount = visiblePeers.size
@@ -1514,9 +1515,19 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         kit: P2pKit,
         discoveryStartedAtEpochMillis: Long,
     ): Boolean {
-        if (!name.startsWith(P2P_ROOM_PREFIX)) {
-            return false
+        val entry = LobbyAdvertisement.parse(name)
+        return (entry is LobbyAdvertisement.Entry.GameRoom || entry == LobbyAdvertisement.Entry.Legacy) &&
+            hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis)
+    }
+
+    private fun Peer.matchesJoinAdvertisement(game: HostedGameProtocol?): Boolean =
+        when (val entry = LobbyAdvertisement.parse(name)) {
+            is LobbyAdvertisement.Entry.GameRoom -> entry.game == game && entry.protocol == ProtocolVersion()
+            LobbyAdvertisement.Entry.Legacy -> game == null
+            else -> false
         }
+
+    private fun Peer.hasFreshAdvertisement(kit: P2pKit, discoveryStartedAtEpochMillis: Long): Boolean {
         // The caller always reads kit.peers, so native Lost still removes a
         // candidate immediately. Reject observations already stale at this
         // operation's start, not a current observation merely growing older.
@@ -1540,13 +1551,22 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     private inline fun nowMillis(): Long =
         kotlin.time.Clock.System.now().toEpochMilliseconds()
 
+    private fun hostAdvertisement(game: HostedGameProtocol?): String? {
+        if (game == null) return "$P2P_ROOM_PREFIX$deviceName"
+        val roomTag = SecureIds.randomCharacters(
+            length = LobbyAdvertisement.ROOM_TAG_LENGTH,
+            alphabet = RoomInputPolicy.ROOM_CODE_ALPHABET,
+        )
+        return LobbyAdvertisement.encodeGame(game, roomTag)
+    }
+
     private fun generateRoomCode(): String = SecureIds.randomCharacters(
         length = RoomInputPolicy.ROOM_CODE_LENGTH,
         alphabet = RoomInputPolicy.ROOM_CODE_ALPHABET,
     )
 
     companion object {
-        const val P2P_ROOM_PREFIX = "parlor-room|"
+        const val P2P_ROOM_PREFIX = LobbyAdvertisement.LEGACY_PREFIX
         /** Discovery, dial, secure handshake and first admission-state response budget. */
         internal const val DEFAULT_JOIN_TIMEOUT_MS: Long = 30_000L
         internal const val DIAL_AND_HANDSHAKE_TIMEOUT_MS: Long = 5_000L
