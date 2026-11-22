@@ -13,6 +13,7 @@ import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
+import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
@@ -152,6 +153,34 @@ class PartyHostRoomBindingTest {
         assertEquals(Result.Failure(NetError.StaleRoom), owner.leave(host))
         assertEquals(1, requireNotNull(lastRoom).leaveCount)
         assertNull(owner.session.value)
+    }
+
+    @Test
+    fun rematch_label_source_tracks_completed_games_without_reclassifying_a_switch() = runTest {
+        val room = HostRoom()
+        val host = ProcessPartySession.Host(room, mafia, setOf(mafia, word), backgroundScope, roomName = null)
+        try {
+            room.members.value = listOf(RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList()))
+            runCurrent()
+            for ((index, reason) in listOf(SessionEndReason.Cancelled, SessionEndReason.Completed).withIndex()) {
+                val revision = room.sent.filterIsInstance<HostMessage.PartySnapshot>().last().revision
+                room.messages.send(ready(index + 1L, revision))
+                runCurrent()
+
+                val session = assertIs<Result.Success<*>>(host.start()).data
+                assertEquals(host.match.value, session)
+                val matchId = checkNotNull(room.frozen)
+                assertEquals(Result.Success(Unit), host.confirmStarted(matchId))
+                assertEquals(Result.Success(Unit), host.returnToLobby(matchId, reason))
+                assertEquals(mafia.protocol.gameId.takeIf { reason == SessionEndReason.Completed }, host.lastCompletedGame.value)
+                runCurrent()
+            }
+
+            assertEquals(Result.Success(Unit), host.selectGame(word))
+            assertEquals(mafia.protocol.gameId, host.lastCompletedGame.value)
+        } finally {
+            host.leave()
+        }
     }
 
     private fun ready(sequence: Long, revision: Long) = PeerMessage.PartySetReady(
