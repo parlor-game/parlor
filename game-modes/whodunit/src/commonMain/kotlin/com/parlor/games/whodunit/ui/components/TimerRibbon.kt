@@ -78,11 +78,13 @@ fun TimerRibbon(
             }
             .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.m),
     ) {
-        Text(
-            text = statusLabel,
-            style = ParlorTheme.typography.labelSmall,
-            color = if (urgent) colors.textOnAccent else colors.textSecondary,
-        )
+        if (paused || urgent) {
+            Text(
+                text = statusLabel,
+                style = ParlorTheme.typography.labelSmall,
+                color = if (urgent) colors.textOnAccent else colors.textSecondary,
+            )
+        }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
