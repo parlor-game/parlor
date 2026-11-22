@@ -74,11 +74,11 @@ boot_android_group() {
   local memory_mib=2048 cpu_cores=2
   local display=()
   if (( DEVICE_COUNT > 3 )); then
+    # Bound guest CPU pressure on the four-core Linux runner. The last
+    # five-seat fleet lost its runner during fifth-guest boot at two vCPUs.
     memory_mib=1536
-    display=(-skin 720x1280)
-  fi
-  if (( DEVICE_COUNT == 6 )); then
     cpu_cores=1
+    display=(-skin 720x1280)
   fi
   awk -v count="$DEVICE_COUNT" -v memory="$memory_mib" '
     /^MemAvailable:/ {
