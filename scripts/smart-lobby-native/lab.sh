@@ -59,7 +59,14 @@ boot_android_group() {
   "$emulator" -version > "$proof/emulator-version.txt"
   IFS=. read -r major minor _ < <(sed -n 's/^Pkg.Revision *= *//p' "$ANDROID_HOME/emulator/source.properties")
   (( major > 36 || (major == 36 && minor >= 5) ))
-  awk -v count="$DEVICE_COUNT" '/^MemAvailable:/ {exit !($2 >= (count * 2 + 3) * 1024 * 1024)}' /proc/meminfo
+  local memory_mib=2048 cpu_cores=2
+  if (( DEVICE_COUNT > 3 )); then memory_mib=1536; cpu_cores=1; fi
+  awk -v count="$DEVICE_COUNT" -v memory="$memory_mib" '
+    /^MemAvailable:/ {
+      print "available_kib=" $2
+      print "required_kib=" (count * memory + 3072) * 1024
+      exit !($2 >= (count * memory + 3072) * 1024)
+    }' /proc/meminfo | tee "$proof/host-memory.txt"
   adb version > "$proof/adb-version.txt"
   adb start-server
   for ((index=0; index<DEVICE_COUNT; index++)); do
@@ -68,7 +75,7 @@ boot_android_group() {
     if adb -s "$serial" get-state >/dev/null 2>&1; then return 1; fi
     echo no | "$sdk/avdmanager" create avd --name "parlor-$index" --package "$image" --device pixel_4
     "$emulator" -avd "parlor-$index" -port "$port" -no-window -no-audio -no-snapshot \
-      -no-boot-anim -memory 2048 -cores 2 -gpu swiftshader_indirect \
+      -no-boot-anim -memory "$memory_mib" -cores "$cpu_cores" -gpu swiftshader_indirect \
       > "$work/parlor-emulator-$port.log" 2>&1 &
     printf '%s\n' "$!" >> "$work/parlor-emulator-pids"
     printf '%s\n' "$serial" >> "$devices"
