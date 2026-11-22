@@ -1,6 +1,7 @@
 package com.parlor.networking.invitation
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.transport.HostedGameProtocol
@@ -9,6 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class JoinLinkCodecTest {
     private val roomId = RoomId("1".repeat(32))
@@ -48,6 +50,21 @@ class JoinLinkCodecTest {
             canonical + "x".repeat(256),
         )
         invalid.forEach { assertIs<JoinLinkCodec.Decoded.Invalid>(JoinLinkCodec.decode(it)) }
+    }
+
+    @Test
+    fun party_links_are_bound_to_the_group_and_cannot_decode_as_game_links() {
+        val partyId = PartyId("a".repeat(32))
+        val link = assertNotNull(JoinLinkCodec.encodeParty(partyId, roomId, "K7QX", "ABCDEF", fingerprint))
+        val found = assertNotNull(JoinLinkCodec.decodeParty(link))
+        assertEquals(PartyJoinInvitation(partyId, roomId, "K7QX", "ABCDEF", fingerprint), found)
+        assertFalse(found.toString().contains(partyId.raw) || found.toString().contains(found.code))
+        assertIs<JoinLinkCodec.Decoded.IncompatibleVersion>(JoinLinkCodec.decode(link))
+        assertNull(JoinLinkCodec.decodeParty(canonical))
+        assertNull(JoinLinkCodec.decodeParty(link + "&g=mafia"))
+        assertNull(JoinLinkCodec.decodeParty(link + "&party=" + partyId.raw))
+        assertNull(JoinLinkCodec.decodeParty(link.replace("p=5.0", "p=4.3")))
+        assertNull(JoinLinkCodec.decodeParty(link.replace(partyId.raw, "G".repeat(32))))
     }
 
     @Test

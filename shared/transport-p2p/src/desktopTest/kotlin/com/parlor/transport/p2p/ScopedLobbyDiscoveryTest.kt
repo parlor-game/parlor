@@ -1,6 +1,7 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
@@ -9,6 +10,8 @@ import com.parlor.networking.protocol.AdmissionLobbyInfo
 import com.parlor.networking.protocol.AdmissionRejection
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.DiscoveredRoom
@@ -151,6 +154,48 @@ class ScopedLobbyDiscoveryTest {
         assertEquals(listOf(wrongIdentity.id, host.id), attempts)
         assertTrue(untrusted.sent.isEmpty())
         assertEquals(kit.localFingerprint, kit.lastExpectedFingerprint)
+    }
+
+    @Test
+    fun pinned_party_link_checks_party_and_room_without_dialing_game_rooms_with_the_same_tag() = runTest {
+        val kit = FakeP2pKit(PeerId("join-party"))
+        val tag = "K7QX"
+        val partyId = PartyId("a".repeat(32))
+        val roomId = RoomId("f".repeat(32))
+        val sameTagGame = room("game-room", tag, mafia)
+        val partyHost = room("party-room", tag, mafia).copy(
+            name = assertNotNull(LobbyAdvertisement.encodeParty(tag, PARTY_WIRE_VERSION)),
+        )
+        kit.peersFlow.value = listOf(sameTagGame, partyHost)
+        val session = FakeP2pSession(partyHost)
+        val codec = RoomMessageCodec()
+        val link = assertNotNull(JoinLinkCodec.encodeParty(partyId, roomId, tag, "ABCDEF", kit.localFingerprint.value))
+        val invite = assertNotNull(JoinLinkCodec.decodeParty(link))
+        val game = GameProtocolRef(mafia.gameId, mafia.gameVersion)
+        val config = JoinConfig(invite.code, "Guest", party = PartyAdmissionContext(supportedGames = listOf(game)), partyInvitation = invite)
+        var creations = 0
+        val transport = transport { creations++; kit }
+        assertEquals(Result.Failure(NetError.InvalidInput), transport.join(config.copy(party = null)))
+        assertEquals(Result.Failure(NetError.InvalidInput), transport.join(config.copy(expectedGameProtocol = mafia)))
+        assertEquals(Result.Failure(NetError.InvalidInput), transport.join(
+            config.copy(party = PartyAdmissionContext(PartyId("b".repeat(32)), listOf(game))),
+        ))
+        assertEquals(0, creations)
+
+        kit.connectHandler = { advertised ->
+            assertEquals(partyHost.id, advertised.id)
+            session
+        }
+        session.sendHandler = { frame ->
+            val request = assertIs<PeerMessage.AdmissionRequest>(codec.decode(assertIs<P2pMessage.Binary>(frame).bytes))
+            assertEquals(roomId, request.expectedRoomId)
+            assertEquals(partyId, request.party?.expectedPartyId)
+            assertNull(request.expectedGame)
+            session.incomingFlow.emit(P2pMessage.Binary(codec.encode(HostMessage.AdmissionRejected(AdmissionRejection.HostDeclined))))
+        }
+        assertEquals(Result.Failure(NetError.HostDeclined), transport.join(config))
+        assertEquals(kit.localFingerprint, kit.lastExpectedFingerprint)
+        assertEquals(1, creations)
     }
 
     @Test

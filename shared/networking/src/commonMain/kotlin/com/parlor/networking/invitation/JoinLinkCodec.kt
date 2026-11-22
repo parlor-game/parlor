@@ -1,7 +1,9 @@
 package com.parlor.networking.invitation
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.RoomInputPolicy
@@ -19,6 +21,18 @@ data class JoinInvitation internal constructor(
     override fun toString(): String = "JoinInvitation(redacted)"
 }
 
+/** A party link identifies the group, even if the host later changes the selected game. */
+@ConsistentCopyVisibility
+data class PartyJoinInvitation internal constructor(
+    val partyId: PartyId,
+    val roomId: RoomId,
+    val roomTag: String,
+    val code: String,
+    val hostFingerprint: String,
+) {
+    override fun toString(): String = "PartyJoinInvitation(redacted)"
+}
+
 object JoinLinkCodec {
     private const val PREFIX = "parlor://join?"
     private const val MAX_LENGTH = 256
@@ -26,8 +40,10 @@ object JoinLinkCodec {
     private const val FINGERPRINT_PREFIX = "p2f1-"
     private const val BASE32_LENGTH = 52
     private const val SCHEMA = "1"
+    private const val PARTY_SCHEMA = "2"
     private const val BASE32_LOWER = "abcdefghijklmnopqrstuvwxyz234567"
     private val parameters = setOf("v", "g", "gv", "p", "c", "r", "t", "f")
+    private val partyParameters = setOf("v", "party", "p", "c", "r", "t", "f")
     private val roomIdPattern = Regex("[0-9a-f]{32}")
 
     sealed interface Decoded {
@@ -47,6 +63,32 @@ object JoinLinkCodec {
         val link = "${PREFIX}v=$SCHEMA&g=${game.gameId.raw}&gv=${game.gameVersion}" +
             "&p=${protocol.major}.${protocol.minor}&c=$code&r=${roomId.raw}&t=$roomTag&f=$hostFingerprint"
         return link.takeIf { decode(it) is Decoded.Valid }
+    }
+
+    fun encodeParty(
+        partyId: PartyId,
+        roomId: RoomId,
+        roomTag: String,
+        code: String,
+        hostFingerprint: String,
+    ): String? {
+        val protocol = PARTY_WIRE_VERSION
+        val link = "${PREFIX}v=$PARTY_SCHEMA&party=${partyId.raw}" +
+            "&p=${protocol.major}.${protocol.minor}&c=$code&r=${roomId.raw}&t=$roomTag&f=$hostFingerprint"
+        return link.takeIf { decodeParty(it) != null }
+    }
+
+    fun decodeParty(raw: String): PartyJoinInvitation? {
+        if (!raw.startsWith(PREFIX) || raw.length > MAX_LENGTH) return null
+        val fields = parseFields(raw.removePrefix(PREFIX)) ?: return null
+        val protocol = PARTY_WIRE_VERSION
+        if (fields.keys != partyParameters || fields["v"] != PARTY_SCHEMA ||
+            fields["p"] != "${protocol.major}.${protocol.minor}"
+        ) return null
+        val id = fields.getValue("party")
+        if (!roomIdPattern.matches(id)) return null
+        val target = parseTarget(fields) ?: return null
+        return PartyJoinInvitation(PartyId(id), target.roomId, target.tag, target.code, target.fingerprint)
     }
 
     fun decode(raw: String): Decoded {
@@ -84,6 +126,13 @@ object JoinLinkCodec {
         val game = fields.getValue("g")
         val version = fields.getValue("gv").toIntOrNull() ?: return null
         if (!GameId.isCanonical(game) || version !in 1..MAX_GAME_VERSION || version.toString() != fields["gv"]) return null
+        val target = parseTarget(fields) ?: return null
+        return JoinInvitation(HostedGameProtocol(GameId(game), version), target.roomId, target.tag, target.code, target.fingerprint)
+    }
+
+    private data class LinkTarget(val roomId: RoomId, val tag: String, val code: String, val fingerprint: String)
+
+    private fun parseTarget(fields: Map<String, String>): LinkTarget? {
         val code = fields.getValue("c")
         val roomId = fields.getValue("r")
         val tag = fields.getValue("t")
@@ -93,7 +142,7 @@ object JoinLinkCodec {
         ) {
             return null
         }
-        return JoinInvitation(HostedGameProtocol(GameId(game), version), RoomId(roomId), tag, code, fingerprint)
+        return LinkTarget(RoomId(roomId), tag, code, fingerprint)
     }
 
     private fun isCanonicalProtocol(raw: String): Boolean {

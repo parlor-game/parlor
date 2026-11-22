@@ -49,7 +49,8 @@ class PartyMatchRoomTest {
             assertEquals(Result.Failure(NetError.Unauthorized), first.send(SendTarget.Direct(excluded), heartbeat))
             val snapshot = HostMessage.PlayerSnapshot(header(match), 0, 1, byteArrayOf(1), byteArrayOf(2))
             assertEquals(Result.Failure(NetError.Unauthorized), first.send(SendTarget.Broadcast, snapshot))
-            assertEquals(listOf(SendTarget.Direct(player) to heartbeat), physical.sent)
+            val expected = listOf<Pair<SendTarget, HostMessage>>(SendTarget.Direct(player) to heartbeat)
+            assertEquals(expected, physical.sent)
 
             assertEquals(Result.Success(Unit), first.finalLeave())
             assertEquals(RoomLifecycleState.Closed, first.lifecycle.value)

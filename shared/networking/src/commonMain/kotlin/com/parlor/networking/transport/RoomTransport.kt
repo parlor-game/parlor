@@ -1,10 +1,11 @@
 package com.parlor.networking.transport
 
-import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinInvitation
+import com.parlor.networking.invitation.PartyJoinInvitation
 import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.room.DiscoveredRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
@@ -224,6 +225,7 @@ data class JoinConfig(
     val discoveredRoom: DiscoveredRoomSelection? = null,
     val invitation: JoinInvitation? = null,
     val party: PartyAdmissionContext? = null,
+    val partyInvitation: PartyJoinInvitation? = null,
 )
 
 data class ResumableSessionInfo(

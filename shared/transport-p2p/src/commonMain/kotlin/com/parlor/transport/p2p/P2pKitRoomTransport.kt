@@ -9,6 +9,7 @@ import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
 import com.parlor.networking.invitation.JoinInvitation
+import com.parlor.networking.invitation.PartyJoinInvitation
 import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.protocol.AdmissionLobbyInfo
 import com.parlor.networking.protocol.AdmissionRejection
@@ -438,11 +439,17 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         }
         val invitation = config.invitation
         if (invitation != null && !invitation.matches(config)) return Result.Failure(NetError.InvalidInput)
-        val pinnedFingerprint = invitation?.let { PeerFingerprint(it.hostFingerprint) }
+        val partyInvitation = config.partyInvitation
+        if (partyInvitation != null && !partyInvitation.matches(config)) return Result.Failure(NetError.InvalidInput)
+        val pinnedFingerprint = (invitation?.hostFingerprint ?: partyInvitation?.hostFingerprint)?.let(::PeerFingerprint)
+        val pinnedTag = invitation?.roomTag ?: partyInvitation?.roomTag
         val effectiveConfig = config.copy(
             code = normalizedCode,
             displayName = normalizedName,
-            expectedRoomId = invitation?.roomId ?: config.expectedRoomId,
+            expectedRoomId = invitation?.roomId ?: partyInvitation?.roomId ?: config.expectedRoomId,
+            party = config.party?.let { target ->
+                partyInvitation?.let { target.copy(expectedPartyId = it.partyId) } ?: target
+            },
         )
         _localNetworkAccess.value = LocalNetworkAccess.Attempting
         diagnostics.event(P2pDiagnosticEventName.SESSION_CREATE_STARTED, P2pDiagnosticRole.PEER)
@@ -497,7 +504,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     peer.hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis) &&
                         peer.matchesJoinAdvertisement(effectiveConfig) &&
                         (selectedRoom == null || selectedRoom.matches(peer)) &&
-                        (invitation == null || peer.compatibleGameAdvertisement(invitation.game)?.roomTag == invitation.roomTag)
+                        (pinnedTag == null || advertisedRoomTag(peer.name) == pinnedTag)
                 }
                 if (lastVisibleCount != visiblePeers.size) {
                     lastVisibleCount = visiblePeers.size
@@ -1619,6 +1626,14 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         config.discoveredRoom == null && code == config.code && game == config.expectedGameProtocol &&
             (config.expectedRoomId == null || config.expectedRoomId == roomId)
 
+    private fun PartyJoinInvitation.matches(config: JoinConfig): Boolean =
+        matchesParty(config) && code == config.code && (config.expectedRoomId == null || config.expectedRoomId == roomId)
+
+    private fun PartyJoinInvitation.matchesParty(config: JoinConfig): Boolean {
+        val target = config.party ?: return false
+        return target.expectedPartyId == null || target.expectedPartyId == partyId
+    }
+
     private fun P2pSession.matchesPinnedHost(host: Peer, fingerprint: PeerFingerprint): Boolean =
         peer.id == host.id && peerIdentity.peerId == host.id && peerIdentity.fingerprint == fingerprint
 
@@ -1639,7 +1654,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     private fun JoinConfig.hasValidTarget(): Boolean {
         val target = party
         return if (target == null) {
-            expectedRoomId == null || expectedGameProtocol != null
+            partyInvitation == null && (expectedRoomId == null || expectedGameProtocol != null)
         } else {
             target.isValid() && expectedGameProtocol == null && discoveredRoom == null && invitation == null
         }
@@ -2117,9 +2132,10 @@ internal class HostP2pRoom(
 
     override suspend fun createJoinLink(): String? = stateMutex.withLock {
         if (left || admissionsClosed || _lifecycle.value != RoomLifecycleState.Active) return@withLock null
-        val game = gameProtocol ?: return@withLock null
         val tag = _info.value.roomTag ?: return@withLock null
         val fingerprint = kit.localFingerprint ?: return@withLock null
+        partyId?.let { return@withLock JoinLinkCodec.encodeParty(it, roomId, tag, roomCode, fingerprint.value) }
+        val game = gameProtocol ?: return@withLock null
         JoinLinkCodec.encode(game, roomId, tag, roomCode, fingerprint.value)
     }
     override val peerEvents: SharedFlow<PeerEvent> = _peerEvents.asSharedFlow()
