@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -181,7 +182,7 @@ private fun RoomCodeSlots(code: String) {
         ) {
             repeat(RoomInputPolicy.ROOM_CODE_LENGTH) { index ->
                 if (index == RoomInputPolicy.ROOM_CODE_LENGTH / 2) {
-                    Box(Modifier.size(3.dp).background(colors.textTertiary, RoundedCornerShape(50)))
+                    Box(Modifier.size(3.dp).background(colors.textTertiary, CircleShape))
                 }
                 Box(
                     modifier = Modifier.weight(1f).height(48.dp)

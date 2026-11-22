@@ -224,7 +224,7 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
                 Modifier.matchParentSize().background(
                     Brush.verticalGradient(
                         0f to colors.coverScreen.copy(alpha = 0.90f),
-                        0.45f to colors.coverScreen.copy(alpha = HERO_GLASS_ALPHA),
+                        HERO_GLASS_PEAK_STOP to colors.coverScreen.copy(alpha = HERO_GLASS_ALPHA),
                         1f to colors.surfaceElevated,
                     ),
                 ),
@@ -252,6 +252,7 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
 private const val FEATURED_SCRIM_CLEAR_STOP = 0.43f
 private const val PLAY_GLOW_ALPHA = 0.44f
 private const val HERO_GLASS_ALPHA = 0.70f
+private const val HERO_GLASS_PEAK_STOP = 0.45f
 private const val PLAY_HALO_Y = 0.78f
 private const val PLAY_HALO_RADIUS = 1.5f
 private const val HERO_BADGE_ALPHA = 0.65f
