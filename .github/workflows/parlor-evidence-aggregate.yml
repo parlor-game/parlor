@@ -118,6 +118,26 @@ jobs:
             :game-modes:ghamza:desktopTest --tests '*GhamzaTableTest*' \
             :game-modes:word-impostor:desktopTest --tests '*WordImpostorTableTest*' \
             --dependency-verification=strict --no-configuration-cache
+      - name: Collect direct screenshots written by module UI tests
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import shutil
+
+          workspace = Path.cwd()
+          destination = workspace / "build/desktop-screens"
+          destination.mkdir(parents=True, exist_ok=True)
+          copied = []
+          for source in sorted(workspace.rglob("public-ux/*.png")):
+              relative = source.relative_to(workspace)
+              if "build" not in relative.parts:
+                  continue
+              project = relative.parts[relative.parts.index("build") - 1]
+              target = destination / f"{project}-{source.name}"
+              shutil.copy2(source, target)
+              copied.append(target.name)
+          print(f"Collected {len(copied)} direct test screenshots: " + ", ".join(copied))
+          PYTHON
       - name: Record exact capture run jobs and source revisions
         id: run-records
         env:
