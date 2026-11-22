@@ -5,13 +5,15 @@ on:
     branches: [capture/native-screens-2026-11-22]
     paths:
       - .github/workflows/parlor-native-capture.yml
+      - scripts/android/capture_public_screens.py
+      - iosApp/iosAppUITests/IOSAppLaunchUITests.swift
       - evidence/screenshots/**
 
 permissions:
   contents: read
 
 jobs:
-  capture-android:
+  build-android:
     if: ${{ !startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -24,10 +26,50 @@ jobs:
           distribution: temurin
           java-version: '21'
           check-latest: false
-      - name: Build Android debug app
+      - name: Build Android debug app with strict dependency verification
         run: ./gradlew :composeApp:assembleDebug --dependency-verification=strict --no-configuration-cache
-      - name: Boot emulator and capture public app routes
+      - name: Upload intermediate debug APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-android-debug-${{ github.run_id }}
+          path: composeApp/build/outputs/apk/debug/composeApp-debug.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  capture-android:
+    needs: build-android
+    if: ${{ !startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: small-phone
+            model: Pixel 2
+            avd_device: pixel_2
+          - profile: standard-phone
+            model: Pixel 4
+            avd_device: pixel_4
+          - profile: large-phone
+            model: Pixel 6 Pro
+            avd_device: pixel_6_pro
+          - profile: tablet
+            model: Pixel C
+            avd_device: pixel_c
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: parlor-android-debug-${{ github.run_id }}
+          path: build/capture-apk
+      - name: Boot the selected Android emulator profile
         shell: bash
+        env:
+          DEVICE_ID: ${{ matrix.avd_device }}
+          DEVICE_MODEL: ${{ matrix.model }}
         run: |
           set -euo pipefail
           test -c /dev/kvm
@@ -35,29 +77,45 @@ jobs:
           tools="$ANDROID_HOME/cmdline-tools/latest/bin"
           image='system-images;android-35;google_apis;x86_64'
           "$tools/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools' 'emulator' "$image"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          adb start-server
           export ANDROID_AVD_HOME="$RUNNER_TEMP/parlor-avds"
           mkdir -p "$ANDROID_AVD_HOME"
-          echo no | "$tools/avdmanager" create avd --force --name parlor-capture --device pixel_2 --package "$image" --path "$ANDROID_AVD_HOME/parlor-capture.avd"
+          echo no | "$tools/avdmanager" create avd --force --name parlor-capture --device "$DEVICE_ID" --package "$image" --path "$ANDROID_AVD_HOME/parlor-capture.avd"
           "$ANDROID_HOME/emulator/emulator" -avd parlor-capture -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/parlor-emulator.log" 2>&1 &
           emulator_pid=$!
-          if ! timeout 360 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do kill -0 "$1" || exit 1; sleep 2; done' bash "$emulator_pid"; then
+          if ! timeout 360 bash -c 'until [[ "$(adb -s emulator-5554 get-state 2>/dev/null)" == device ]]; do kill -0 "$1" || exit 1; sleep 2; done' bash "$emulator_pid"; then
+            adb devices -l || true
             cat "$RUNNER_TEMP/parlor-emulator.log"
             exit 1
           fi
+          if ! timeout 360 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do kill -0 "$1" || exit 1; sleep 2; done' bash "$emulator_pid"; then
+            adb devices -l || true
+            cat "$RUNNER_TEMP/parlor-emulator.log"
+            exit 1
+          fi
+          adb -s emulator-5554 wait-for-device
           adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
           adb -s emulator-5554 shell wm dismiss-keyguard
-          adb -s emulator-5554 shell settings put system font_scale 1.0
-          adb -s emulator-5554 shell wm size 1080x2400
-          adb -s emulator-5554 shell wm density 420
-          adb -s emulator-5554 install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk
-          python3 scripts/android/capture_public_screens.py --device emulator-5554 --output evidence/screenshots/android
-          printf '{"platform":"Android Emulator","runner":"ubuntu-24.04","device":"Pixel 2 API 35 x86_64","viewport_px":"1080x2400","font_scale":1.0,"source_sha":"%s","method":"adb install/launch, uiautomator accessibility-tree targeting, adb screencap"}\n' "$(git rev-parse HEAD)" > evidence/screenshots/android/provenance.json
-      - name: Upload Android emulator PNG evidence
+          adb -s emulator-5554 install -r build/capture-apk/composeApp-debug.apk
+          mkdir -p "evidence/screenshots/android/${{ matrix.profile }}"
+          python3 scripts/android/capture_public_screens.py \
+            --device emulator-5554 --output "evidence/screenshots/android/${{ matrix.profile }}" \
+            --profile "${{ matrix.profile }}" --model "$DEVICE_MODEL" --locale en-US --theme light \
+            2>&1 | tee "evidence/screenshots/android/${{ matrix.profile }}/capture-en-light.log"
+          if [[ "${{ matrix.profile }}" == standard-phone ]]; then
+            adb -s emulator-5554 shell settings put system font_scale 1.3
+            python3 scripts/android/capture_public_screens.py \
+              --device emulator-5554 --output "evidence/screenshots/android/${{ matrix.profile }}" \
+              --profile "${{ matrix.profile }}" --model "$DEVICE_MODEL" --locale ar-EG --theme dark \
+              2>&1 | tee "evidence/screenshots/android/${{ matrix.profile }}/capture-ar-dark.log"
+          fi
+      - name: Upload this Android profile's native captures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: parlor-native-android-${{ github.sha }}
-          path: evidence/screenshots/android/
+          name: parlor-native-android-${{ matrix.profile }}-${{ github.sha }}
+          path: evidence/screenshots/android/${{ matrix.profile }}/
           if-no-files-found: warn
           compression-level: 0
           retention-days: 90
@@ -65,7 +123,35 @@ jobs:
   capture-ios:
     if: ${{ !startsWith(github.event.head_commit.message, 'Upload captured native evidence') }}
     runs-on: macos-15
-    timeout-minutes: 150
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: small-phone
+            model: iPhone SE (3rd generation)
+            device_type: com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
+            resolution: 750x1334
+            logical_viewport: 375x667
+            display_scale: 2
+          - profile: standard-phone
+            model: iPhone 16
+            device_type: com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            resolution: 1179x2556
+            logical_viewport: 393x852
+            display_scale: 3
+          - profile: large-phone
+            model: iPhone 16 Pro Max
+            device_type: com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max
+            resolution: 1320x2868
+            logical_viewport: 440x956
+            display_scale: 3
+          - profile: tablet
+            model: iPad (10th generation)
+            device_type: com.apple.CoreSimulator.SimDeviceType.iPad-10th-generation
+            resolution: 1640x2360
+            logical_viewport: 820x1180
+            display_scale: 2
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
@@ -78,42 +164,104 @@ jobs:
           distribution: temurin
           java-version: '21'
           check-latest: false
-      - name: Create a clean iPhone simulator and run UI capture tests
+      - name: Create the selected native simulator and run the screenshot UI suite
         shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+          DEVICE_MODEL: ${{ matrix.model }}
+          DEVICE_TYPE: ${{ matrix.device_type }}
+          RESOLUTION: ${{ matrix.resolution }}
+          LOGICAL_VIEWPORT: ${{ matrix.logical_viewport }}
+          DISPLAY_SCALE: ${{ matrix.display_scale }}
         run: |
           set -euo pipefail
-          mkdir -p evidence/screenshots/ios build/capture
+          mkdir -p "evidence/screenshots/ios/${PROFILE}" build/capture
           test "$(uname -m)" = arm64
           test "$(xcodebuild -version | sed -n '1p')" = 'Xcode 26.3'
-          xcrun simctl list devices available -j > build/capture/simulators.json
-          simulator="$(python3 - build/capture/simulators.json <<'PYTHON'
+          printf '{"platform":"iOS Simulator","profile":"%s","device_model":"%s","device_type":"%s","native_resolution_px":"%s","logical_viewport_points":"%s","display_scale":%s,"orientation":"portrait","text_scale":1.0,"content_size_category":"UICTContentSizeCategoryL","source_sha":"%s","method":"Native XCTest UI navigation and XCTAttachment app screenshots; original simulator pixel dimensions retained."}\n' \
+            "$PROFILE" "$DEVICE_MODEL" "$DEVICE_TYPE" "$RESOLUTION" "$LOGICAL_VIEWPORT" "$DISPLAY_SCALE" "$(git rev-parse HEAD)" \
+            > "evidence/screenshots/ios/${PROFILE}/provenance.json"
+          printf '{"profile":"%s","device_model":"%s","device_type":"%s","status":"starting","source_sha":"%s"}\n' \
+            "$PROFILE" "$DEVICE_MODEL" "$DEVICE_TYPE" "$(git rev-parse HEAD)" \
+            > "evidence/screenshots/ios/${PROFILE}/profile-status.json"
+          xcrun simctl list runtimes -j > build/capture/runtimes.json
+          xcrun simctl list devices available -j > build/capture/devices-before.json
+          runtime_id="$(python3 - build/capture/runtimes.json <<'PYTHON'
           import json
+          import re
           import sys
-          devices = json.load(open(sys.argv[1], encoding="utf-8"))["devices"]
-          print(next(device["udid"] for runtime in sorted(devices, reverse=True) if ".iOS-" in runtime
-                     for device in devices[runtime]
-                     if device["name"].startswith("iPhone") and device["isAvailable"]))
+          runtimes = json.load(open(sys.argv[1], encoding="utf-8"))["runtimes"]
+          def version_key(item):
+              return tuple(int(part) for part in re.findall(r"\d+", item.get("version", "0")))
+          runtime = next(item["identifier"] for item in sorted(runtimes, key=version_key, reverse=True)
+                         if item.get("isAvailable") and item["identifier"].startswith("com.apple.CoreSimulator.SimRuntime.iOS-"))
+          print(runtime)
           PYTHON
           )"
-          xcrun simctl boot "$simulator" || true
+          simulator="$(xcrun simctl create "Parlor ${PROFILE}" "$DEVICE_TYPE" "$runtime_id")"
+          xcrun simctl boot "$simulator"
           xcrun simctl bootstatus "$simulator" -b
           xcrun simctl status_bar "$simulator" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          xcrun simctl ui "$simulator" appearance light
+          xcrun simctl list devices booted -j > "evidence/screenshots/ios/${PROFILE}/simulator.json"
+          python3 - "$simulator" "$DEVICE_MODEL" "$DEVICE_TYPE" "$runtime_id" "$RESOLUTION" "$LOGICAL_VIEWPORT" "$DISPLAY_SCALE" <<'PYTHON' > "evidence/screenshots/ios/${PROFILE}/simulator-provenance.json"
+          import json
+          import sys
+          print(json.dumps({
+              "simulator_udid": sys.argv[1], "device_model": sys.argv[2], "device_type": sys.argv[3],
+              "runtime": sys.argv[4], "resolution_px": sys.argv[5], "logical_viewport_points": sys.argv[6],
+              "display_scale": int(sys.argv[7]), "orientation": "portrait",
+              "text_scale": 1.0, "content_size_category": "UICTContentSizeCategoryL"
+          }, indent=2))
+          PYTHON
+          set +e
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
             -sdk iphonesimulator -destination "platform=iOS Simulator,id=$simulator" \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
-            -derivedDataPath build/ios-derived -resultBundlePath build/capture/ios-ui-capture.xcresult \
-            -only-testing:iosAppUITests/IOSAppLaunchUITests test | tee build/capture/xcodebuild.log
-          xcrun xcresulttool export attachments --path build/capture/ios-ui-capture.xcresult \
-            --output-path evidence/screenshots/ios/attachments
-          printf '{"platform":"iOS Simulator","runner":"macos-15 arm64","device":"iPhone simulator (runtime and model recorded in job log)","source_sha":"%s","method":"XCTest UI navigation and XCTAttachment app screenshots exported from xcresult"}\n' "$(git rev-parse HEAD)" > evidence/screenshots/ios/provenance.json
-      - name: Upload iOS Simulator PNG evidence and result bundle
+            -derivedDataPath "build/ios-derived-${PROFILE}" \
+            -resultBundlePath "build/capture/ios-${PROFILE}.xcresult" \
+            -only-testing:iosAppUITests/IOSAppLaunchUITests test | tee "build/capture/xcode-${PROFILE}-light.log"
+          light_status=${PIPESTATUS[0]}
+          set -e
+          if [[ -d "build/capture/ios-${PROFILE}.xcresult" ]]; then
+            xcrun xcresulttool export attachments --path "build/capture/ios-${PROFILE}.xcresult" \
+              --output-path "evidence/screenshots/ios/${PROFILE}/light" || true
+          fi
+          final_status=$light_status
+          if [[ "$PROFILE" == standard-phone ]]; then
+            xcrun simctl ui "$simulator" appearance dark
+            set +e
+            xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+              -sdk iphonesimulator -destination "platform=iOS Simulator,id=$simulator" \
+              -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
+              -derivedDataPath "build/ios-derived-${PROFILE}" \
+              -resultBundlePath "build/capture/ios-${PROFILE}-dark.xcresult" \
+              -only-testing:iosAppUITests/IOSAppLaunchUITests/testColdLaunchRendersComposeHomeWithoutUnexpectedAlert \
+              -only-testing:iosAppUITests/IOSAppLaunchUITests/testOriginalGamesExposeLocalAndNearbySetupInEnglish \
+              -only-testing:iosAppUITests/IOSAppLaunchUITests/testAdditionalGamesExposeOnlyMultiplayerSetupInEnglish \
+              test | tee "build/capture/xcode-${PROFILE}-dark.log"
+            dark_status=${PIPESTATUS[0]}
+            set -e
+            if [[ -d "build/capture/ios-${PROFILE}-dark.xcresult" ]]; then
+              xcrun xcresulttool export attachments --path "build/capture/ios-${PROFILE}-dark.xcresult" \
+                --output-path "evidence/screenshots/ios/${PROFILE}/dark" || true
+            fi
+            if [[ $dark_status -ne 0 ]]; then final_status=$dark_status; fi
+          fi
+          capture_result=passed
+          if [[ $final_status -ne 0 ]]; then capture_result=failed-with-partial-captures; fi
+          printf '{"profile":"%s","device_model":"%s","device_type":"%s","runtime":"%s","status":"%s","source_sha":"%s"}\n' \
+            "$PROFILE" "$DEVICE_MODEL" "$DEVICE_TYPE" "$runtime_id" "$capture_result" "$(git rev-parse HEAD)" \
+            > "evidence/screenshots/ios/${PROFILE}/profile-status.json"
+          exit "$final_status"
+      - name: Upload this iOS profile's native captures and test logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: parlor-native-ios-${{ github.sha }}
+          name: parlor-native-ios-${{ matrix.profile }}-${{ github.sha }}
           path: |
-            evidence/screenshots/ios/
-            build/capture/xcodebuild.log
+            evidence/screenshots/ios/${{ matrix.profile }}/
+            build/capture/xcode-${{ matrix.profile }}-*.log
           if-no-files-found: warn
           compression-level: 0
           retention-days: 90
@@ -131,10 +279,10 @@ jobs:
           test -s evidence/screenshots/manifest.json
           test -s evidence/screenshots/index.html
           test "$(find evidence/screenshots -type f -name '*.png' | wc -l)" -gt 0
-      - name: Upload reviewed PNGs, gallery, and route manifest
+      - name: Upload reviewed screenshots, gallery, and route manifest
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: parlor-full-app-screens-native-${{ github.sha }}
+          name: parlor-full-app-screens-${{ github.sha }}
           path: evidence/screenshots/
           if-no-files-found: error
           compression-level: 0

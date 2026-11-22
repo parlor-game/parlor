@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -26,6 +27,25 @@ def capture(device: str, output: Path) -> None:
     if not image.startswith(b"\x89PNG\r\n\x1a\n"):
         raise RuntimeError("adb returned a non-PNG screenshot")
     output.write_bytes(image)
+
+
+def display_metadata(device: str) -> dict[str, str | float]:
+    size_output = adb(device, "shell", "wm", "size")
+    density_output = adb(device, "shell", "wm", "density")
+    size_line = next(line for line in size_output.splitlines() if "Physical size:" in line or "Override size:" in line)
+    density_line = next(line for line in density_output.splitlines() if "Physical density:" in line or "Override density:" in line)
+    width, height = (int(value) for value in size_line.rsplit(":", 1)[1].strip().split("x"))
+    density = int(density_line.rsplit(":", 1)[1].strip())
+    scale = float(adb(device, "shell", "settings", "get", "system", "font_scale").strip())
+    rotation = int(adb(device, "shell", "settings", "get", "system", "user_rotation").strip())
+    orientations = {0: "portrait", 1: "landscape", 2: "reverse-portrait", 3: "reverse-landscape"}
+    return {
+        "resolution_px": f"{width}x{height}",
+        "density_dpi": density,
+        "logical_viewport_dp": f"{round(width * 160 / density)}x{round(height * 160 / density)}",
+        "font_scale": scale,
+        "orientation": orientations.get(rotation, f"rotation-{rotation}"),
+    }
 
 
 def hierarchy(device: str) -> ET.Element:
@@ -68,14 +88,49 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--package", default="me.parlor.android.debug")
     parser.add_argument("--activity", default="com.parlor.app.MainActivity")
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--locale", default="en-US")
+    parser.add_argument("--theme", choices=["light", "dark"], default="light")
     args = parser.parse_args()
 
     adb(args.device, "shell", "pm", "clear", args.package)
+    active_locale = adb(args.device, "shell", "getprop", "persist.sys.locale").strip()
+    if active_locale.casefold() != args.locale.casefold():
+        adb(args.device, "shell", "setprop", "persist.sys.locale", args.locale)
+        adb(args.device, "shell", "stop")
+        time.sleep(5)
+        adb(args.device, "shell", "start")
+        adb(args.device, "wait-for-device")
+        for _ in range(90):
+            if adb(args.device, "shell", "getprop", "sys.boot_completed").strip() == "1":
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError(f"Android framework did not return after locale change to {args.locale}")
+    adb(args.device, "shell", "cmd", "uimode", "night", "yes" if args.theme == "dark" else "no")
     adb(args.device, "shell", "am", "start", "-W", "-n", f"{args.package}/{args.activity}")
     time.sleep(5)
-    capture(args.device, args.output / "android-library-en-light-1.0-1080x2400.png")
+    viewport = display_metadata(args.device)
+    width, height = viewport["resolution_px"].split("x")
+    tag = f"{args.profile}-{args.locale}-{args.theme}-{viewport['font_scale']}x-{width}x{height}"
+    args.output.mkdir(parents=True, exist_ok=True)
+    (args.output / f"provenance-{args.profile}-{args.locale}-{args.theme}.json").write_text(
+        json.dumps({
+            "platform": "Android Emulator",
+            "profile": args.profile,
+            "device_model": args.model,
+            "locale": args.locale,
+            "theme": args.theme,
+            **viewport,
+            "source_sha": run("git", "rev-parse", "HEAD").strip(),
+            "method": "Native app installed and launched on an Android emulator; screenshot bytes from adb screencap; UI routes selected from uiautomator accessibility-tree nodes.",
+        }, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    capture(args.device, args.output / f"android-{tag}-library.png")
 
-    games = [
+    english_games = [
         ("whodunit", "Whodunit", ["Open Whodunit", "Whodunit"]),
         ("mafia", "Mafia", ["Open the Mafia", "Mafia"]),
         ("last-light", "Last Light", ["Open Last Light", "Last Light"]),
@@ -83,16 +138,26 @@ def main() -> None:
         ("ghamza", "Ghamza", ["Open Ghamza", "Ghamza"]),
         ("word-impostor", "Word Impostor", ["Open Word Impostor", "Word Impostor"]),
     ]
+    arabic_games = [
+        ("whodunit", "من القاتل", ["افتح من القاتل"]),
+        ("mafia", "حرامية وظباط", ["افتح لعبة حرامية وظباط"]),
+        ("last-light", "الضوء الأخير", ["افتح الضوء الأخير", "العب الضوء الأخير"]),
+        ("egyptian-dominoes", "الدومنة المصرية", ["افتح الدومنة المصرية"]),
+        ("ghamza", "غمزة", ["افتح غمزة"]),
+        ("word-impostor", "لعبة الإمبوستر", ["افتح لعبة الإمبوستر"]),
+    ]
+    games = arabic_games if args.locale.startswith("ar") else english_games
     for slug, title, selectors in games:
         adb(args.device, "shell", "am", "force-stop", args.package)
         adb(args.device, "shell", "am", "start", "-W", "-n", f"{args.package}/{args.activity}")
         time.sleep(3)
         selected = click_text(args.device, selectors)
         time.sleep(1)
-        capture(args.device, args.output / f"android-{slug}-mode-picker-en-light-1.0-1080x2400.png")
+        capture(args.device, args.output / f"android-{tag}-{slug}-mode-picker.png")
         print(f"captured game picker: {title} ({selected})")
         adb(args.device, "shell", "input", "keyevent", "KEYCODE_BACK")
         time.sleep(1)
+
 
 
 if __name__ == "__main__":
