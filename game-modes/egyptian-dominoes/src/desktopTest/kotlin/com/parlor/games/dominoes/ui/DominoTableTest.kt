@@ -87,6 +87,9 @@ class DominoTableTest {
         }
         capturePublicGameFrame("results-${language.tag}-${themeMode.name.lowercase()}-2.0")
         val rematch = if (arabic) "العبوا تاني · صفّر النقط" else "Play again · reset scores"
+        val pointsLabel = if (arabic) "النقاط ·" else "Points ·"
+        val firstScore = onAllNodesWithText(pointsLabel, substring = true, useUnmergedTree = true)[0]
+        assertTrue(onNodeWithText(rematch).fetchSemanticsNode().positionInRoot.y < firstScore.fetchSemanticsNode().positionInRoot.y)
         onNodeWithText(rematch).reachable().assertIsEnabled()
         onNodeWithText(rematch, useUnmergedTree = true).assertFullText()
         onNodeWithText(rematch).performClick()
