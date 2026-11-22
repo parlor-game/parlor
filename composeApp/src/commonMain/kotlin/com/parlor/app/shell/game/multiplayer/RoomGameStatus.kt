@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +29,7 @@ import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.NetError
@@ -83,7 +85,7 @@ internal fun RoomButton(
 ) {
     ParlorButton(
         label = label, contentDescription = label, onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.subtle)),
         variant = if (secondary) ParlorButtonVariant.Secondary else ParlorButtonVariant.Primary,
         illuminated = !secondary,
     )

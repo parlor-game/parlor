@@ -13,14 +13,12 @@ import androidx.compose.ui.Modifier
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error
 import com.parlor.app.resources.room_game_error_body
-import com.parlor.app.resources.room_game_host
-import com.parlor.app.resources.room_game_opening
+import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.InPlaceBackOwner
 import com.parlor.designsystem.components.ProvideInPlaceBackOwner
 import com.parlor.designsystem.components.SessionExitConfirmation
 import com.parlor.designsystem.components.SessionExitKind
-import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
@@ -45,6 +43,7 @@ import org.koin.compose.koinInject
 internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGameLobby(
     spec: MultiplayerGameSpec<S, A, E>, transport: RoomTransport, name: String, onExit: () -> Unit,
     onSettings: (() -> Unit)?, backRequest: Long, modifier: Modifier,
+    presentation: GameCatalogPresentation, actionsReady: Boolean,
 ) {
     val owner: ProcessMultiplayerSessionOwner = koinInject()
     val route = remember(spec.definition.id, name) { MultiplayerSessionRoute.host(spec.definition.id, name) }
@@ -114,15 +113,17 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGameLobby(
         when {
             confirm -> SessionExitConfirmation(SessionExitKind.Host, { if (!busy) confirm = false }, leave, busy, true, modifier)
             problem != null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
-                body = roomGameError(problem), onRetry = retry, enabled = !busy,
+                body = roomGameError(problem), onRetry = retry, enabled = !busy && actionsReady,
                 onSettings = onSettings.takeIf { access.needsRecoveryGuidance })
             setupLookup != null && setup == null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
-                body = stringResource(Res.string.room_game_error_body), onNewRoom = retry, enabled = !busy)
-            session == null || setup == null -> RoomGameStatus(
-                stringResource(Res.string.room_game_opening), leave, modifier, enabled = !busy,
-                body = stringResource(Res.string.room_game_host, name.asBidiArgument()),
+                body = stringResource(Res.string.room_game_error_body), onNewRoom = retry, enabled = !busy && actionsReady)
+            session == null || setup == null -> RoomOpeningStatus(
+                presentation, RoomOpeningPhase.Opening, leave, modifier, hostName = name, enabled = !busy && actionsReady,
             )
-            frozen == null -> HostRoomControls(spec, session.room, setup, { setup.freeze(session) }, requestLeave, busy, modifier)
+            frozen == null -> HostRoomControls(
+                spec, session.room, setup, { setup.freeze(session) }, requestLeave, busy || !actionsReady, modifier,
+                presentation = presentation,
+            )
             else -> HostedGamePanel(spec, session, checkNotNull(frozen), setup.state.value.caseId, requestLeave, retry, busy, modifier)
         }
     }

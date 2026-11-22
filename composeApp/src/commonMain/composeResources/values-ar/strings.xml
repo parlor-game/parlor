@@ -179,7 +179,13 @@
     <string name="room_game_wait_for_players">العدد المطلوب للبدء: %1$s.</string>
     <string name="room_game_opening">بنفتح الترابيزة…</string>
     <string name="room_game_joining">بنتصل بالأوضة…</string>
-    <string name="room_game_wait_host">إنت دخلت. مستنيين المضيف يبدأ.</string>
+    <string name="room_opening_progress">بنجهّز أوضتك للاعبين القريبين.</string>
+    <string name="room_discovering_title">بندوّر على الأوضة…</string>
+    <string name="room_discovering_progress">بندوّر على المضيف على الشبكة المحلية.</string>
+    <string name="room_approval_title">مستنيين الموافقة</string>
+    <string name="room_approval_progress">طلبك اتبعت للمضيف.</string>
+    <string name="room_admitted_title">إنت دخلت الأوضة</string>
+    <string name="room_admitted_progress">مستنيين المضيف يبدأ.</string>
     <string name="room_game_starting">بنجهّز الكل…</string>
     <string name="room_game_loading">بنزامن الترابيزة…</string>
     <string name="room_game_recovery">بنعيد الاتصال بأمان</string>
@@ -210,7 +216,6 @@
     <string name="join_steps_approval">انتظر موافقة المضيف.</string>
     <string name="lobby_welcome_title">غرفتك مفتوحة</string>
     <string name="lobby_requests_heading">طلبات الانضمام</string>
-    <string name="lobby_welcome_body">شارك الرمز مع أصدقائك. وافق على طلباتهم ثم ابدأ عندما يكتمل الجميع.</string>
     <string name="lobby_player_ready">متصل</string>
     <string name="lobby_player_host">المضيف · أنت</string>
     <string name="lobby_setup_heading">إعداد لعبتك</string>

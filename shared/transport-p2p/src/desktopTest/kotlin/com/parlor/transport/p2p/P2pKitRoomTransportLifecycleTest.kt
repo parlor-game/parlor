@@ -33,6 +33,7 @@ import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.room.SendTarget
 import com.parlor.networking.room.SessionEndCommitStatus
+import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.LocalNetworkAccess
 import com.parlor.networking.transport.HostConfig
 import dev.p2pkit.core.AppId
@@ -3961,7 +3962,7 @@ class P2pKitRoomTransportLifecycleTest {
         )
         val session = FakeP2pSession(hostPeer)
         val offer = testCredentialOffer(PlayerId("self-pid"), hostPeer.id.value)
-        val pendingDelivered = CompletableDeferred<Unit>()
+        val approvalReported = CompletableDeferred<Unit>()
         session.sendHandler = { message ->
             when ((message as? P2pMessage.Binary)?.let { codec.decode(it.bytes) }) {
                 is PeerMessage.AdmissionRequest -> {
@@ -3970,7 +3971,6 @@ class P2pKitRoomTransportLifecycleTest {
                             codec.encode(HostMessage.AdmissionPending(PlayerId("self-pid"))),
                         ),
                     )
-                    pendingDelivered.complete(Unit)
                 }
                 is PeerMessage.AdmissionConfirmed -> session.incomingFlow.emit(
                     P2pMessage.Binary(
@@ -3999,8 +3999,10 @@ class P2pKitRoomTransportLifecycleTest {
             joinTimeoutMs = 200L,
         )
 
-        val joining = async { transport.join("ABCDEF", "Alice") }
-        pendingDelivered.await()
+        val joining = async {
+            transport.join(JoinConfig("ABCDEF", "Alice", onAwaitingHostApproval = { approvalReported.complete(Unit) }))
+        }
+        withTimeout(2_000) { approvalReported.await() }
         val premature = withTimeoutOrNull(250L) { joining.await() }
         assertThat(premature).isEqualTo(null)
         session.incomingFlow.emit(

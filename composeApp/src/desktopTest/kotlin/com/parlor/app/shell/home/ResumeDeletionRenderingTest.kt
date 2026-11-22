@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -42,6 +43,7 @@ class ResumeDeletionRenderingTest {
     private fun verifyJourney(language: AppLanguage, multiplayer: Boolean) = runComposeUiTest {
         var confirmed = 0
         var cancelled = 0
+        var resumed = 0
         val session = SessionId("saved-local")
         setContent {
             var state by remember { mutableStateOf(ResumeDeletionState()) }
@@ -56,6 +58,8 @@ class ResumeDeletionRenderingTest {
                                     listOf(LocalRecoveryEntry(session, null))
                                 },
                                 hasResumableMultiplayer = multiplayer,
+                                onResume = { assertEquals(session, it); resumed++ },
+                                onResumeMultiplayer = { resumed++ },
                                 onDiscardLocal = { id, label ->
                                     state = ResumeDeletionState(ResumeDeletionRequest(ResumeDeletionTarget.Local(id), label))
                                 },
@@ -74,6 +78,14 @@ class ResumeDeletionRenderingTest {
                 }
             }
         }
+        val resume = when {
+            language == AppLanguage.Arabic && multiplayer -> "العودة إلى اللعبة الجماعية السابقة."
+            language == AppLanguage.Arabic -> "استئناف لعبة محلية قيد التقدّم."
+            multiplayer -> "Rejoin the previous multiplayer game."
+            else -> "Resume an in-progress local game."
+        }
+        onNodeWithContentDescription(resume).performScrollTo().performClick()
+        runOnIdle { assertEquals(1, resumed); assertEquals(0, confirmed) }
         val remove = if (language == AppLanguage.Arabic) "حذف" else "Remove"
         onNodeWithText(remove).performScrollTo().performClick()
         onNodeWithTag("resume-delete-cancel").performClick()
@@ -83,6 +95,6 @@ class ResumeDeletionRenderingTest {
         onNodeWithTag("resume-delete-confirm").assertIsNotEnabled()
         onNodeWithTag("resume-delete-cancel").assertIsNotEnabled()
         onNodeWithTag("resume-delete-status").assertExists()
-        runOnIdle { assertEquals(1, confirmed) }
+        runOnIdle { assertEquals(1, confirmed); assertEquals(1, resumed) }
     }
 }

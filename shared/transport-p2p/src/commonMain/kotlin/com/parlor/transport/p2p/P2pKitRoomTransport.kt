@@ -511,6 +511,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                         displayName = effectiveConfig.displayName,
                         selfPlayerId = PlayerId(kit.localPeerId.value),
                         expectedGameProtocol = effectiveConfig.expectedGameProtocol,
+                        onAwaitingHostApproval = effectiveConfig.onAwaitingHostApproval,
                         firstResponseTimeoutMs = minOf(
                             FIRST_ADMISSION_RESPONSE_TIMEOUT_MS,
                             remainingFirstResponseBudgetMs,
@@ -979,6 +980,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         selfPlayerId: PlayerId,
         firstResponseTimeoutMs: Long,
         expectedGameProtocol: HostedGameProtocol?,
+        onAwaitingHostApproval: (() -> Unit)?,
     ): AdmissionOutcome = coroutineScope {
         val responses = Channel<HostMessage>(capacity = 8)
         val collector = launch(start = CoroutineStart.UNDISPATCHED) {
@@ -1034,6 +1036,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                         AdmissionRejection.InvalidCredential,
                     )
                 }
+                onAwaitingHostApproval?.invoke()
                 withTimeoutOrNull(HOST_APPROVAL_TIMEOUT_MS) {
                     responses.receiveMatching { response ->
                         when (response) {

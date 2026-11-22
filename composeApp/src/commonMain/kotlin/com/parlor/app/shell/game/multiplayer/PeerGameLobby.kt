@@ -12,12 +12,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error
-import com.parlor.app.resources.room_game_host
 import com.parlor.app.resources.room_game_incompatible
 import com.parlor.app.resources.room_game_joining
-import com.parlor.app.resources.room_game_wait_host
+import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.core.result.Result
-import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.components.InPlaceBackOwner
 import com.parlor.designsystem.components.ProvideInPlaceBackOwner
 import com.parlor.designsystem.components.SessionExitConfirmation
@@ -26,11 +24,11 @@ import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
-import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.multidevice.MultiplayerOpenMode
 import com.parlor.session.multidevice.MultiplayerSessionRoute
@@ -43,14 +41,11 @@ import org.koin.compose.koinInject
 
 @Composable
 internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
-    spec: MultiplayerGameSpec<S, A, E>, transport: RoomTransport, code: String, name: String, resume: Boolean,
+    spec: MultiplayerGameSpec<S, A, E>, transport: RoomTransport, route: MultiplayerSessionRoute,
     onExit: () -> Unit, onSettings: (() -> Unit)?, backRequest: Long, modifier: Modifier,
-    resumeSelection: ResumableSessionSelection? = null,
+    presentation: GameCatalogPresentation, actionsReady: Boolean,
 ) {
     val owner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(spec.definition.id, code, name, resume, resumeSelection) {
-        MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection)
-    }
     val ownerState by owner.state.collectAsState()
     val session = (ownerState as? ProcessMultiplayerState.Active)?.session?.takeIf { it.route == route }
     val ownerError = ownerState.peerRouteError(route)
@@ -61,20 +56,13 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
     var busy by remember(route) { mutableStateOf(false) }
     var confirm by remember(route) { mutableStateOf(false) }
     var hasStarted by remember(route) { mutableStateOf(false) }
+    val awaitingApproval = remember(route, attempt) { mutableStateOf(false) }
     val access by transport.localNetworkAccess.collectAsState()
     LaunchedEffect(transport, route, attempt) {
         error = null
+        val protocol = HostedGameProtocol(spec.definition.id, spec.version)
         when (val result = owner.acquire(route, retryFailedOpen = attempt > 0) { mode ->
-            when (mode) {
-                MultiplayerOpenMode.Join -> transport.join(JoinConfig(
-                    code = code, displayName = name,
-                    expectedGameProtocol = HostedGameProtocol(spec.definition.id, spec.version),
-                ))
-                MultiplayerOpenMode.Resume -> route.resumeSelection?.let { selection ->
-                    transport.resumeLastSession(HostedGameProtocol(spec.definition.id, spec.version), selection)
-                } ?: transport.resumeLastSession(HostedGameProtocol(spec.definition.id, spec.version))
-                MultiplayerOpenMode.Host -> error("Peer route cannot host")
-            }
+            transport.openPeerRoom(route, mode, protocol) { awaitingApproval.value = true }
         }) {
             is Result.Success -> Unit
             is Result.Failure -> error = result.error
@@ -119,21 +107,48 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
             }
         }
     }
+    val statusActionsEnabled = !busy && actionsReady
     val problem = error ?: (start as? GameStartState.Failed)?.error ?: ownerError
     ProvideInPlaceBackOwner(inPlaceBack) {
         when {
             confirm -> SessionExitConfirmation(SessionExitKind.Peer, { if (!busy) confirm = false }, leave, busy, true, modifier)
             problem != null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
-                body = roomGameError(problem), onRetry = retry, enabled = !busy,
+                body = roomGameError(problem), onRetry = retry, enabled = statusActionsEnabled,
                 onSettings = onSettings.takeIf { access.needsRecoveryGuidance })
             lookup != null && checkpoint == null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
-                body = stringResource(Res.string.room_game_incompatible), enabled = !busy)
-            session == null -> RoomGameStatus(stringResource(Res.string.room_game_joining), leave, modifier, enabled = !busy)
-            accepted == null -> RoomGameStatus(stringResource(Res.string.room_game_wait_host), leave, modifier,
-                body = stringResource(Res.string.room_game_host, session.room.info.value.hostDisplayName.asBidiArgument()), enabled = !busy)
+                body = stringResource(Res.string.room_game_incompatible), enabled = statusActionsEnabled)
+            session == null && route.resumeExistingSession -> RoomGameStatus(
+                stringResource(Res.string.room_game_joining), leave, modifier, enabled = statusActionsEnabled,
+            )
+            session == null -> RoomOpeningStatus(
+                presentation,
+                if (awaitingApproval.value) RoomOpeningPhase.Approval else RoomOpeningPhase.Discovering,
+                leave, modifier, enabled = statusActionsEnabled,
+            )
+            accepted == null -> RoomOpeningStatus(
+                presentation, RoomOpeningPhase.Admitted, leave, modifier,
+                hostName = session.room.info.value.hostDisplayName, enabled = statusActionsEnabled,
+            )
             else -> PeerGamePanel(spec, session, accepted, requestLeave, leave, busy, modifier)
         }
     }
+}
+
+private suspend fun RoomTransport.openPeerRoom(
+    route: MultiplayerSessionRoute,
+    mode: MultiplayerOpenMode,
+    protocol: HostedGameProtocol,
+    onAwaitingApproval: () -> Unit,
+): Result<LocalRoom, NetError> = when (mode) {
+    MultiplayerOpenMode.Join -> join(JoinConfig(
+        code = checkNotNull(route.roomCode),
+        displayName = route.displayName,
+        expectedGameProtocol = protocol,
+        onAwaitingHostApproval = onAwaitingApproval,
+    ))
+    MultiplayerOpenMode.Resume -> route.resumeSelection?.let { resumeLastSession(protocol, it) }
+        ?: resumeLastSession(protocol)
+    MultiplayerOpenMode.Host -> error("Peer route cannot host")
 }
 
 private fun ProcessMultiplayerState.peerRouteError(route: MultiplayerSessionRoute): NetError? = when (this) {

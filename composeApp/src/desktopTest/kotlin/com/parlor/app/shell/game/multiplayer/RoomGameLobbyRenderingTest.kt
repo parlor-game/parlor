@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -19,6 +20,7 @@ import com.parlor.app.shell.game.DominoGameShellBinding
 import com.parlor.app.shell.game.GhamzaGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.result.Result
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorToastState
 import com.parlor.designsystem.localization.AppLanguage
@@ -49,6 +51,58 @@ class RoomGameLobbyRenderingTest {
             verifyLobby(GhamzaGameShellBinding(GhamzaDefinition()), language)
             verifyLobby(WordImpostorGameShellBinding(WordImpostorDefinition()), language)
         }
+    }
+
+    @Test
+    fun first_phone_viewport_keeps_start_feedback_and_leave_visible_with_many_requests() = runComposeUiTest {
+        val spec = DominoGameShellBinding(DominoDefinition())
+        val requests = MutableStateFlow((1..8).map {
+            PendingAdmission(PlayerId("guest-$it"), "Guest $it", isRejoin = false)
+        })
+        val members = MutableStateFlow(emptyList<RoomMember>())
+        val room = object : LocalRoom by InMemoryHostRoom(InMemoryRoomBus(), PlayerId("host"), "Host") {
+            override val pendingAdmissions = requests
+            override val members = members
+
+            override suspend fun approveAdmission(playerId: PlayerId): Result<Unit, Nothing> {
+                val admitted = requests.value.single { it.playerId == playerId }
+                members.value = listOf(RoomMember(playerId, admitted.displayName, true))
+                requests.value = requests.value - admitted
+                return Result.Success(Unit)
+            }
+
+            override suspend fun rejectAdmission(playerId: PlayerId): Result<Unit, Nothing> {
+                requests.value = requests.value.filterNot { it.playerId == playerId }
+                return Result.Success(Unit)
+            }
+        }
+        val setup = GameHostSetupCheckpoint(spec.kind("setup"), spec.defaultCaseId)
+        var started = 0
+        var left = 0
+        val toast = ParlorToastState()
+        setContent {
+            CompositionLocalProvider(LocalParlorToastState provides toast) {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        Box(Modifier.size(390.dp, 740.dp)) {
+                            HostRoomControls(spec, room, setup, { started++ }, { left++ }, false, Modifier)
+                        }
+                    }
+                }
+            }
+        }
+        val leave = onNodeWithContentDescription("Leave").assertIsDisplayed().assertIsEnabled()
+        onNodeWithText("Start with 1 player").assertIsDisplayed().assertIsNotEnabled()
+        onNodeWithText("Approve or decline each join request before starting.").assertIsDisplayed()
+        onNodeWithContentDescription("Approve ${"Guest 1".asBidiArgument()}").performScrollTo().performClick()
+        val start = onNodeWithText("Start with 2 players").assertIsDisplayed().assertIsNotEnabled()
+        for (request in 2..8) {
+            val guest = "Guest $request".asBidiArgument()
+            onNodeWithContentDescription("Decline $guest").performScrollTo().performClick()
+        }
+        start.assertIsDisplayed().assertIsEnabled().performClick()
+        leave.assertIsDisplayed().performClick()
+        runOnIdle { assertEquals(1, started); assertEquals(1, left) }
     }
 
     private fun <S : GameState, A : GameAction, E : GameEvent> verifyLobby(

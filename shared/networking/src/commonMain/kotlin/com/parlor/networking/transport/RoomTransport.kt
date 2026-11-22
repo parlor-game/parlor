@@ -187,6 +187,8 @@ data class JoinConfig(
      * support must reject before opening a room. This is not a wire field.
      */
     val expectedGameProtocol: HostedGameProtocol? = null,
+    /** Called when the authenticated host reports that this seat awaits approval. Carries no room data. */
+    val onAwaitingHostApproval: (() -> Unit)? = null,
 )
 
 data class ResumableSessionInfo(

@@ -287,6 +287,9 @@ internal fun App(settings: SettingsStore) {
                                     hasResumableMultiplayer =
                                         (homeRecovery as? HomeRecoveryAvailability.Ready)
                                             ?.resumableMultiplayer != null,
+                                    resumableMultiplayerGameId =
+                                        (homeRecovery as? HomeRecoveryAvailability.Ready)
+                                            ?.resumableMultiplayer?.gameId,
                                     recoveryLoading =
                                         homeRecovery is HomeRecoveryAvailability.Loading,
                                     recoveryUnavailable =

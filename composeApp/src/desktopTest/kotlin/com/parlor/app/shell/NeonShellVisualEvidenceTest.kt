@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -23,13 +24,13 @@ import com.parlor.app.permissions.P2pPermissionGate
 import com.parlor.app.permissions.P2pPermissionRationaleScreen
 import com.parlor.app.permissions.PermissionStatus
 import com.parlor.app.resources.Res
-import com.parlor.app.resources.room_game_host
-import com.parlor.app.resources.room_game_opening
 import com.parlor.app.resources.setup_host_title
 import com.parlor.app.shell.game.DominoGameShellBinding
 import com.parlor.app.shell.game.multiplayer.GameHostSetupCheckpoint
 import com.parlor.app.shell.game.multiplayer.HostRoomControls
-import com.parlor.app.shell.game.multiplayer.RoomGameStatus
+import com.parlor.app.shell.game.WhodunitGameShellBinding
+import com.parlor.app.shell.game.multiplayer.RoomOpeningPhase
+import com.parlor.app.shell.game.multiplayer.RoomOpeningStatus
 import com.parlor.app.shell.game.multiplayer.kind
 import com.parlor.app.shell.multiplayer.JoinPromptScreen
 import com.parlor.app.shell.multiplayer.NameInputScreen
@@ -41,10 +42,11 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorToastState
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.localization.ProvideAppLanguage
-import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
 import com.parlor.games.dominoes.DominoDefinition
+import com.parlor.games.whodunit.WhodunitDefinition
+import kotlinx.serialization.json.Json
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.PendingAdmission
 import com.parlor.networking.room.RoomInfo
@@ -90,6 +92,7 @@ class NeonShellVisualEvidenceTest {
             override fun openAppSettings() = Unit
         }
         val spec = DominoGameShellBinding(DominoDefinition())
+        val waitingGame = WhodunitGameShellBinding(WhodunitDefinition(Json))
         val host = PlayerId("fixture-host")
         val room = object : LocalRoom by InMemoryHostRoom(InMemoryRoomBus(), host, name) {
             override val info = MutableStateFlow(RoomInfo("WX2Y3Z", name, host, RoomInfo.Status.Hosting))
@@ -139,24 +142,32 @@ class NeonShellVisualEvidenceTest {
                                         "room-code" -> JoinPromptScreen(
                                             {}, {}, gameTitle = gameTitle, seatName = name, onChangeName = {},
                                         )
-                                        "waiting" -> RoomGameStatus(
-                                            stringResource(Res.string.room_game_opening), {},
-                                            body = stringResource(Res.string.room_game_host, name.asBidiArgument()),
+                                        "waiting" -> RoomOpeningStatus(
+                                            waitingGame.catalogPresentation(), RoomOpeningPhase.Opening, {}, hostName = name,
                                         )
-                                        "lobby" -> HostRoomControls(spec, room, setup, {}, {}, false, Modifier)
+                                        "join-pending" -> RoomOpeningStatus(
+                                            waitingGame.catalogPresentation(), RoomOpeningPhase.Approval, {},
+                                        )
+                                        "lobby" -> HostRoomControls(
+                                            spec, room, setup, {}, {}, false, Modifier, spec.catalogPresentation(),
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
-                for (state in listOf("settings", "profile", "permission", "name-entry", "room-code", "waiting", "lobby")) {
+                for (state in listOf("settings", "profile", "permission", "name-entry", "room-code", "waiting", "join-pending", "lobby")) {
                     runOnIdle { screen.value = state }
                     onNodeWithTag("acceptance-viewport").assertIsDisplayed()
                     captureShellAcceptance("$state-$suffix")
                     if (state == "profile") {
                         onNodeWithText(if (english) "Edit" else "تعديل").performClick()
                         captureShellAcceptance("profile-edit-$suffix")
+                    }
+                    if (state == "lobby" && !english && theme == ThemeMode.Dark && fontScale == 2f) {
+                        onNodeWithText("خروج").performScrollTo().assertIsDisplayed()
+                        captureShellAcceptance("lobby-actions-$suffix")
                     }
                 }
             }

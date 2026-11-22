@@ -4,10 +4,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -23,6 +27,7 @@ import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.app.shell.game.GameShellLaunch
 import com.parlor.app.shell.game.GhamzaGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.localization.ProvideAppLanguage
@@ -32,7 +37,10 @@ import com.parlor.games.ghamza.GhamzaDefinition
 import com.parlor.games.wordimpostor.WordImpostorDefinition
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
+import com.parlor.networking.testing.InMemoryPeerRoom
+import com.parlor.networking.testing.InMemoryRoomBus
 import com.parlor.networking.transport.HostConfig
+import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
@@ -68,6 +76,78 @@ class MultiplayerNameConfirmationPointerTest {
     @Test
     fun duplicate_accessibility_confirmation_preserves_peer_intent_without_joining() =
         verifyConfirmation(repeat = true, accessibility = true, isHost = false)
+
+    @Test
+    fun repeated_room_code_tap_keeps_join_open_through_approval_and_admission() {
+        val job = SupervisorJob()
+        val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        val owner = ProcessMultiplayerSessionOwner(CoroutineScope(job + dispatcher))
+        val transport = PendingApprovalPeer()
+        val spec = DominoGameShellBinding(DominoDefinition())
+        var exited = 0
+        var doubleTapTimeout = 0L
+        try {
+            runComposeUiTest {
+                setContent {
+                    KoinApplication(application = { modules(module {
+                        single<RoomTransport> { transport }
+                        single { owner }
+                    }) }) {
+                        doubleTapTimeout = LocalViewConfiguration.current.doubleTapTimeoutMillis
+                        ProvideAppLanguage(AppLanguage.English) {
+                            ParlorTheme(reducedMotion = true) {
+                                Box(Modifier.size(390.dp, 740.dp)) {
+                                    spec.Content(
+                                        GameShellLaunch.New(spec.definition.id), { exited++ }, GameShellBackRequest.Initial,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                onNodeWithContentDescription("Enter the host's room code to join their table.")
+                    .performScrollTo().performTouchInput { click() }
+                onNode(hasSetTextAction()).performTextInput("Guest")
+                onNodeWithContentDescription("Save your name and continue to enter a room code.")
+                    .performTouchInput { click() }
+                onNode(hasSetTextAction()).performTextInput("ABCDEF")
+                onNodeWithContentDescription("Connect to the host using the entered room code.")
+                    .performTouchInput {
+                        click()
+                        advanceEventTime(50)
+                        click()
+                    }
+                waitUntil("transport.join starts", timeoutMillis = 5_000) { transport.joinStarted.isCompleted }
+                onNodeWithText("Finding the room…").assertIsDisplayed()
+                onNodeWithText("Waiting for approval").assertDoesNotExist()
+                onNodeWithText("ABCDEF").assertDoesNotExist()
+
+                transport.reportPending.complete(Unit)
+                waitUntil("approval status appears", timeoutMillis = 5_000) {
+                    onAllNodes(hasText("Waiting for approval")).fetchSemanticsNodes().size == 1
+                }
+                onNodeWithText("You’re in the room").assertDoesNotExist()
+
+                transport.admit.complete(Unit)
+                waitUntil("admitted status appears", timeoutMillis = 5_000) {
+                    onAllNodes(hasText("You’re in the room")).fetchSemanticsNodes().size == 1
+                }
+                onNodeWithText("Waiting for the host to start.").assertIsDisplayed()
+                onNodeWithText("Waiting for approval").assertDoesNotExist()
+                runOnIdle { assertEquals(0, exited) }
+                mainClock.advanceTimeBy(doubleTapTimeout)
+                onNodeWithContentDescription("Leave").assertIsDisplayed().assertIsEnabled().performTouchInput { click() }
+                waitUntil("leave returns to idle", timeoutMillis = 5_000) { owner.state.value == ProcessMultiplayerState.Idle }
+                runOnIdle { assertEquals(1, exited) }
+            }
+        } finally {
+            try {
+                runBlocking { withTimeout(5_000) { job.cancelAndJoin() } }
+            } finally {
+                dispatcher.close()
+            }
+        }
+    }
 
     private fun verifyConfirmation(repeat: Boolean, accessibility: Boolean = false, isHost: Boolean = true) {
         val bindings = listOf(
@@ -183,4 +263,25 @@ private class FailedConfirmationHost : RoomTransport {
     }
     override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
         error("Host name confirmation must not join")
+}
+
+private class PendingApprovalPeer : RoomTransport {
+    override val capability = TransportCapability(false, 1, 1024)
+    val joinStarted = CompletableDeferred<Unit>()
+    val reportPending = CompletableDeferred<Unit>()
+    val admit = CompletableDeferred<Unit>()
+
+    override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = error("Peer cannot host")
+    override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
+        error("Peer must preserve the expected game")
+
+    override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> {
+        joinStarted.complete(Unit)
+        reportPending.await()
+        checkNotNull(config.onAwaitingHostApproval).invoke()
+        admit.await()
+        val peerId = PlayerId("test-peer")
+        val bus = InMemoryRoomBus().apply { registerPeer(peerId) }
+        return Result.Success(InMemoryPeerRoom(bus, peerId, config.displayName, PlayerId("test-host")))
+    }
 }

@@ -48,9 +48,20 @@ def picker_controls(text):
         '    onClick: () -> Unit,\n', '    onClick: () -> Unit,\n    inputObserver: Modifier = Modifier,\n',
     ) + '            .then(inputObserver)\n'))
 
-    recognized = [plan for plan in (legacy, redesigned) if all(text.count(old) == 1 for old, _ in plan)]
-    if len(recognized) != 1 or any(old in text for plan in (legacy, redesigned)
-                                  if plan is not recognized[0] for old, _ in plan):
+    neon_modifier = card_modifier.replace(
+        ') {\n', ') {\n    val colors = ParlorTheme.colors\n'
+        '    val emphasized = icon == SetupIcon.PassAndPlay\n',
+    )
+    neon = redesigned[:-1] + [(neon_modifier, neon_modifier.replace(
+        '    onClick: () -> Unit,\n', '    onClick: () -> Unit,\n    inputObserver: Modifier = Modifier,\n',
+    ) + '            .then(inputObserver)\n')]
+
+    plans = (legacy, redesigned, neon)
+    recognized = [plan for plan in plans if all(text.count(old) == 1 for old, _ in plan)]
+    if len(recognized) != 1:
+        raise RuntimeError('PIN01 picker layout missing, mixed or ambiguous')
+    accepted_anchors = {old for old, _ in recognized[0]}
+    if any(old in text for plan in plans for old, _ in plan if old not in accepted_anchors):
         raise RuntimeError('PIN01 picker layout missing, mixed or ambiguous')
     return recognized[0]
 

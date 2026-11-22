@@ -197,6 +197,10 @@ class HomeCatalogVisualEvidenceTest {
         for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
             for (theme in listOf(ThemeMode.Dark, ThemeMode.Light)) {
                 renderScreen(language, theme, 1f, catalog = true, recovery = true)
+                if (language == AppLanguage.Arabic && theme == ThemeMode.Dark) {
+                    renderScreen(language, theme, 2f, catalog = true, width = 320, recovery = true)
+                    renderScreen(language, theme, 1f, catalog = true, width = 768, recovery = true)
+                }
             }
         }
     }
@@ -224,6 +228,7 @@ class HomeCatalogVisualEvidenceTest {
                                         LocalRecoveryEntry(SessionId("synthetic-public-fixture"), games.first().definition.id),
                                     ) else emptyList(),
                                     hasResumableMultiplayer = recovery,
+                                    resumableMultiplayerGameId = games.getOrNull(3)?.definition?.id.takeIf { recovery },
                                 )
                             } else {
                                 val presentation = setupGame.catalogPresentation()
@@ -243,7 +248,7 @@ class HomeCatalogVisualEvidenceTest {
         }
         onNodeWithTag("shell-preview").assertIsDisplayed()
         if (!catalog) onNode(hasText(selectedTitle)).assertIsDisplayed().fullTextLayout()
-        if (catalog && fontScale == 2f) {
+        if (catalog && !recovery && fontScale == 2f) {
             assertFirstGameChoicesVisible(language)
         }
         if (setupGameIndex != null) {
