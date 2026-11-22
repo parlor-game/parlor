@@ -66,22 +66,26 @@ def manifest():
     print(json.dumps(files, indent=2))
 
 
-def wifi():
-    temp = Path(os.environ["RUNNER_TEMP"])
-    devices = (temp / "parlor-devices").read_text().splitlines()
-    report = temp / "parlor-proof" / "shared-wifi.json"
+def current_wifi_addresses(devices):
     addresses = {}
     for device in devices:
-        output = (report.parent / device / "wlan0.txt").read_text()
+        output = subprocess.run(
+            ["adb", "-s", device, "shell", "ip", "-4", "addr", "show", "wlan0"],
+            capture_output=True, text=True, check=True, timeout=8,
+        ).stdout
         address, = re.findall(r"\binet ([0-9.]+/[0-9]+)", output)
         addresses[device] = ipaddress.IPv4Interface(address)
     if (len({entry.ip for entry in addresses.values()}) != len(devices)
             or len({entry.network for entry in addresses.values()}) != 1
             or not all(entry.ip.is_private for entry in addresses.values())):
         raise ValueError("Guest Wi-Fi addresses do not represent one shared LAN")
+    return addresses
+
+
+def probe_wifi(addresses):
     probes = []
-    for source in devices:
-        for peer in devices:
+    for source in addresses:
+        for peer in addresses:
             if source == peer:
                 continue
             reply = subprocess.run(
@@ -91,10 +95,35 @@ def wifi():
             match = re.search(r"3 packets transmitted, (\d+) (?:packets )?received", reply.stdout)
             probes.append({"from": source, "to": peer, "sent": 3,
                            "received": int(match[1]) if match else 0})
-    report.write_text(json.dumps({"addresses": {k: str(v) for k, v in addresses.items()},
-                                  "icmp": probes}, indent=2) + "\n")
-    if any(probe["received"] != 3 for probe in probes):
-        raise ValueError("Guest-to-guest Wi-Fi probes did not all succeed")
+    return probes
+
+
+def reassociate_wifi(guests):
+    for target in guests:
+        for mode in ("disable", "enable"):
+            subprocess.run(["adb", "-s", target, "shell", "svc", "wifi", mode], check=True, timeout=8)
+            if mode == "disable":
+                time.sleep(2)
+    time.sleep(8)
+
+
+def wifi():
+    temp = Path(os.environ["RUNNER_TEMP"])
+    devices = (temp / "parlor-devices").read_text().splitlines()
+    evidence = temp / "parlor-proof"
+    for attempt in (1, 2):
+        addresses = current_wifi_addresses(devices)
+        probes = probe_wifi(addresses)
+        missing = sorted({probe["to"] for probe in probes if probe["received"] != 3})
+        report = evidence / ("shared-wifi.json" if not missing else f"shared-wifi-incomplete-{attempt}.json")
+        report.write_text(json.dumps({"addresses": {k: str(v) for k, v in addresses.items()},
+                                      "icmp": probes}, indent=2) + "\n")
+        if not missing:
+            return
+        print(f"Wi-Fi preflight attempt {attempt} missed inbound probes on {len(missing)} guests", flush=True)
+        if attempt == 1:
+            reassociate_wifi(missing)
+    raise ValueError("Guest-to-guest Wi-Fi probes did not all succeed")
 
 
 def directories(temp):
