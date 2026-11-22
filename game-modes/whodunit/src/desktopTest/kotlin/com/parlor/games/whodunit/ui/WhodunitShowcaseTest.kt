@@ -24,6 +24,7 @@ import com.parlor.content.validation.ValidatedCase
 import com.parlor.core.ids.CaseId
 import com.parlor.core.ids.ClueId
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.Result
 import com.parlor.core.versioning.SemVer
@@ -43,13 +44,15 @@ import com.parlor.games.whodunit.ui.screens.round.ClueRevealScreen
 import com.parlor.games.whodunit.ui.screens.round.DiscussionScreen
 import com.parlor.games.whodunit.ui.screens.setup.ModeSelectionScreen
 import com.parlor.games.whodunit.ui.screens.setup.PublicIntroScreen
+import com.parlor.games.whodunit.ui.screens.setup.RulesBriefingScreen
 import com.parlor.games.whodunit.ui.screens.setup.WhodunitCasePickerScreen
+import com.parlor.games.whodunit.ui.screens.vote.VoteBallotScreen
 import com.parlor.games.whodunit.ui.screens.vote.VoteHandoffScreen
+import java.io.File
+import kotlin.test.Test
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import org.jetbrains.skia.Image
-import java.io.File
-import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
 class WhodunitShowcaseTest {
@@ -201,6 +204,39 @@ class WhodunitShowcaseTest {
         }
         waitForIdle()
         captureFrame("vote-handoff-${language.tag}-${themeMode.name.lowercase()}-1.0")
+    }
+
+    @Test
+    fun captures_secret_ballot_with_no_votes_cast_in_both_languages() {
+        for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
+            runComposeUiTest {
+                val arabic = language == AppLanguage.Arabic
+                val names = if (arabic) listOf("نديم", "عمر", "ليلى") else listOf("Nadim", "Omar", "Layla")
+                setContent {
+                    WhodunitShowcaseFrame(language, ThemeMode.Dark) {
+                        VoteBallotScreen(
+                            currentVoterName = if (arabic) "سلمى" else "Salma",
+                            candidates = names.mapIndexed { index, name -> PlayerId("p$index") to name },
+                            onVote = {},
+                            onRefuse = {},
+                        )
+                    }
+                }
+                waitForIdle()
+                captureFrame("secret-ballot-${language.tag}-dark-1.0")
+            }
+        }
+    }
+
+    @Test
+    fun captures_rules_briefing_progress() = runComposeUiTest {
+        setContent {
+            WhodunitShowcaseFrame(AppLanguage.English, ThemeMode.Dark) {
+                RulesBriefingScreen(cardIndex = 1, onAdvance = {})
+            }
+        }
+        waitForIdle()
+        captureFrame("rules-briefing-en-dark-1.0")
     }
 
     private fun captureRevealStage(language: AppLanguage, themeMode: ThemeMode) = runComposeUiTest {

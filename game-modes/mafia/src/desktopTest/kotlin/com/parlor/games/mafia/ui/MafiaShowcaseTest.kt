@@ -10,8 +10,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -26,17 +29,21 @@ import com.parlor.games.mafia.domain.settings.MafiaRoleCounts
 import com.parlor.games.mafia.domain.settings.MafiaSettings
 import com.parlor.games.mafia.domain.state.Role
 import com.parlor.games.mafia.domain.state.Team
+import com.parlor.games.mafia.resources.Res
+import com.parlor.games.mafia.resources.reveal_eyebrow_your_role
 import com.parlor.games.mafia.ui.components.MafiaCandlelitCover
 import com.parlor.games.mafia.ui.screens.announce.NightAnnouncementScreen
 import com.parlor.games.mafia.ui.screens.discussion.DiscussionScreen
+import com.parlor.games.mafia.ui.screens.handoff.MafiaRoleRevealGateScreen
 import com.parlor.games.mafia.ui.screens.night.PickableTarget
 import com.parlor.games.mafia.ui.screens.postgame.PostGameScreen
 import com.parlor.games.mafia.ui.screens.setup.MafiaSetupScreen
 import com.parlor.games.mafia.ui.screens.vote.VoteAnnouncementScreen
 import com.parlor.games.mafia.ui.screens.vote.VoteCastScreen
-import org.jetbrains.skia.Image
 import java.io.File
 import kotlin.test.Test
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.skia.Image
 
 @OptIn(ExperimentalTestApi::class)
 class MafiaShowcaseTest {
@@ -83,6 +90,26 @@ class MafiaShowcaseTest {
         }
         waitForIdle()
         captureFrame("handoff-cover-${language.tag}-${themeMode.name.lowercase()}-1.0")
+    }
+
+    @Test
+    fun captures_covered_role_gate_in_both_languages() {
+        for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
+            runComposeUiTest {
+                val player = if (language == AppLanguage.Arabic) "سارة" else "Sarah"
+                setContent {
+                    MafiaShowcaseFrame(language, ThemeMode.Dark) {
+                        MafiaRoleRevealGateScreen(
+                            playerName = player,
+                            eyebrow = stringResource(Res.string.reveal_eyebrow_your_role),
+                            onRevealed = {},
+                        )
+                    }
+                }
+                waitForIdle()
+                captureFrame("role-gate-${language.tag}-dark-1.0")
+            }
+        }
     }
 
     private fun captureDawnAnnouncement(language: AppLanguage, themeMode: ThemeMode) = runComposeUiTest {
@@ -148,6 +175,10 @@ class MafiaShowcaseTest {
         }
         waitForIdle()
         captureFrame("public-vote-${language.tag}-${themeMode.name.lowercase()}-1.0")
+        if (themeMode == ThemeMode.Dark) {
+            onNodeWithText(names.first()).performClick().assertIsSelected()
+            captureFrame("public-vote-selected-${language.tag}-dark-1.0")
+        }
     }
 
     private fun captureVoteResult(language: AppLanguage, themeMode: ThemeMode) = runComposeUiTest {

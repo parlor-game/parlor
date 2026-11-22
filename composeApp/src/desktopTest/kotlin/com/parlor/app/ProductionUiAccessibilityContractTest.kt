@@ -397,6 +397,10 @@ class ProductionUiAccessibilityContractTest {
     fun fullscreen_text_surfaces_keep_actions_reachable_with_large_text() {
         val expectedScrollContainers = mapOf(
             "game-modes/mafia/src/commonMain/kotlin/com/parlor/games/mafia/ui/" +
+                "components/MafiaTable.kt" to 1,
+            "game-modes/whodunit/src/commonMain/kotlin/com/parlor/games/whodunit/ui/" +
+                "components/WhodunitTable.kt" to 1,
+            "game-modes/mafia/src/commonMain/kotlin/com/parlor/games/mafia/ui/" +
                 "components/MafiaCover.kt" to 2,
             "game-modes/mafia/src/commonMain/kotlin/com/parlor/games/mafia/ui/" +
                 "screens/announce/NightAnnouncementScreen.kt" to 1,
@@ -420,8 +424,10 @@ class ProductionUiAccessibilityContractTest {
                 "ReconnectingOverlay.kt" to 1,
         )
 
+        // Game table components own scrolling for their callers and are checked above as well.
+        val scrollContainer = Regex("""\.verticalScroll\(|^\s+(?:MafiaTable|WhodunitTable)\(""", RegexOption.MULTILINE)
         expectedScrollContainers.forEach { (path, expectedMinimum) ->
-            val actual = Regex("\\.verticalScroll\\(").findAll(read(path)).count()
+            val actual = scrollContainer.findAll(read(path)).count()
             assertTrue(
                 actual >= expectedMinimum,
                 "$path exposes $actual scroll containers; expected at least $expectedMinimum",

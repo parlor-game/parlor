@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.content.repository.CaseRepository
 import com.parlor.content.schema.CaseSummary
 import com.parlor.core.result.DataError
@@ -194,7 +196,11 @@ private fun CaseLibrary(
 @Composable
 private fun FilterRow(filter: CaseFilter, onSelected: (CaseFilter) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().selectableGroup(),
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(ParlorTheme.radii.pill))
+            .background(ParlorTheme.colors.surfaceInset)
+            .padding(ParlorTheme.spacing.xxs)
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
     ) {
         CaseFilter.entries.forEach { option ->
@@ -205,17 +211,11 @@ private fun FilterRow(filter: CaseFilter, onSelected: (CaseFilter) -> Unit) {
             }
             val selected = option == filter
             val shape = RoundedCornerShape(ParlorTheme.radii.pill)
-            Text(
-                text = label,
-                style = ParlorTheme.typography.labelMedium,
-                color = if (selected) {
-                    ParlorTheme.colors.textOnAccent
-                } else {
-                    ParlorTheme.colors.textSecondary
-                },
-                textAlign = TextAlign.Center,
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .clip(shape)
                     .background(
                         if (selected) {
@@ -239,10 +239,17 @@ private fun FilterRow(filter: CaseFilter, onSelected: (CaseFilter) -> Unit) {
                         onClick = { onSelected(option) },
                     )
                     .padding(
-                        horizontal = ParlorTheme.spacing.s,
-                        vertical = ParlorTheme.spacing.m,
+                        horizontal = ParlorTheme.spacing.xs,
+                        vertical = ParlorTheme.spacing.s,
                     ),
-            )
+            ) {
+                Text(
+                    text = label,
+                    style = ParlorTheme.typography.labelMedium,
+                    color = if (selected) ParlorTheme.colors.textOnAccent else ParlorTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
@@ -269,7 +276,7 @@ private fun CaseRow(
                 onClick = onClick,
             ),
         cornerRadius = ParlorTheme.radii.card,
-        contentPadding = ParlorTheme.spacing.l,
+        contentPadding = ParlorTheme.spacing.m,
         hero = selected,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
@@ -317,7 +324,7 @@ private fun CaseRow(
             }
             Text(
                 text = summary.title,
-                style = ParlorTheme.typography.displayMedium,
+                style = ParlorTheme.typography.headingMedium,
                 color = ParlorTheme.colors.textPrimary,
             )
             summary.subtitle?.let { subtitle ->
@@ -341,7 +348,7 @@ private fun CaseRow(
                     localizedModeNames(summary.supportedModes),
                 ),
                 style = ParlorTheme.typography.bodySmall,
-                color = ParlorTheme.colors.textTertiary,
+                color = ParlorTheme.colors.textSecondary,
             )
             Text(
                 text = stringResource(Res.string.case_picker_offline),

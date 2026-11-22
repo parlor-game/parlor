@@ -1,71 +1,36 @@
 package com.parlor.games.whodunit.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
+import com.parlor.designsystem.components.EyebrowLabel
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.resources.Res
 import com.parlor.games.whodunit.resources.round_clue_eyebrow_label
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * Museum-label-style clue display. Short, large, readable across a table.
- */
 @Composable
 fun ClueCard(
     text: String,
     eyebrow: String = stringResource(Res.string.round_clue_eyebrow_label),
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(ParlorTheme.radii.card)
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ParlorTheme.spacing.s)
-            .clip(shape)
-            .background(ParlorTheme.colors.surfacePaper, shape)
-            .border(
-                ParlorTheme.borders.regular,
-                ParlorTheme.colors.accentBrass,
-                shape,
-            )
-            .padding(ParlorTheme.spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    ParlorCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = ParlorTheme.spacing.l,
+        hero = true,
     ) {
-        Box(
-            modifier = Modifier
-                .width(ParlorTheme.spacing.xxxl)
-                .height(ParlorTheme.spacing.xxs)
-                .clip(RoundedCornerShape(ParlorTheme.radii.pill))
-                .background(ParlorTheme.colors.accentBrass),
-        )
-        Text(
-            text = eyebrow.uppercase(),
-            style = ParlorTheme.typography.labelSmall,
-            color = ParlorTheme.colors.textOnPaperSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text = text,
-            style = ParlorTheme.typography.displayMedium,
-            color = ParlorTheme.colors.textOnPaper,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            EyebrowLabel(text = eyebrow)
+            Text(
+                text = text,
+                style = ParlorTheme.typography.headingLarge,
+                color = ParlorTheme.colors.textPrimary,
+            )
+        }
     }
 }

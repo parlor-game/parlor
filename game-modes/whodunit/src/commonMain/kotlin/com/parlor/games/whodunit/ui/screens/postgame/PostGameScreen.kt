@@ -2,24 +2,19 @@ package com.parlor.games.whodunit.ui.screens.postgame
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
-import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
-import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.resources.Res
@@ -31,6 +26,7 @@ import com.parlor.games.whodunit.resources.postgame_replay
 import com.parlor.games.whodunit.resources.postgame_replay_description
 import com.parlor.games.whodunit.resources.postgame_try_other_mode
 import com.parlor.games.whodunit.resources.postgame_try_other_mode_description
+import com.parlor.games.whodunit.ui.components.WhodunitTable
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -41,39 +37,9 @@ fun PostGameScreen(
     modifier: Modifier = Modifier,
 ) {
     val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    if (!compactTypography) {
-                        CatalogArtworkBadge(
-                            artwork = ParlorArtwork.CaseFile,
-                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
-                        )
-                    }
-                    EyebrowLabel(
-                        text = stringResource(Res.string.postgame_eyebrow),
-                        accent = true,
-                    )
-                    Text(
-                        text = stringResource(Res.string.postgame_question),
-                        style = ParlorTheme.typography.displayLarge,
-                        color = ParlorTheme.colors.textPrimary,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+    WhodunitTable(
+        modifier = modifier,
+        actions = {
             ParlorButton(
                 label = stringResource(Res.string.postgame_replay),
                 contentDescription = stringResource(Res.string.postgame_replay_description),
@@ -94,6 +60,32 @@ fun PostGameScreen(
                 modifier = Modifier.fillMaxWidth(),
                 variant = ParlorButtonVariant.Ghost,
             )
+        },
+    ) {
+        ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.l) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (!compactTypography) {
+                    CatalogArtworkBadge(
+                        artwork = ParlorArtwork.CaseFile,
+                        modifier = Modifier.size(ParlorTheme.spacing.xxl),
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                ) {
+                    EyebrowLabel(text = stringResource(Res.string.postgame_eyebrow))
+                    Text(
+                        text = stringResource(Res.string.postgame_question),
+                        style = ParlorTheme.typography.headingLarge,
+                        color = ParlorTheme.colors.textPrimary,
+                    )
+                }
+            }
         }
     }
 }

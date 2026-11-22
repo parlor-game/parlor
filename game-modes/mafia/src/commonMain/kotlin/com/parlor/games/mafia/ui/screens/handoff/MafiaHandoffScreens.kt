@@ -17,10 +17,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.CatalogArtworkBadge
-import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ContextRibbon
+import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
-import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
@@ -39,6 +38,7 @@ import com.parlor.games.mafia.resources.waiting_night_eyebrow
 import com.parlor.games.mafia.resources.waiting_wait_quietly
 import com.parlor.games.mafia.ui.components.MafiaCandlelitCover
 import com.parlor.games.mafia.ui.components.MafiaHideScreen
+import com.parlor.games.mafia.ui.components.MafiaTable
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -89,53 +89,43 @@ fun MafiaRoleRevealGateScreen(
     modifier: Modifier = Modifier,
 ) {
     val largeText = LocalDensity.current.fontScale >= 1.3f
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l, Alignment.CenterVertically),
-        ) {
-            ContextRibbon(
-                label = stringResource(Res.string.handoff_private_turn),
-                detail = stringResource(Res.string.handoff_player_only_format, playerName),
-                tone = ParlorContextTone.Private,
-            )
-            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-                ) {
-                    if (!largeText) {
-                        CatalogArtworkBadge(artwork = ParlorArtwork.Moon, modifier = Modifier.size(56.dp))
-                    }
-                    EyebrowLabel(text = eyebrow, textAlign = TextAlign.Center)
-                    Text(
-                        text = playerName,
-                        style = ParlorTheme.typography.displayMedium,
-                        color = ParlorTheme.colors.textPrimary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        text = stringResource(Res.string.handoff_keep_hidden),
-                        style = ParlorTheme.typography.bodyLarge,
-                        color = ParlorTheme.colors.textSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-            ParlorButton(
-                label = stringResource(Res.string.handoff_reveal),
-                onClick = onRevealed,
-                contentDescription = stringResource(Res.string.handoff_reveal_description_format, playerName),
+    MafiaTable(modifier = modifier) {
+        ContextRibbon(
+            label = stringResource(Res.string.handoff_private_turn),
+            detail = stringResource(Res.string.handoff_player_only_format, playerName),
+            tone = ParlorContextTone.Private,
+        )
+        ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                variant = ParlorButtonVariant.Primary,
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            ) {
+                if (!largeText) {
+                    CatalogArtworkBadge(artwork = ParlorArtwork.Moon, modifier = Modifier.size(48.dp))
+                }
+                EyebrowLabel(text = eyebrow, textAlign = TextAlign.Center)
+                Text(
+                    text = playerName,
+                    style = ParlorTheme.typography.headingLarge,
+                    color = ParlorTheme.colors.textPrimary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(Res.string.handoff_keep_hidden),
+                    style = ParlorTheme.typography.bodyMedium,
+                    color = ParlorTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ParlorButton(
+                    label = stringResource(Res.string.handoff_reveal),
+                    onClick = onRevealed,
+                    contentDescription = stringResource(Res.string.handoff_reveal_description_format, playerName),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
