@@ -1,6 +1,7 @@
 package com.parlor.session.lobby
 
 import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
@@ -23,8 +24,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -43,8 +44,9 @@ internal class PartyMatchRoom private constructor(
     private val observers = CoroutineScope(scope.coroutineContext + Job(scope.coroutineContext[Job]))
     private val closed = MutableStateFlow(false)
     private val remotePlayers = match.roster - physical.selfPlayerId
+    private val retired = MutableStateFlow(emptySet<PlayerId>())
 
-    val protocol = SessionProtocol(match.id, match.game.gameId, match.game.gameVersion, PARTY_WIRE_VERSION, partyId = partyId)
+    override val matchProtocol = SessionProtocol(match.id, match.game.gameId, match.game.gameVersion, PARTY_WIRE_VERSION, partyId = partyId)
 
     override val info get() = physical.info
     override val isHost get() = physical.isHost
@@ -53,8 +55,8 @@ internal class PartyMatchRoom private constructor(
     override val acceptsLocalGameCommands get() = !closed.value && physical.acceptsLocalGameCommands
     override val acceptsRemoteGameCommands get() = !closed.value && physical.acceptsRemoteGameCommands
 
-    override val members = physical.members.map(::matchMembers)
-        .stateIn(observers, SharingStarted.Eagerly, matchMembers(physical.members.value))
+    override val members = combine(physical.members, retired, ::matchMembers)
+        .stateIn(observers, SharingStarted.Eagerly, matchMembers(physical.members.value, emptySet()))
 
     private val matchLifecycle = MutableStateFlow(physical.lifecycle.value)
     override val lifecycle = matchLifecycle.asStateFlow()
@@ -71,9 +73,9 @@ internal class PartyMatchRoom private constructor(
 
     override val peerEvents = physical.peerEvents.filter { event ->
         when (event) {
-            is PeerEvent.PeerJoined -> event.playerId in remotePlayers
-            is PeerEvent.PeerLeft -> event.playerId in remotePlayers
-            is PeerEvent.PeerReconnected -> event.playerId in remotePlayers
+            is PeerEvent.PeerJoined -> retainsSeat(event.playerId)
+            is PeerEvent.PeerLeft -> retainsSeat(event.playerId)
+            is PeerEvent.PeerReconnected -> retainsSeat(event.playerId)
             is PeerEvent.AdmissionRequested -> false
             else -> true
         }
@@ -85,7 +87,7 @@ internal class PartyMatchRoom private constructor(
     override suspend fun send(target: SendTarget, message: HostMessage): Result<Unit, NetError> {
         if (!isHost || !canSend(message)) return Result.Failure(NetError.Unauthorized)
         return when (target) {
-            is SendTarget.Direct -> if (target.playerId in remotePlayers) {
+            is SendTarget.Direct -> if (retainsSeat(target.playerId)) {
                 physical.send(target, message)
             } else {
                 Result.Failure(NetError.Unauthorized)
@@ -111,6 +113,22 @@ internal class PartyMatchRoom private constructor(
         if (!isHost && canSend(message)) physical.commitValidatedSessionEnd(message)
         else Result.Success(SessionEndCommitStatus.NotOwned)
 
+    override suspend fun retireDisconnectedMember(playerId: PlayerId): Result<Unit, NetError> {
+        if (!isHost || closed.value || playerId !in remotePlayers) return Result.Failure(NetError.Unauthorized)
+        if (playerId in retired.value) return Result.Success(Unit)
+        if (physical.members.value.any { it.playerId == playerId && it.connected }) {
+            return Result.Failure(NetError.AlreadyConnected)
+        }
+        return withContext(NonCancellable) {
+            if (!inbox.retireMatchSeat(match.id, playerId)) {
+                Result.Failure(NetError.NotConnected)
+            } else {
+                retired.update { it + playerId }
+                Result.Success(Unit)
+            }
+        }
+    }
+
     override suspend fun leave() {
         if (closed.compareAndSet(expect = false, update = true)) {
             try {
@@ -125,13 +143,16 @@ internal class PartyMatchRoom private constructor(
     private fun canSend(message: RoomMessage): Boolean =
         !closed.value && message.matchHeader()?.belongsTo(partyId, match) == true
 
-    private fun matchMembers(members: List<RoomMember>): List<RoomMember> =
-        members.filter { it.playerId in match.roster }.map { it.copy(partySupportedGames = emptyList()) }
+    private fun retainsSeat(player: PlayerId): Boolean = player in remotePlayers && player !in retired.value
+
+    private fun matchMembers(members: List<RoomMember>, retiredSeats: Set<PlayerId>): List<RoomMember> =
+        members.filter { it.playerId in match.roster && it.playerId !in retiredSeats }
+            .map { it.copy(partySupportedGames = emptyList()) }
 
     private suspend fun sendToRoster(message: HostMessage): Result<Unit, NetError> {
         var delivered = false
         var failure: Result.Failure<NetError>? = null
-        for (player in remotePlayers) {
+        for (player in remotePlayers - retired.value) {
             when (val result = physical.send(SendTarget.Direct(player), message)) {
                 is Result.Success -> delivered = true
                 is Result.Failure -> if (result.error != NetError.NotConnected && failure == null) failure = result

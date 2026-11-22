@@ -1,7 +1,6 @@
 package com.parlor.games.lastlight.ui.flow.multidevice
 
 import com.parlor.core.ids.PlayerId
-import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.games.lastlight.LastLightIds
@@ -19,6 +18,7 @@ import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.security.SecureIds
+import com.parlor.session.multidevice.hostSessionProtocol
 import com.parlor.session.multidevice.CommandApplication
 import com.parlor.session.multidevice.HostAuthoritativeSessionCoordinator
 import com.parlor.session.multidevice.HostMutationResult
@@ -60,11 +60,7 @@ class LastLightHostRoomBridge(
     reconcileRoomTopology: Boolean = false,
     requireStartHandshake: Boolean = true,
 ) {
-    val protocol: SessionProtocol = SessionProtocol(
-        sessionId = SessionId(sessionIdGenerator()),
-        gameId = LastLightIds.GameId,
-        gameVersion = GAME_VERSION,
-    )
+    val protocol: SessionProtocol = room.hostSessionProtocol(LastLightIds.GameId, GAME_VERSION, sessionIdGenerator)
 
     private val remotePlayers = players.map(Player::id).toSet() - room.selfPlayerId
     private val lifecycleMutex = Mutex()

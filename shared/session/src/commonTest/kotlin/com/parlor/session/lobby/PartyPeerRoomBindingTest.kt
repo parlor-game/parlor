@@ -75,11 +75,11 @@ class PartyPeerRoomBindingTest {
         room.messages.send(snapshot(3, PartyLobbyPhase.MatchStarting, matchId, nextSequence = 2))
         runCurrent()
         val started = assertNotNull(peer.match.value)
-        assertEquals(mafia.gameId, started.protocol.gameId)
+        assertEquals(mafia.gameId, started.matchProtocol.gameId)
         room.messages.send(snapshot(4, PartyLobbyPhase.MatchStarting, matchId, word, nextSequence = 2))
         runCurrent()
         assertEquals(3L, assertNotNull(peer.state.value).revision)
-        assertEquals(mafia.gameId, assertNotNull(peer.match.value).protocol.gameId)
+        assertEquals(mafia.gameId, assertNotNull(peer.match.value).matchProtocol.gameId)
 
         room.messages.send(snapshot(5, game = word, nextSequence = 2))
         room.messages.send(snapshot(3, PartyLobbyPhase.MatchStarting, matchId, nextSequence = 2))

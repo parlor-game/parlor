@@ -1,6 +1,7 @@
 package com.parlor.session.multidevice
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
@@ -75,6 +76,18 @@ private sealed interface PeerStartEvent {
     data class Lifecycle(val value: RoomLifecycleState) : PeerStartEvent
 }
 
+/** Uses the pre-authorized party match tuple or creates a standalone game session. */
+fun LocalRoom.hostSessionProtocol(gameId: GameId, gameVersion: Int, idGenerator: () -> String): SessionProtocol {
+    val expected = matchProtocol
+    check(expected?.partyId == info.value.partyId) { "A party room must provide a match before starting a game" }
+    if (expected == null) return SessionProtocol(SessionId(idGenerator()), gameId, gameVersion)
+    require(expected.matchesGame(gameId, gameVersion)) { "Game does not match the current party selection" }
+    return expected
+}
+
+private fun SessionProtocol.matchesGame(expectedGame: GameId, expectedVersion: Int): Boolean =
+    gameId == expectedGame && gameVersion == expectedVersion
+
 /**
  * Runs protocol-v4's peer game-start barrier as the sole collector of the room
  * inbox. Waiting in the human-controlled lobby has no arbitrary timeout. The
@@ -96,13 +109,14 @@ suspend fun awaitAuthoritativeSessionStart(
     deadlineMs: Long = DEFAULT_PEER_START_DEADLINE_MS,
     sendTimeoutMs: Long = DEFAULT_START_FRAME_SEND_TIMEOUT_MS,
     idGenerator: () -> String = SecureIds::id128,
-    expectedMatch: SessionProtocol? = null,
     prepareOffer: suspend (HostMessage.SessionStarting, SessionProtocol) -> Boolean,
 ): Result<ValidatedSessionStart, SessionStartFailure> = coroutineScope {
     require(deadlineMs > 0L) { "deadlineMs must be positive" }
     require(sendTimeoutMs > 0L) { "sendTimeoutMs must be positive" }
-    require(expectedMatch == null || (expectedMatch.partyId != null &&
-        expectedMatch.gameId == expectedGameId && expectedMatch.gameVersion == expectedGameVersion))
+    val expectedMatch = room.matchProtocol
+    if (expectedMatch?.partyId != room.info.value.partyId ||
+        (expectedMatch != null && !expectedMatch.matchesGame(expectedGameId, expectedGameVersion))
+    ) return@coroutineScope startNetworkFailure(NetError.IncompatibleProtocol)
 
     val merged: Flow<PeerStartEvent> = merge(
         room.incoming.map(PeerStartEvent::Message),

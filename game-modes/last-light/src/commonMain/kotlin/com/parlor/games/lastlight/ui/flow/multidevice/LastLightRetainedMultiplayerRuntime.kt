@@ -51,7 +51,7 @@ internal class LastLightHostRuntime(
     private val rawSession = PassAndPlaySessionController(
         definition = definition,
         config = SessionConfig(
-            sessionId = SessionId("last-light-host-${seed.toString(16)}"),
+            sessionId = room.matchProtocol?.sessionId ?: SessionId("last-light-host-${seed.toString(16)}"),
             caseId = LastLightIds.CaseId,
             modeId = LastLightIds.StandardModeId,
             players = players,

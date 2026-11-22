@@ -121,7 +121,7 @@ internal class PartyPeerRoomBinding(
         val public = snapshot.lobby
         val roster = public.members.filter { it.inActiveMatch }.map { it.playerId }.toSet()
         val proposedMatch = public.activeMatchId
-        if (active.value?.protocol?.sessionId != proposedMatch || self !in roster) {
+        if (active.value?.matchProtocol?.sessionId != proposedMatch || self !in roster) {
             clearActiveMatch()
         }
         if (proposedMatch != null && self in roster && active.value == null) {
@@ -147,7 +147,7 @@ internal class PartyPeerRoomBinding(
         if (previous == null) return true
         if (update.revision < previous.revision || update.lobby.matchOrdinal < previous.lobby.matchOrdinal) return false
         if (update.revision == previous.revision && update.lobby != previous.lobby) return false
-        val match = active.value?.protocol
+        val match = active.value?.matchProtocol
         return match == null || update.lobby.activeMatchId != match.sessionId ||
             (update.lobby.selectedGame.gameId == match.gameId && update.lobby.selectedGame.gameVersion == match.gameVersion)
     }

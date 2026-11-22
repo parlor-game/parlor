@@ -60,7 +60,7 @@ internal class WhodunitHostRuntime(
     private val rawSession = PassAndPlaySessionController(
         definition = definition,
         config = SessionConfig(
-            sessionId = SessionId("mp-host-${seed.toString(16)}"),
+            sessionId = room.matchProtocol?.sessionId ?: SessionId("mp-host-${seed.toString(16)}"),
             caseId = CaseId(case.envelope.caseId),
             modeId = modeId,
             players = players,

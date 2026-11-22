@@ -58,9 +58,9 @@ class PartyHostRoomBindingTest {
             assertEquals(CommandStatus.Applied, room.sent.filterIsInstance<HostMessage.PartyCommandResult>().single().status)
 
             val first = assertIs<Result.Success<PartyMatchRoom>>(host.prepareMatch()).data
-            assertEquals(mafia.protocol.gameId, first.protocol.gameId)
-            assertIs<Result.Success<PartyLobby>>(host.commitMatch(first.protocol.sessionId))
-            assertIs<Result.Success<PartyLobby>>(host.returnToLobby(first.protocol.sessionId))
+            assertEquals(mafia.protocol.gameId, first.matchProtocol.gameId)
+            assertIs<Result.Success<PartyLobby>>(host.commitMatch(first.matchProtocol.sessionId))
+            assertIs<Result.Success<PartyLobby>>(host.returnToLobby(first.matchProtocol.sessionId))
             assertNull(room.frozen)
             assertEquals(0, room.leaveCount)
             assertEquals(setOf(hostId, playerId), host.state.value.seats.keys)
@@ -69,10 +69,10 @@ class PartyHostRoomBindingTest {
             room.messages.send(ready(2, host.state.value.revision))
             runCurrent()
             val second = assertIs<Result.Success<PartyMatchRoom>>(host.prepareMatch()).data
-            assertEquals(word.protocol.gameId, second.protocol.gameId)
-            assertNotEquals(first.protocol.sessionId, second.protocol.sessionId)
-            assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(first.protocol.sessionId))
-            assertEquals(second.protocol.sessionId, room.frozen)
+            assertEquals(word.protocol.gameId, second.matchProtocol.gameId)
+            assertNotEquals(first.matchProtocol.sessionId, second.matchProtocol.sessionId)
+            assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(first.matchProtocol.sessionId))
+            assertEquals(second.matchProtocol.sessionId, room.frozen)
             assertTrue(room.sent.filterIsInstance<HostMessage.PartySnapshot>()
                 .any { it.lobby.selectedGame == word.protocol && it.lobby.members.any { seat -> seat.playerId == playerId } })
         } finally {

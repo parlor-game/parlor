@@ -4,7 +4,6 @@ import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
 import com.parlor.core.ids.PlayerId
-import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.networking.protocol.SessionEndReason
@@ -13,6 +12,7 @@ import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.security.SecureIds
+import com.parlor.session.multidevice.hostSessionProtocol
 import com.parlor.session.multidevice.CommandApplication
 import com.parlor.session.multidevice.HostAuthoritativeSessionCoordinator
 import com.parlor.session.multidevice.HostMutationResult
@@ -55,11 +55,7 @@ internal class HostedGameBridge<S : GameState, A : GameAction, E : GameEvent>(
     reconcileRoomTopology: Boolean = false,
     requireStartHandshake: Boolean = true,
 ) {
-    val protocol: SessionProtocol = SessionProtocol(
-        sessionId = SessionId(sessionIdGenerator()),
-        gameId = spec.definition.id,
-        gameVersion = spec.version,
-    )
+    val protocol: SessionProtocol = room.hostSessionProtocol(spec.definition.id, spec.version, sessionIdGenerator)
 
     private val remotePlayers = players.map(Player::id).toSet() - room.selfPlayerId
     private val lifecycleMutex = Mutex()

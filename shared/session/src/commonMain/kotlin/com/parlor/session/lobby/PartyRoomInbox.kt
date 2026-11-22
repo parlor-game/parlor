@@ -33,6 +33,7 @@ internal class PartyRoomInbox(
 ) {
     private class MatchInbox(val match: PartyMatch) {
         val messages = Channel<RoomMessage>(MATCH_CAPACITY)
+        val retired = mutableSetOf<PlayerId>()
     }
 
     private val mutations = Mutex()
@@ -70,6 +71,13 @@ internal class PartyRoomInbox(
         inbox.messages.receiveAsFlow()
     }
 
+    suspend fun retireMatchSeat(id: SessionId, player: PlayerId): Boolean = mutations.withLock {
+        val current = active ?: return@withLock false
+        if (!isHost || current.match.id != id || player == self || player !in current.match.roster) return@withLock false
+        current.retired.add(player)
+        true
+    }
+
     suspend fun closeMatch(id: SessionId): Boolean = mutations.withLock {
         val inbox = active ?: return@withLock false
         if (inbox.match.id != id) return@withLock false
@@ -90,7 +98,7 @@ internal class PartyRoomInbox(
         if (!header.belongsTo(partyId, inbox.match)) return
         if (isHost != (message is PeerMessage)) return
         val actor = message.matchActor()
-        if (isHost && (actor == null || actor !in inbox.match.roster)) return
+        if (isHost && (actor == null || actor !in inbox.match.roster || actor in inbox.retired)) return
         val accepted = inbox.messages.trySend(message)
         if (accepted.isFailure && !accepted.isClosed) {
             inbox.messages.close(IllegalStateException("Party match inbox exceeded capacity"))

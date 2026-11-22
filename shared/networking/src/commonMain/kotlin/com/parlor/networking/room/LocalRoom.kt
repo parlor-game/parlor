@@ -8,6 +8,7 @@ import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
+import com.parlor.networking.protocol.SessionProtocol
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,6 +32,8 @@ interface LocalRoom {
     val isHost: Boolean
     /** Reversible roster transactions are available only for an authoritative party room. */
     val partyMatches: PartyMatchAdmission? get() = null
+    /** Assigned by party authority before a game can attach to this match. */
+    val matchProtocol: SessionProtocol? get() = null
     val incoming: Flow<RoomMessage>
 
     /** Logical session lifecycle; game commands are legal only while active. */
