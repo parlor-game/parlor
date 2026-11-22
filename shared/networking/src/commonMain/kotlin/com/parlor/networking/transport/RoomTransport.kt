@@ -186,11 +186,18 @@ data class HostConfig(
 ) {
     init {
         require(gameProtocol == null || partyProtocol == null) { "A physical room has exactly one configured scope" }
+        require((partyProtocol?.initialSeatLimit ?: maxRemotePlayers + 1) in 2..(maxRemotePlayers + 1)) {
+            "Party capacity must fit the physical room"
+        }
         require(maxRemotePlayers in 1..17) { "maxRemotePlayers must be in 1..17" }
     }
 }
 
-data class HostedPartyProtocol(val id: PartyId, val initialGame: HostedGameProtocol)
+data class HostedPartyProtocol(
+    val id: PartyId,
+    val initialGame: HostedGameProtocol,
+    val initialSeatLimit: Int? = null,
+)
 
 data class HostedGameProtocol(
     val gameId: GameId,

@@ -770,6 +770,52 @@ class P2pKitRoomTransportLifecycleTest {
     }
 
     @Test
+    fun switching_party_games_changes_admission_without_changing_room_identity() = runBlocking {
+        val partyId = PartyId("a".repeat(32))
+        val original = GameProtocolRef(partyTestGame.gameId, 1)
+        val next = GameProtocolRef(GameId("fixture-next-game"), 2)
+        val roomKit = FakeP2pKit(P2pPeerId("host-pid"))
+        val room = HostP2pRoom(
+            kit = roomKit,
+            roomCode = "ABCDEF",
+            hostDisplayName = "Host",
+            hostPlayerId = PlayerId("host-pid"),
+            maxRemotePlayers = 3,
+            scope = testScope,
+            codec = codec,
+            partyProtocol = HostedPartyProtocol(partyId, partyTestGame, initialSeatLimit = 3),
+        )
+        try {
+            val initialRoom = room.info.value.roomId
+            val matches = checkNotNull(room.partyMatches)
+            val first = FakeP2pSession(peer("first-guest", "Guest"))
+            emitScopedRequest(roomKit, first, null, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(original)))
+            awaitCondition { room.pendingAdmissions.value.isNotEmpty() }
+            assertThat(matches.selectGame(original, next, 2, emptySet()))
+                .isEqualTo(Result.Failure(NetError.CommandInFlight))
+            assertThat(room.rejectAdmission(PlayerId("first-guest"))).isEqualTo(Result.Success(Unit))
+            assertThat(matches.selectGame(original, next, 2, emptySet())).isEqualTo(Result.Success(Unit))
+            assertThat(matches.selectGame(original, next, 2, emptySet())).isEqualTo(Result.Failure(NetError.StaleRoom))
+
+            val old = FakeP2pSession(peer("old-guest", "Guest"))
+            emitScopedRequest(roomKit, old, null, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(original)))
+            assertRejectedWithoutApproval(room, old, AdmissionRejection.WrongGame)
+
+            val current = FakeP2pSession(peer("next-guest", "Guest"))
+            emitScopedRequest(roomKit, current, null, protocol = PARTY_WIRE_VERSION,
+                party = PartyAdmissionContext(partyId, listOf(next)))
+            awaitCondition { room.pendingAdmissions.value.singleOrNull()?.playerId == PlayerId("next-guest") }
+            assertThat(room.info.value.roomId).isEqualTo(initialRoom)
+            assertThat(room.info.value.partyId).isEqualTo(partyId)
+            assertThat(room.members.value).isEmpty()
+        } finally {
+            room.leave()
+        }
+    }
+
+    @Test
     fun party_controls_require_the_exact_party_and_use_the_authenticated_actor() = runBlocking {
         val kit = FakeP2pKit(P2pPeerId("host-pid"))
         val partyId = PartyId("a".repeat(32))

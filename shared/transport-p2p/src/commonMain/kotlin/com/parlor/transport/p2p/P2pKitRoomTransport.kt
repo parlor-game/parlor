@@ -2062,6 +2062,13 @@ internal class HostP2pRoom(
         object : PartyMatchAdmission {
             override val partyId: PartyId = identity
 
+            override suspend fun selectGame(
+                expected: GameProtocolRef,
+                next: GameProtocolRef,
+                seatLimit: Int,
+                expectedMembers: Set<PlayerId>,
+            ) = selectPartyGame(expected, next, seatLimit, expectedMembers)
+
             override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>) =
                 freezePartyMatch(id, expectedPeers)
 
@@ -2159,6 +2166,9 @@ internal class HostP2pRoom(
     private val resumeReadyByPlayer: MutableMap<PlayerId, ResumeReadyBarrier> = mutableMapOf()
     private val admissionReadyByPlayer: MutableMap<PlayerId, AdmissionReadyBarrier> = mutableMapOf()
     private var admissionsClosed: Boolean = false
+    // Both fields are owned by stateMutex, along with pending and admitted participants.
+    private var partyGame = partyProtocol?.initialGame?.toGameProtocolRef()
+    private var remoteSeatLimit = (partyProtocol?.initialSeatLimit ?: (maxRemotePlayers + 1)) - 1
     private var matchAdmission: FrozenPartyMatch? = null
     private var lastReopenedMatch: SessionId? = null
 
@@ -2625,6 +2635,8 @@ internal class HostP2pRoom(
             val existing = pendingByPlayer[playerId]
             val isKnownPlayer = playerId in previouslySeenPlayerIds
             when {
+                partyGame?.let { it !in request.party?.supportedGames.orEmpty() } == true ->
+                    AdmissionRequestResult.Rejected(AdmissionRejection.WrongGame)
                 session in expiredApprovalSessions -> AdmissionRequestResult.Rejected(AdmissionRejection.ApprovalExpired)
                 admissionsClosed -> AdmissionRequestResult.Rejected(
                     AdmissionRejection.SessionStarted,
@@ -2738,9 +2750,6 @@ internal class HostP2pRoom(
         if (request.expectedRoomId != null && request.expectedRoomId != roomId) return AdmissionRejection.StaleRoom
         if (target?.expectedPartyId?.let { it != party?.id } == true) return AdmissionRejection.StaleRoom
         if (request.roomCode != roomCode) return AdmissionRejection.WrongCode
-        if (party != null && party.initialGame.toGameProtocolRef() !in checkNotNull(target).supportedGames) {
-            return AdmissionRejection.WrongGame
-        }
         return if (request.expectedGame != gameProtocol?.toGameProtocolRef()) AdmissionRejection.WrongGame else null
     }
 
@@ -3126,6 +3135,29 @@ internal class HostP2pRoom(
         return Result.Success(Unit)
     }
 
+    private suspend fun selectPartyGame(
+        expected: GameProtocolRef,
+        next: GameProtocolRef,
+        seatLimit: Int,
+        expectedMembers: Set<PlayerId>,
+    ): Result<Unit, NetError> = stateMutex.withLock {
+        if (partyId == null || !next.isValid() || seatLimit !in 2..(maxRemotePlayers + 1)) {
+            return@withLock Result.Failure(NetError.InvalidInput)
+        }
+        if (left || !acceptsLocalGameCommands) return@withLock Result.Failure(NetError.SessionSuspended)
+        if (admissionsClosed || pendingByPlayer.isNotEmpty() || admissionReadyByPlayer.isNotEmpty() ||
+            resumeReadyByPlayer.isNotEmpty() || admissionReservations.isNotEmpty()
+        ) {
+            return@withLock Result.Failure(NetError.CommandInFlight)
+        }
+        if (partyGame != expected) return@withLock Result.Failure(NetError.StaleRoom)
+        if (membersByPlayer.keys != expectedMembers) return@withLock Result.Failure(NetError.NotConnected)
+        if (membersByPlayer.size >= seatLimit) return@withLock Result.Failure(NetError.RoomFull)
+        partyGame = next
+        remoteSeatLimit = seatLimit - 1
+        Result.Success(Unit)
+    }
+
     /**
      * Freeze this match's exact connected roster while keeping party membership
      * and rejoin credentials intact. The caller uses the roster from the
@@ -3355,7 +3387,7 @@ internal class HostP2pRoom(
                 }
                 playerId !in membersByPlayer &&
                     membersByPlayer.size + admissionReservations.count { it !in membersByPlayer } >=
-                    maxRemotePlayers -> {
+                    remoteSeatLimit -> {
                     pendingByPlayer.remove(playerId)
                     publishPendingAdmissions()
                     AdmissionPreparation.Rejected(
@@ -3604,11 +3636,11 @@ internal class HostP2pRoom(
     )
 
     private fun pendingAdmissionLimit(): Int =
-        (maxRemotePlayers + P2pTrafficLimits.SESSION_ADMISSION_HEADROOM)
+        (remoteSeatLimit + P2pTrafficLimits.SESSION_ADMISSION_HEADROOM)
             .coerceAtMost(P2pTrafficLimits.MAX_PENDING_ADMISSION_REQUESTS)
 
     private fun trackedSessionLimit(): Int =
-        (maxRemotePlayers + P2pTrafficLimits.SESSION_ADMISSION_HEADROOM)
+        (remoteSeatLimit + P2pTrafficLimits.SESSION_ADMISSION_HEADROOM)
             .coerceAtMost(P2pTrafficLimits.MAX_TRACKED_SESSIONS)
 
     private suspend fun enforceTrafficDecision(

@@ -47,7 +47,18 @@ internal class PartyHostCoordinator(
     val state = lobby.asStateFlow()
 
     suspend fun admit(seat: PartySeat) = mutate { it.admit(seat) }
-    suspend fun selectGame(game: PartyGame) = mutate { it.selectGame(game) }
+    suspend fun selectGame(game: PartyGame): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val previous = lobby.value
+        val selected = previous.selectGame(game)
+        if (selected !is Result.Success || matchAdmission == null || selected.data === previous) {
+            return@withLock apply(selected)
+        }
+        val switched = withContext(NonCancellable) {
+            matchAdmission.selectGame(previous.game.protocol, game.protocol, game.playerCounts.last, previous.seats.keys - previous.host)
+        }
+        if (switched is Result.Failure) return@withLock Result.Failure(switched.error.toPartyRejection())
+        apply(selected)
+    }
     suspend fun presence(player: PlayerId, connected: Boolean) = mutate { it.updatePresence(player, connected) }
     suspend fun prepareMatch(): Result<PartyLobby, PartyRejection> = mutations.withLock {
         val previous = lobby.value
@@ -191,7 +202,8 @@ private fun PartyLobby.publicLobby(): PublicPartyLobby {
 }
 
 private fun NetError.toPartyRejection(): PartyRejection = when (this) {
-    NetError.NotConnected -> PartyRejection.IneligibleCount
+    NetError.NotConnected, NetError.RoomFull -> PartyRejection.IneligibleCount
+    NetError.StaleRoom -> PartyRejection.StaleRevision
     NetError.CommandInFlight -> PartyRejection.WaitingForReadiness
     else -> PartyRejection.InvalidPhase
 }

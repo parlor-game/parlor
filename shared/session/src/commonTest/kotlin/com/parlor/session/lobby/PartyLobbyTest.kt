@@ -192,6 +192,13 @@ class PartyLobbyTest {
         val reopened = mutableListOf<SessionId>()
         var expectedPeers = emptySet<PlayerId>()
 
+        override suspend fun selectGame(
+            expected: GameProtocolRef,
+            next: GameProtocolRef,
+            seatLimit: Int,
+            expectedMembers: Set<PlayerId>,
+        ): Result<Unit, NetError> = Result.Success(Unit)
+
         override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>): Result<List<RoomMember>, NetError> {
             attempts += id
             this.expectedPeers = expectedPeers
