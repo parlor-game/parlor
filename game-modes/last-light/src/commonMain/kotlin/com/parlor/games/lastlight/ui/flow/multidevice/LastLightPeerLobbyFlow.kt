@@ -58,6 +58,7 @@ import com.parlor.games.lastlight.resources.md_back
 import com.parlor.games.lastlight.resources.md_back_description
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
@@ -515,6 +516,72 @@ private fun LastLightPeerErrorState(
 }
 
 private const val LAST_LIGHT_START_CHECKPOINT_KIND = "last-light/start/v1"
+
+/** Presents a real Last Light match on the room already opened by a party. */
+@Composable
+fun LastLightPartyMatch(
+    session: ProcessMultiplayerSession,
+    onEndHostMatch: (SessionEndReason) -> Unit,
+    onReturnToParty: () -> Unit,
+    onHostStarted: suspend () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    check(session.room.matchProtocol?.gameId == LastLightIds.GameId)
+    val presentation = rememberSaveableStateHolder()
+    if (session.room.isHost) {
+        LastLightMultiDeviceHostFlow(
+            players = remember(session) { session.partyHostPlayers() },
+            ownedSession = session,
+            presentationState = presentation,
+            onLeaveAfterEnd = onEndHostMatch,
+            onNewRoom = onEndHostMatch,
+            operationInFlight = false,
+            onRequestLeave = { onEndHostMatch(SessionEndReason.Cancelled) },
+            modifier = modifier,
+            onStarted = onHostStarted,
+        )
+    } else {
+        val lookup by produceState<RetainedValueResult<*>?>(null, session) {
+            value = session.getOrCreateCheckpoint(LAST_LIGHT_START_CHECKPOINT_KIND) { LastLightStartCheckpoint() }
+        }
+        val checkpoint = (lookup as? RetainedValueResult.Ready<*>)?.value as? LastLightStartCheckpoint
+        if (checkpoint == null) {
+            LastLightPartyWaiting(onReturnToParty, modifier, error = lookup != null)
+            return
+        }
+        LaunchedEffect(session, checkpoint) {
+            checkpoint.start(session.scope, { LastLightStartCheckpointState.Failed(NetError.Timeout) }) {
+                runLastLightStartHandshake(session)
+            }
+        }
+        val state by checkpoint.state.collectAsState()
+        when (val start = state) {
+            LastLightStartCheckpointState.Waiting -> LastLightPartyWaiting(onReturnToParty, modifier)
+            is LastLightStartCheckpointState.Failed -> LastLightPartyWaiting(onReturnToParty, modifier, error = true)
+            is LastLightStartCheckpointState.Started -> LastLightMultiDevicePeerFlow(
+                players = start.start.players,
+                selfPlayerId = session.room.selfPlayerId,
+                protocol = start.start.protocol,
+                acceptedStartOffer = start.start.offer,
+                ownedSession = session,
+                presentationState = presentation,
+                onBackToHome = onReturnToParty,
+                onRequestLeave = onReturnToParty,
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LastLightPartyWaiting(onExit: () -> Unit, modifier: Modifier, error: Boolean = false) {
+    LastLightNetworkStatus(
+        title = stringResource(if (error) Res.string.md_peer_initial_snapshot_failed else Res.string.md_peer_initial_snapshot_loading),
+        body = null,
+        onLeave = onExit,
+        modifier = modifier,
+    )
+}
 
 private class LastLightStartCheckpoint : RetainedMultiplayerCheckpoint {
     override val checkpointKind: String = LAST_LIGHT_START_CHECKPOINT_KIND

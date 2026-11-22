@@ -33,6 +33,9 @@ import com.parlor.games.whodunit.WhodunitPlayModePolicy
 import com.parlor.games.whodunit.ui.flow.WhodunitGameFlow
 import com.parlor.games.whodunit.ui.flow.multiplayer.WhodunitHostRoomBridge
 import com.parlor.games.whodunit.ui.screens.setup.ModeSelectionScreen
+import com.parlor.games.whodunit.ui.flow.multiplayer.WhodunitPartyMatch
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
@@ -44,7 +47,7 @@ internal val SHIPPED_WHODUNIT_PLAYER_COUNTS: IntRange = 6..6
 
 internal class WhodunitGameShellBinding(
     private val whodunitDefinition: WhodunitDefinition,
-) : GameShellBinding {
+) : GameShellBinding, PartyGameShell {
     override val definition: GameDefinition<*, *, *> = whodunitDefinition
     override val capabilities = GameShellCapabilities(
         setOf(
@@ -70,6 +73,15 @@ internal class WhodunitGameShellBinding(
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.CaseFile,
     )
+
+    @Composable
+    override fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
+    ) = WhodunitPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
 
     @Composable
     override fun Content(

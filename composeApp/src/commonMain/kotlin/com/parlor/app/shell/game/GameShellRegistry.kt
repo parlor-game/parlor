@@ -2,6 +2,8 @@ package com.parlor.app.shell.game
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.definition.GameDefinition
@@ -171,6 +173,17 @@ internal interface GameShellBinding {
         onExit: () -> Unit,
         backRequest: GameShellBackRequest = GameShellBackRequest.Initial,
         modifier: Modifier = Modifier,
+    )
+}
+
+internal interface PartyGameShell {
+    @Composable
+    fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
     )
 }
 

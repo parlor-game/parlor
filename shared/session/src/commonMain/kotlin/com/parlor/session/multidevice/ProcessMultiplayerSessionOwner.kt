@@ -2,6 +2,7 @@ package com.parlor.session.multidevice
 
 import com.parlor.core.ids.GameId
 import com.parlor.core.result.Result
+import com.parlor.engine.state.Player
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.room.DiscoveredRoomSelection
@@ -302,6 +303,15 @@ class ProcessMultiplayerSession internal constructor(
             }.also { lifecycleWatcher = it }
         }
         watcher.start()
+    }
+
+    /** Returns the already-frozen party start roster with the authoritative host first. */
+    fun partyHostPlayers(): List<Player> {
+        require(room.isHost && room.matchProtocol != null)
+        val host = room.info.value
+        val peers = checkNotNull(frozenRoster.value)
+        return listOf(Player(host.hostPlayerId, host.hostDisplayName, 0)) +
+            peers.mapIndexed { index, member -> Player(member.playerId, member.displayName, index + 1) }
     }
 
     /** Admission closure is process-owned and exactly-once, even across UI cancellation. */

@@ -987,16 +987,27 @@ fun WhodunitMultiplayerHostFlow(
     modeId: ModeId,
     players: List<Player>,
     ownedSession: ProcessMultiplayerSession,
-    sessionOwner: ProcessMultiplayerSessionOwner,
+    sessionOwner: ProcessMultiplayerSessionOwner?,
     onBackToLibrary: () -> Unit,
     onRetryStart: () -> Unit,
     modifier: Modifier = Modifier,
+    onPartyEnd: ((SessionEndReason) -> Unit)? = null,
+    onStarted: suspend () -> Unit = {},
 ) {
+    require((sessionOwner == null) == (onPartyEnd != null))
     val clock: Clock = koinInject()
     val definition: WhodunitDefinition = koinInject()
     val uiScope = rememberCoroutineScope()
     val seed = requireNotNull(ownedSession.hostSeed) {
         "Whodunit host session is missing its private reducer seed"
+    }
+    val endMatch: (SessionEndReason) -> Unit = { reason ->
+        if (onPartyEnd == null) {
+            uiScope.launch {
+                checkNotNull(sessionOwner).finalLeave(ownedSession, reason)
+                onBackToLibrary()
+            }
+        } else onPartyEnd(reason)
     }
     val runtimeLookup by produceState<RetainedValueResult<*>?>(
         initialValue = null,
@@ -1027,12 +1038,7 @@ fun WhodunitMultiplayerHostFlow(
             ),
             leaveLabel = stringResource(Res.string.host_start_cancel),
             leaveContentDescription = stringResource(Res.string.host_start_cancel_description),
-            onLeave = {
-                uiScope.launch {
-                    sessionOwner.finalLeave(ownedSession, SessionEndReason.Cancelled)
-                    onBackToLibrary()
-                }
-            },
+            onLeave = { endMatch(SessionEndReason.Cancelled) },
             modifier = modifier.fillMaxSize(),
         )
         return
@@ -1043,25 +1049,27 @@ fun WhodunitMultiplayerHostFlow(
     val bridge = runtime.bridge
     val hostPlayMode = runtime.playMode
     val startGate by runtime.startGate.collectAsState()
+    LaunchedEffect(runtime, startGate) { if (startGate == HostStartGateState.Started) onStarted() }
 
     var terminalExitInFlight by remember(runtime) { mutableStateOf(false) }
     val exitToLibrary: (SessionEndReason) -> Unit = { reason ->
         if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
-            uiScope.launch {
-                sessionOwner.finalLeave(ownedSession, reason)
-                onBackToLibrary()
-            }
+            endMatch(reason)
         }
     }
     val retryStartAfterTerminal: () -> Unit = {
         if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
-            uiScope.launch {
-                sessionOwner.prepareHostRetry(ownedSession)
-                onRetryStart()
+            if (sessionOwner == null) {
+                endMatch(SessionEndReason.Cancelled)
+            } else {
+                uiScope.launch {
+                    sessionOwner.prepareHostRetry(ownedSession)
+                    onRetryStart()
+                }
             }
         }
     }

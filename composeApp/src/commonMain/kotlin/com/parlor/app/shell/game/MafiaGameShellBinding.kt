@@ -27,6 +27,9 @@ import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostLobbyFlow
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostRoomBridge
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaPeerLobbyFlow
 import com.parlor.games.mafia.ui.flow.passandplay.MafiaGameFlow
+import com.parlor.games.mafia.ui.flow.multidevice.MafiaPartyMatch
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
@@ -36,7 +39,7 @@ import org.koin.compose.koinInject
 
 internal class MafiaGameShellBinding(
     private val mafiaDefinition: MafiaDefinition,
-) : GameShellBinding {
+) : GameShellBinding, PartyGameShell {
     override val definition: GameDefinition<*, *, *> = mafiaDefinition
     override val capabilities = GameShellCapabilities(
         setOf(
@@ -62,6 +65,15 @@ internal class MafiaGameShellBinding(
         accent = ParlorAccent.Crimson,
         artwork = ParlorArtwork.Moon,
     )
+
+    @Composable
+    override fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
+    ) = MafiaPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
 
     @Composable
     override fun Content(

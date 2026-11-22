@@ -33,6 +33,9 @@ import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostLobbyFlow
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostRoomBridge
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightPeerLobbyFlow
 import com.parlor.games.lastlight.ui.flow.passandplay.LastLightGameFlow
+import com.parlor.games.lastlight.ui.flow.multidevice.LastLightPartyMatch
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
@@ -42,7 +45,7 @@ import org.koin.compose.koinInject
 
 internal class LastLightGameShellBinding(
     private val lastlightDefinition: LastLightDefinition,
-) : GameShellBinding {
+) : GameShellBinding, PartyGameShell {
     override val definition: GameDefinition<*, *, *> = lastlightDefinition
     override val capabilities = GameShellCapabilities(
         setOf(
@@ -68,6 +71,15 @@ internal class LastLightGameShellBinding(
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.Cards,
     )
+
+    @Composable
+    override fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
+    ) = LastLightPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
 
     @Composable
     override fun Content(

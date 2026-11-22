@@ -51,6 +51,8 @@ import com.parlor.games.mafia.resources.md_peer_leave
 import com.parlor.games.mafia.resources.md_peer_leave_description
 import com.parlor.games.mafia.resources.md_peer_offline_banner
 import com.parlor.games.mafia.resources.md_peer_reconnecting
+import com.parlor.games.mafia.resources.md_peer_initial_snapshot_failed
+import com.parlor.games.mafia.resources.md_peer_initial_snapshot_loading
 import com.parlor.games.mafia.resources.md_peer_reconnecting_leave
 import com.parlor.games.mafia.resources.md_peer_reconnecting_leave_description
 import com.parlor.games.mafia.resources.md_peer_room_code_format
@@ -65,6 +67,7 @@ import com.parlor.games.mafia.resources.setup_back
 import com.parlor.games.mafia.resources.setup_back_description
 import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
@@ -554,6 +557,70 @@ private fun MafiaPeerErrorState(
 }
 
 private const val MAFIA_START_CHECKPOINT_KIND = "mafia/start/v1"
+
+/** Presents a real Mafia match on the room already opened by a party. */
+@Composable
+fun MafiaPartyMatch(
+    session: ProcessMultiplayerSession,
+    onEndHostMatch: (SessionEndReason) -> Unit,
+    onReturnToParty: () -> Unit,
+    onHostStarted: suspend () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    check(session.room.matchProtocol?.gameId == MafiaIds.GameId)
+    if (session.room.isHost) {
+        MafiaMultiDeviceHostFlow(
+            players = remember(session) { session.partyHostPlayers() },
+            ownedSession = session,
+            sessionOwner = null,
+            onBackToHome = onReturnToParty,
+            onRetryStart = onReturnToParty,
+            modifier = modifier,
+            onPartyEnd = onEndHostMatch,
+            onStarted = onHostStarted,
+        )
+    } else {
+        val lookup by produceState<RetainedValueResult<*>?>(null, session) {
+            value = session.getOrCreateCheckpoint(MAFIA_START_CHECKPOINT_KIND) { MafiaStartCheckpoint() }
+        }
+        val checkpoint = (lookup as? RetainedValueResult.Ready<*>)?.value as? MafiaStartCheckpoint
+        if (checkpoint == null) {
+            MafiaPartyWaiting(onReturnToParty, modifier, error = lookup != null)
+            return
+        }
+        LaunchedEffect(session, checkpoint) {
+            checkpoint.start(session.scope, { MafiaStartCheckpointState.Failed(NetError.Timeout) }) {
+                runMafiaStartHandshake(session)
+            }
+        }
+        val state by checkpoint.state.collectAsState()
+        when (val start = state) {
+            MafiaStartCheckpointState.Waiting -> MafiaPartyWaiting(onReturnToParty, modifier)
+            is MafiaStartCheckpointState.Failed -> MafiaPartyWaiting(onReturnToParty, modifier, error = true)
+            is MafiaStartCheckpointState.Started -> MafiaMultiDevicePeerFlow(
+                players = start.start.players,
+                selfPlayerId = session.room.selfPlayerId,
+                seed = start.start.seed,
+                protocol = start.start.protocol,
+                acceptedStartOffer = start.start.offer,
+                ownedSession = session,
+                onBackToHome = onReturnToParty,
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MafiaPartyWaiting(onExit: () -> Unit, modifier: Modifier, error: Boolean = false) {
+    ReconnectingOverlay(
+        title = stringResource(if (error) Res.string.md_peer_initial_snapshot_failed else Res.string.md_peer_initial_snapshot_loading),
+        leaveLabel = stringResource(Res.string.md_peer_reconnecting_leave),
+        leaveContentDescription = stringResource(Res.string.md_peer_reconnecting_leave_description),
+        onLeave = onExit,
+        modifier = modifier,
+    )
+}
 
 private class MafiaStartCheckpoint : RetainedMultiplayerCheckpoint {
     override val checkpointKind: String = MAFIA_START_CHECKPOINT_KIND

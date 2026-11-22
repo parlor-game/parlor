@@ -50,6 +50,7 @@ import org.koin.compose.koinInject
 internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGamePanel(
     spec: MultiplayerGameSpec<S, A, E>, session: ProcessMultiplayerSession, roster: List<RoomMember>, caseId: CaseId,
     onLeave: () -> Unit, onNewRoom: () -> Unit, busy: Boolean, modifier: Modifier,
+    onStarted: suspend () -> Unit = {},
 ) {
     val clock: Clock = koinInject()
     val lookup by produceState<RetainedValueResult<*>?>(null, session) {
@@ -68,6 +69,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGamePanel(
         return
     }
     val gate by runtime.startGate.collectAsState()
+    LaunchedEffect(runtime, gate) { if (gate == HostStartGateState.Started) onStarted() }
     val terminal by runtime.bridge.terminalReason.collectAsState()
     val own by runtime.session.privateStateFor(session.room.selfPlayerId).collectAsState()
     when {

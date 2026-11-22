@@ -155,11 +155,14 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
 
         suspend fun confirmStarted(id: SessionId): Result<Unit, PartyRejection> = owner.commitMatch(id).toUnit()
 
-        suspend fun returnToLobby(id: SessionId): Result<Unit, PartyRejection> = transition.withLock {
+        suspend fun returnToLobby(
+            id: SessionId,
+            reason: SessionEndReason = SessionEndReason.Completed,
+        ): Result<Unit, PartyRejection> = transition.withLock {
             val session = playing.value?.takeIf { it.room.matchProtocol?.sessionId == id }
                 ?: return@withLock Result.Failure(PartyRejection.StaleMatch)
             withContext(NonCancellable) {
-                session.runtime.value?.terminate(SessionEndReason.Cancelled)
+                session.runtime.value?.terminate(reason)
                 owner.returnToLobby(id).toUnit().also {
                     if (it is Result.Success) {
                         session.closeRuntimeAndScope()
