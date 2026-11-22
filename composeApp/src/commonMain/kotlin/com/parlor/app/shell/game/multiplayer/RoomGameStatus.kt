@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import com.parlor.designsystem.components.AdmissionWaiting
+import com.parlor.networking.transport.ApprovalWait
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +45,7 @@ internal fun RoomGameStatus(
     onNewRoom: (() -> Unit)? = null,
     onSettings: (() -> Unit)? = null,
     enabled: Boolean = true,
+    approval: ApprovalWait? = null,
 ) {
     HeroBackdrop(modifier.fillMaxSize()) {
         Column(
@@ -50,8 +53,12 @@ internal fun RoomGameStatus(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(title, color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.displayMedium,
-                textAlign = TextAlign.Center, modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite })
+            if (approval == null) {
+                Text(title, color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.displayMedium,
+                    textAlign = TextAlign.Center, modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite })
+            } else {
+                AdmissionWaiting(approval.lobby.hostDisplayName, approval.deadline)
+            }
             body?.let {
                 Text(it, color = ParlorTheme.colors.textSecondary, style = ParlorTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             }

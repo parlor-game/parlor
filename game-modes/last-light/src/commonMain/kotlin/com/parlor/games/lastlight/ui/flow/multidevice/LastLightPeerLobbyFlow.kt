@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import com.parlor.designsystem.components.AdmissionWaiting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -65,6 +66,7 @@ import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.NetError
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
@@ -73,6 +75,7 @@ import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.multidevice.awaitAuthoritativeSessionStart
 import com.parlor.session.multidevice.asNetError
 import com.parlor.session.multidevice.MultiplayerOpenMode
+import com.parlor.session.multidevice.approvalFor
 import com.parlor.session.multidevice.MultiplayerSessionRoute
 import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
@@ -116,6 +119,7 @@ fun LastLightPeerLobbyFlow(
         )
     }
     val ownerState by sessionOwner.state.collectAsState()
+    val approval by ownerState.approvalFor(route).collectAsState()
     val ownedSession = (ownerState as? ProcessMultiplayerState.Active)
         ?.session
         ?.takeIf { it.route == route }
@@ -177,6 +181,7 @@ fun LastLightPeerLobbyFlow(
                     expectedGameProtocol = HostedGameProtocol(LastLightIds.GameId, LastLightHostRoomBridge.GAME_VERSION),
                     discoveredRoom = route.discoveredRoom,
                     invitation = route.invitation,
+                    onApprovalPending = sessionOwner.approvalReporter(route),
                 ))
                 MultiplayerOpenMode.Host -> error("Peer route requested host acquisition")
             }
@@ -314,6 +319,7 @@ fun LastLightPeerLobbyFlow(
                     onLeave = finalBackToHome,
                     leaveEnabled = !finalLeaveInFlight,
                     leaveInFlight = finalLeaveInFlight,
+                    approval = approval,
                     modifier = Modifier.fillMaxSize(),
                 )
                 start == null -> LastLightPeerWaitingForStart(
@@ -347,6 +353,7 @@ private fun LastLightPeerConnectingState(
     leaveEnabled: Boolean,
     leaveInFlight: Boolean,
     modifier: Modifier = Modifier,
+    approval: ApprovalWait? = null,
 ) {
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
@@ -360,16 +367,20 @@ private fun LastLightPeerConnectingState(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             CandleFlame(size = androidx.compose.ui.unit.Dp(72f))
-            Text(
-                text = if (resuming) {
-                    stringResource(Res.string.md_peer_reconnecting)
-                } else {
-                    stringResource(Res.string.md_peer_connecting_format, code)
-                },
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
+            if (approval == null) {
+                Text(
+                    text = if (resuming) {
+                        stringResource(Res.string.md_peer_reconnecting)
+                    } else {
+                        stringResource(Res.string.md_peer_connecting_format, code)
+                    },
+                    style = ParlorTheme.typography.displayMedium,
+                    color = ParlorTheme.colors.textPrimary,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                AdmissionWaiting(approval.lobby.hostDisplayName, approval.deadline)
+            }
             ParlorButton(
                 label = stringResource(Res.string.md_peer_leave),
                 contentDescription = stringResource(Res.string.md_peer_leave_description),

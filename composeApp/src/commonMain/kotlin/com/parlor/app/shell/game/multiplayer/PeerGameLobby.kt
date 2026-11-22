@@ -35,6 +35,7 @@ import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.multidevice.MultiplayerOpenMode
+import com.parlor.session.multidevice.approvalFor
 import com.parlor.session.multidevice.MultiplayerSessionRoute
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
 import com.parlor.session.multidevice.ProcessMultiplayerState
@@ -56,6 +57,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
         MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection, discoveredRoom, invitation)
     }
     val ownerState by owner.state.collectAsState()
+    val approval by ownerState.approvalFor(route).collectAsState()
     val session = (ownerState as? ProcessMultiplayerState.Active)?.session?.takeIf { it.route == route }
     val ownerError = ownerState.peerRouteError(route)
     val scope = rememberCoroutineScope()
@@ -75,6 +77,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
                     expectedGameProtocol = HostedGameProtocol(spec.definition.id, spec.version),
                     discoveredRoom = route.discoveredRoom,
                     invitation = route.invitation,
+                    onApprovalPending = owner.approvalReporter(route),
                 ))
                 MultiplayerOpenMode.Resume -> route.resumeSelection?.let { selection ->
                     transport.resumeLastSession(HostedGameProtocol(spec.definition.id, spec.version), selection)
@@ -134,7 +137,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
                 onSettings = onSettings.takeIf { access.needsRecoveryGuidance })
             lookup != null && checkpoint == null -> RoomGameStatus(stringResource(Res.string.room_game_error), leave, modifier,
                 body = stringResource(Res.string.room_game_incompatible), enabled = !busy)
-            session == null -> RoomGameStatus(stringResource(Res.string.room_game_joining), leave, modifier, enabled = !busy)
+            session == null -> RoomGameStatus(stringResource(Res.string.room_game_joining), leave, modifier,
+                enabled = !busy, approval = approval)
             accepted == null -> RoomGameStatus(stringResource(Res.string.room_game_wait_host), leave, modifier,
                 body = stringResource(Res.string.room_game_host, session.room.info.value.hostDisplayName.asBidiArgument()), enabled = !busy)
             else -> PeerGamePanel(spec, session, accepted, requestLeave, leave, busy, modifier)

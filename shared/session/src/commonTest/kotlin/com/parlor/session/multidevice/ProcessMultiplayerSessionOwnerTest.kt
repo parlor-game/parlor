@@ -8,9 +8,13 @@ import assertk.assertions.isNotSameInstanceAs
 import assertk.assertions.isSameInstanceAs
 import assertk.assertions.isTrue
 import com.parlor.core.ids.GameId
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.AdmissionLobbyInfo
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
@@ -38,9 +42,39 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.time.TimeSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProcessMultiplayerSessionOwnerTest {
+    @Test
+    fun canceled_approval_cannot_be_published_into_a_replacement_opening_of_the_same_game() = runTest {
+        val owner = ProcessMultiplayerSessionOwner(backgroundScope)
+        val route = peerRoute()
+        val room = ApprovalWait(
+            AdmissionLobbyInfo(RoomId("a".repeat(32)), GameProtocolRef(route.gameId, 1), "Host", 1, 4),
+            TimeSource.Monotonic.markNow(),
+        )
+        val first = async {
+            owner.acquire(route) { awaitCancellation() }
+        }
+        runCurrent()
+        val reporter = checkNotNull(owner.approvalReporter(route))
+        reporter(room)
+        assertThat(owner.state.value.approvalFor(route).value).isEqualTo(room)
+        assertThat(owner.leaveRoute(route, SessionEndReason.Cancelled)).isEqualTo(Result.Success(Unit))
+        first.join()
+        assertThat(owner.state.value.approvalFor(route).value).isEqualTo(null)
+
+        val second = async { owner.acquire(route) { awaitCancellation() } }
+        runCurrent()
+        reporter(room)
+        assertThat(owner.state.value.approvalFor(route).value).isEqualTo(null)
+        checkNotNull(owner.approvalReporter(route))(room)
+        assertThat(owner.state.value.approvalFor(route).value).isEqualTo(room)
+        assertThat(owner.leaveRoute(route, SessionEndReason.Cancelled)).isEqualTo(Result.Success(Unit))
+        second.join()
+    }
+
     @Test
     fun failedOpeningRestoresItsErrorUnlessRetryIsExplicit() = runTest {
         val owner = ProcessMultiplayerSessionOwner(backgroundScope)

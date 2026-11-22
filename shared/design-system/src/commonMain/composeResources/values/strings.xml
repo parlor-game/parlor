@@ -24,4 +24,5 @@
     <string name="lobby_invite_close">Close</string>
     <string name="lobby_invite_unavailable">This room is no longer accepting invitations.</string>
     <string name="admission_countdown">Request expires in %1$d s</string>
+    <string name="admission_waiting_for_host">Waiting for approval from %1$s</string>
 </resources>

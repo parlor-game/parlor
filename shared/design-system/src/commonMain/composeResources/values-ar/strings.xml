@@ -24,4 +24,5 @@
     <string name="lobby_invite_close">إغلاق</string>
     <string name="lobby_invite_unavailable">هذه الغرفة لم تعد تقبل الدعوات.</string>
     <string name="admission_countdown">ينتهي الطلب خلال %1$d ث</string>
+    <string name="admission_waiting_for_host">بانتظار موافقة %1$s</string>
 </resources>

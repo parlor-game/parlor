@@ -11,6 +11,7 @@ import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.room.RoomMember
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.ResumableSessionSelection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -232,7 +233,10 @@ sealed interface ProcessMultiplayerState {
     data class Opening(
         val route: MultiplayerSessionRoute,
         val mode: MultiplayerOpenMode,
-    ) : ProcessMultiplayerState
+    ) : ProcessMultiplayerState {
+        internal val currentApproval = MutableStateFlow<ApprovalWait?>(null)
+        val approval: StateFlow<ApprovalWait?> = currentApproval.asStateFlow()
+    }
 
     data class Active(val session: ProcessMultiplayerSession) : ProcessMultiplayerState
 
@@ -259,6 +263,12 @@ val ProcessMultiplayerState.routeOrNull: MultiplayerSessionRoute?
         is ProcessMultiplayerState.Failed -> route
         is ProcessMultiplayerState.Closing -> route
     }
+
+private val noApproval = MutableStateFlow<ApprovalWait?>(null).asStateFlow()
+
+/** Only the opening attempt belonging to this exact route can expose host approval details. */
+fun ProcessMultiplayerState.approvalFor(route: MultiplayerSessionRoute): StateFlow<ApprovalWait?> =
+    (this as? ProcessMultiplayerState.Opening)?.takeIf { it.route == route }?.approval ?: noApproval
 
 /**
  * One physical room plus every runtime object that must survive UI recreation.
@@ -479,6 +489,14 @@ class ProcessMultiplayerSessionOwner(
     private var opening: OpeningAttempt? = null
     private var retainedRetryRoom: RetainedRetryRoom? = null
     private var closing: ClosingAttempt? = null
+
+    /** Captures just this opening attempt, so its last frame can never update a later retry. */
+    fun approvalReporter(route: MultiplayerSessionRoute): ((ApprovalWait) -> Unit)? {
+        val opening = (_state.value as? ProcessMultiplayerState.Opening)?.takeIf {
+            it.route == route && it.mode == MultiplayerOpenMode.Join
+        } ?: return null
+        return { opening.currentApproval.value = it }
+    }
 
     /**
      * Reattaches a matching live/in-flight room. UI entry uses [retryFailedOpen] = false;
