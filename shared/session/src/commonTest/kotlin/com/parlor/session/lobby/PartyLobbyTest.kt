@@ -4,8 +4,10 @@ import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.room.RoomMember
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -90,6 +92,33 @@ class PartyLobbyTest {
         assertEquals(expired.ordinal, retry.ordinal)
         assertEquals(Result.Failure(PartyRejection.StaleMatch), next.commitMatch(expired.id))
         assertTrue(next.commitMatch(retry.id).value().acceptsGameplay(retry.id, mafia.protocol, peer))
+    }
+
+    @Test
+    fun authenticated_readiness_is_ordered_and_survives_a_presence_change() = runTest {
+        val party = partyWithPeer()
+        val hostAuthority = PartyHostCoordinator(party)
+        val command = PartyReadyCommand(party.id, 1L, party.revision, true)
+        assertEquals(CommandStatus.Unauthorized, hostAuthority.ready(other, command).status)
+        assertEquals(CommandStatus.SequenceGap, hostAuthority.ready(peer, command.copy(sequence = 2)).status)
+        val accepted = hostAuthority.ready(peer, command)
+        assertEquals(CommandStatus.Applied, accepted.status)
+        assertEquals(2L, accepted.nextSequence)
+        assertTrue(hostAuthority.state.value.seats.getValue(peer).ready)
+
+        hostAuthority.presence(peer, false).value()
+        hostAuthority.presence(peer, true).value()
+        assertFalse(hostAuthority.state.value.seats.getValue(peer).ready)
+        assertEquals(CommandStatus.Duplicate, hostAuthority.ready(peer, command).status)
+        val stale = hostAuthority.ready(peer, command.copy(sequence = 2))
+        assertEquals(CommandStatus.StaleRevision, stale.status)
+        assertEquals(3L, stale.nextSequence)
+        assertFalse(hostAuthority.state.value.seats.getValue(peer).ready)
+        val fresh = command.copy(sequence = 3, expectedRevision = hostAuthority.state.value.revision)
+        assertEquals(CommandStatus.Applied, hostAuthority.ready(peer, fresh).status)
+
+        hostAuthority.close()
+        assertEquals(CommandStatus.SessionEnded, hostAuthority.ready(peer, fresh).status)
     }
 
     private fun partyWithPeer(capabilities: Set<GameProtocolRef> = games): PartyLobby =
