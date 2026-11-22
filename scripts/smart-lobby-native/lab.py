@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlsplit
 
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
-DURATION = "35"
+DURATION = "50"
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 
 
@@ -184,10 +184,9 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_APP_IDS": package,
         "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
-        "UI_TEST_IOS_AXE": str((temp / "parlor-axe-path").read_text().strip())
-        if target == "ios" and pairing != "mixed" else "",
+        "UI_TEST_IOS_AXE": "",
         "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
-        if target == "ios" and pairing == "mixed" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
+        if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
     # Lifecycle startup can log control endpoints. Keep its output outside uploaded paths.
@@ -233,6 +232,10 @@ def start():
         digests = [digests[0 if target == "android" else 1]]
     if len(devices) != len(digests) or len(set(devices)) != len(devices):
         raise ValueError("Independent device allocations do not match the operator roster")
+    if pairing == "ios":
+        # Both app instances are installed and launched. One desktop controller switches
+        # between their named simulator windows; multiple controllers would compete for focus.
+        devices, digests = devices[:1], digests[:1]
     (temp / "parlor-connections").mkdir()
     with ThreadPoolExecutor(max_workers=len(devices)) as pool:
         jobs = [pool.submit(start_one, temp, index, device, digest, pairing)

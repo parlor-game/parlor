@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
-      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -76,7 +76,10 @@ jobs:
         run: bash scripts/smart-lobby-native/lab.sh build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '45072606265'
+          name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
           if-no-files-found: error
           retention-days: 7
@@ -97,7 +100,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
-      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
