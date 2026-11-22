@@ -610,13 +610,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     val admission = awaitAdmission(
                         session = session,
                         hostPeer = hostPeer,
-                        code = effectiveConfig.code,
-                        displayName = effectiveConfig.displayName,
+                        config = effectiveConfig,
                         selfPlayerId = PlayerId(kit.localPeerId.value),
-                        expectedGameProtocol = effectiveConfig.expectedGameProtocol,
-                        expectedRoomId = effectiveConfig.expectedRoomId,
-                        party = effectiveConfig.party,
-                        onApprovalPending = effectiveConfig.onApprovalPending,
                         firstResponseTimeoutMs = minOf(
                             FIRST_ADMISSION_RESPONSE_TIMEOUT_MS,
                             remainingFirstResponseBudgetMs,
@@ -1090,15 +1085,13 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     private suspend fun awaitAdmission(
         session: P2pSession,
         hostPeer: Peer,
-        code: String,
-        displayName: String,
+        config: JoinConfig,
         selfPlayerId: PlayerId,
         firstResponseTimeoutMs: Long,
-        expectedGameProtocol: HostedGameProtocol?,
-        expectedRoomId: RoomId?,
-        party: PartyAdmissionContext?,
-        onApprovalPending: ((ApprovalWait) -> Unit)?,
     ): AdmissionOutcome = coroutineScope {
+        val expectedGameProtocol = config.expectedGameProtocol
+        val expectedRoomId = config.expectedRoomId
+        val party = config.party
         val responses = Channel<HostMessage>(capacity = 8)
         val collector = launch(start = CoroutineStart.UNDISPATCHED) {
             session.incoming
@@ -1128,8 +1121,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 message = PeerMessage.AdmissionRequest(
                     protocol = if (party == null) ProtocolVersion() else PARTY_WIRE_VERSION,
                     actor = selfPlayerId,
-                    roomCode = code,
-                    displayName = displayName,
+                    roomCode = config.code,
+                    displayName = config.displayName,
                     expectedGame = expectedGameProtocol?.toGameProtocolRef(),
                     expectedRoomId = expectedRoomId,
                     party = party,
@@ -1156,7 +1149,9 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     return@coroutineScope AdmissionOutcome.Failed(it)
                 }
                 val window = minOf(pending.approvalWindowMillis ?: HOST_APPROVAL_TIMEOUT_MS, HOST_APPROVAL_TIMEOUT_MS)
-                pending.lobby?.let { onApprovalPending?.invoke(ApprovalWait(it, TimeSource.Monotonic.markNow() + window.milliseconds)) }
+                pending.lobby?.let {
+                    config.onApprovalPending?.invoke(ApprovalWait(it, TimeSource.Monotonic.markNow() + window.milliseconds))
+                }
                 withTimeoutOrNull(window) {
                     responses.receiveMatching { response ->
                         when (response) {
@@ -1189,8 +1184,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     val credential = decision.offer.toStoredCredentialOrNull(
                         session = session,
                         hostPeer = hostPeer,
-                        roomCode = code,
-                        displayName = displayName,
+                        roomCode = config.code,
+                        displayName = config.displayName,
                         selfPlayerId = selfPlayerId,
                     ) ?: return@coroutineScope AdmissionOutcome.Rejected(
                         AdmissionRejection.InvalidCredential,
