@@ -165,20 +165,59 @@ install_android() {
   done 3< "$devices"
 }
 
+sign_lab_simulator_app() {
+  local app="$1" executable entitlements identity
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" == "$bundle" ]]
+  executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
+  entitlements="$work/parlor-lab.entitlements"
+  identity="UITEST0001.$bundle"
+  python3 - "$identity" "$entitlements" <<'PYPLIST'
+import plistlib
+import sys
+with open(sys.argv[2], "wb") as output:
+    plistlib.dump({"application-identifier": sys.argv[1], "keychain-access-groups": [sys.argv[1]]}, output)
+PYPLIST
+  codesign --force --sign - --entitlements "$entitlements" "$app"
+  codesign --verify --strict "$app"
+  codesign -d --entitlements :- "$app" > "$proof/simulator-entitlements.plist"
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print application-identifier' "$proof/simulator-entitlements.plist")" == "$identity" ]]
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print keychain-access-groups:0' "$proof/simulator-entitlements.plist")" == "$identity" ]]
+  python3 "$verification" manifest "$app" > "$proof/simulator-signed-manifest.json"
+  python3 - "$package/app-manifest.json" "$proof/simulator-signed-manifest.json" "$executable" <<'PYDIFF'
+import json
+import sys
+
+with open(sys.argv[1]) as baseline:
+    before = json.load(baseline)
+with open(sys.argv[2]) as signed:
+    after = json.load(signed)
+executable = sys.argv[3]
+changes = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
+assert executable in changes
+assert all(path == executable or path.startswith("_CodeSignature/") for path in changes)
+print("Ad-hoc signing changed only the main executable signature and the bundle's signature records.")
+PYDIFF
+}
+
 install_ios() {
-  local device installed app
+  local device installed app expected_manifest
   (cd "$package" && shasum -a 256 -c SHA256SUMS)
   ditto -x -k "$package/parlor-simulator.zip" "$work/parlor-extracted"
   local apps=("$work"/parlor-extracted/*.app)
   [[ ${#apps[@]} == 1 && -d "${apps[0]}" ]]
   app="${apps[0]}"
+  expected_manifest="$package/app-manifest.json"
+  python3 "$verification" manifest "$app" > "$work/unsigned-simulator-manifest.json"
+  cmp "$expected_manifest" "$work/unsigned-simulator-manifest.json"
+  sign_lab_simulator_app "$app"
+  expected_manifest="$proof/simulator-signed-manifest.json"
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
     xcrun simctl install "$device" "$app"
     installed=$(xcrun simctl get_app_container "$device" "$bundle" app)
     python3 "$verification" manifest "$installed" > "$record/installed-app-manifest.json"
-    cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
+    cmp "$expected_manifest" "$record/installed-app-manifest.json"
     xcrun simctl spawn "$device" launchctl list > "$record/runtime-processes.txt"
     if [[ "$PAIRING_NAME" == mixed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"
