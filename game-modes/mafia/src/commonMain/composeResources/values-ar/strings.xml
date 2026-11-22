@@ -156,6 +156,7 @@
 
     <!-- Public night announcement -->
     <string name="night_announcement_eyebrow_format">اليوم %1$d · الفجر</string>
+    <string name="night_announcement_public">يمكن للجميع النظر إلى الشاشة.</string>
     <string name="night_announcement_killed_format">قُتل %1$s</string>
     <string name="night_announcement_saved">هوجم أحدهم لكن الدكتور أنقذه</string>
     <string name="night_announcement_no_kill">لم يمت أحد الليلة الماضية</string>
