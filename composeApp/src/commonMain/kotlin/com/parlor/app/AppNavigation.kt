@@ -85,7 +85,7 @@ internal enum class AppNavigationMutation {
  * or the transport's validated rejoin ownership; private launch/session
  * objects are never serialized into Navigation 3 state.
  */
-internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
+internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreParty: Boolean = false) {
     private val gamesBackStack = NavBackStack<AppRoute>(AppRoute.Home)
     private val settingsBackStack = NavBackStack<AppRoute>(AppRoute.Settings)
     private var selectedState by mutableStateOf(AppTopLevelDestination.Games)
@@ -101,7 +101,8 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
         private set
 
     init {
-        initialGameLaunch?.let(::openGame)
+        if (initialGameLaunch != null) openGame(initialGameLaunch)
+        else if (restoreParty) openParty()
     }
 
     val selectedDestination: AppTopLevelDestination

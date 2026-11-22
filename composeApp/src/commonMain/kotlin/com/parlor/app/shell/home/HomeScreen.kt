@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -123,7 +124,7 @@ internal fun HomeScreen(
     var returnFocusKey by rememberSaveable { mutableStateOf<String?>(null) }
     val filteredGames = games.filter { selectedFilter.accepts(it.capabilities) }
     val itemKeys = homeCatalogItemKeys(
-        filteredGames, unfinishedSessions, hasResumableMultiplayer, recoveryLoading, recoveryUnavailable,
+        filteredGames, unfinishedSessions, hasResumableMultiplayer, recoveryLoading, recoveryUnavailable, onParty != null,
     )
     LaunchedEffect(catalogScrollState, recoveryLoading, itemKeys) {
         if (!recoveryLoading) catalogScrollState.restoreAfterRecovery(itemKeys)
@@ -146,12 +147,7 @@ internal fun HomeScreen(
                 Spacer(Modifier.fillMaxWidth().height(ParlorTheme.borders.hairline).background(ParlorTheme.colors.borderSubtle))
             }
 
-            if (onParty != null) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "party-entry") {
-                    val label = stringResource(Res.string.party_open)
-                    ParlorButton(label, onParty, label, modifier = Modifier.fillMaxWidth(), variant = ParlorButtonVariant.Secondary)
-                }
-            }
+            partyEntry(onParty)
 
             when {
                 recoveryLoading -> item(span = { GridItemSpan(maxLineSpan) }, key = "recovery-loading") { RecoveryLoadingCard() }
@@ -259,6 +255,14 @@ private fun libraryColumns(width: Dp, padding: PaddingValues): Int {
 
 @Composable
 private fun catalogGameCount(count: Int): String = pluralStringResource(Res.plurals.home_games_count, count, count)
+
+private fun LazyGridScope.partyEntry(onParty: (() -> Unit)?) {
+    if (onParty == null) return
+    item(span = { GridItemSpan(maxLineSpan) }, key = "party-entry") {
+        val label = stringResource(Res.string.party_open)
+        ParlorButton(label, onParty, label, modifier = Modifier.fillMaxWidth(), variant = ParlorButtonVariant.Secondary)
+    }
+}
 
 @Composable
 private fun HomeTopBar() {

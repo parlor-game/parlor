@@ -4,17 +4,16 @@ package com.parlor.app
 internal enum class AppBackAction {
     AllowPlatformExit,
     NavigateGames,
-    DelegateToGame,
-    DelegateToParty,
+    DelegateToFlow,
     HandledByNavDisplay,
 }
 
 internal fun appBackAction(route: AppRoute): AppBackAction = when (route) {
     AppRoute.Home -> AppBackAction.AllowPlatformExit
     AppRoute.Settings -> AppBackAction.NavigateGames
-    AppRoute.Party -> AppBackAction.DelegateToParty
+    AppRoute.Party -> AppBackAction.DelegateToFlow
     is AppRoute.LocalResumeFailure -> AppBackAction.HandledByNavDisplay
-    is AppRoute.Game -> AppBackAction.DelegateToGame
+    is AppRoute.Game -> AppBackAction.DelegateToFlow
 }
 
 

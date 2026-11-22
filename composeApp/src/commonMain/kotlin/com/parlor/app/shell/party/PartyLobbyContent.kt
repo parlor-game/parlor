@@ -81,9 +81,10 @@ internal fun PartyLobbyContent(
     val info by session.roomInfo.collectAsState()
     val lifecycle by session.lifecycle.collectAsState()
     val match by session.match.collectAsState()
+    val foregroundReady by session.foregroundReady.collectAsState()
     val ended = lobby?.phase == PartyLobbyPhase.Ended || lifecycle == RoomLifecycleState.Expired ||
         lifecycle == RoomLifecycleState.Closed
-    val connected = lifecycle == RoomLifecycleState.Active && !ended
+    val connected = lifecycle == RoomLifecycleState.Active && foregroundReady && !ended
     val selected = titles.keys.firstOrNull { it.protocol == lobby?.selectedGame }
     PartyScaffold {
         PartyHeading(lobby?.roomName?.asBidiArgument() ?: stringResource(Res.string.party_open))

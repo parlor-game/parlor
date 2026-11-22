@@ -46,6 +46,7 @@ import com.parlor.designsystem.theme.ThemeMode
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
 import com.parlor.session.lobby.ProcessPartySessionOwner
+import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.app.shell.party.PartyScreen
 import com.parlor.session.multidevice.routeOrNull
 import com.parlor.storage.settings.SettingsStore
@@ -107,9 +108,7 @@ internal fun App(settings: SettingsStore) {
                 val initialLaunch = remember(ownedMultiplayerRoute, gameShellRouter) {
                     ownedMultiplayerRoute?.let(gameShellRouter::restoreOwned)
                 }
-                val navigator = remember {
-                    AppNavigator(initialLaunch).also { if (ownedParty != null && initialLaunch == null) it.openParty() }
-                }
+                val navigator = remember { AppNavigator(initialLaunch, restoreParty = ownedParty != null) }
                 val currentRoute = navigator.currentRoute
                 val localResumeCoordinator = remember(
                     appScope,
@@ -140,9 +139,7 @@ internal fun App(settings: SettingsStore) {
                 var hadOwnedMultiplayerRoute by remember {
                     mutableStateOf(ownedMultiplayerRoute != null)
                 }
-                var partyBackRequest by remember(currentRoute) { mutableStateOf(GameShellBackRequest.Initial) }
-                val activeGameRoute = currentRoute as? AppRoute.Game
-                var gameBackRequest by remember(activeGameRoute) {
+                var gameBackRequest by remember(currentRoute) {
                     mutableStateOf(GameShellBackRequest.Initial)
                 }
 
@@ -157,7 +154,7 @@ internal fun App(settings: SettingsStore) {
 
                 OpenIncomingJoinLink(
                     active = !visibility.privateContentCovered,
-                    ownerIdle = multiplayerOwnerState is ProcessMultiplayerState.Idle && ownedParty == null,
+                    ownerIdle = noMultiplayerOwner(multiplayerOwnerState, ownedParty),
                     openingRecovery = localResumeBusy,
                     deletingRecovery = deletionState.request != null,
                     navigator = navigator,
@@ -171,8 +168,7 @@ internal fun App(settings: SettingsStore) {
                         permitsStartupMultiplayerRecovery(
                             visibility = lifecycle.visibility.value.appVisibility,
                             navigationUntouched = navigator.permitsStartupRecovery,
-                            ownerIdle = multiplayerSessionOwner.state.value is ProcessMultiplayerState.Idle &&
-                                partyOwner.session.value == null,
+                            ownerIdle = noMultiplayerOwner(multiplayerSessionOwner.state.value, partyOwner.session.value),
                             actionsBlocked = localResumeCoordinator.busy.value || resumeDeletion.state.value.request != null,
                         )
                     },
@@ -233,7 +229,7 @@ internal fun App(settings: SettingsStore) {
 
                 val backAction = appBackAction(currentRoute)
                 val interceptPlatformBack = backAction == AppBackAction.NavigateGames ||
-                    backAction == AppBackAction.DelegateToGame || backAction == AppBackAction.DelegateToParty
+                    backAction == AppBackAction.DelegateToFlow
                 PlatformBackHandler(enabled = interceptPlatformBack) {
                     when (backAction) {
                         AppBackAction.AllowPlatformExit -> Unit
@@ -241,10 +237,9 @@ internal fun App(settings: SettingsStore) {
                             localResumeCoordinator.invalidate()
                             navigator.navigateBack(currentRoute)
                         }
-                        AppBackAction.DelegateToGame -> {
+                        AppBackAction.DelegateToFlow -> {
                             gameBackRequest = gameBackRequest.next()
                         }
-                        AppBackAction.DelegateToParty -> partyBackRequest = partyBackRequest.next()
                         AppBackAction.HandledByNavDisplay -> Unit
                     }
                 }
@@ -386,14 +381,13 @@ internal fun App(settings: SettingsStore) {
                                     registry = gameShellRegistry,
                                     invitation = navigator.partyInvitation,
                                     privateContentCovered = visibility.privateContentCovered,
-                                    backRequest = partyBackRequest.id,
+                                    backRequest = gameBackRequest.id,
                                     onExit = { backToHome(AppRoute.Party) },
                                 )
                             },
                             onBack = { route ->
                                 localResumeCoordinator.invalidate()
-                                if (route == AppRoute.Party) partyBackRequest = partyBackRequest.next()
-                                else navigator.navigateBack(route)
+                                navigateShellBack(navigator, route) { gameBackRequest = gameBackRequest.next() }
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -423,4 +417,12 @@ internal fun App(settings: SettingsStore) {
             }
         }
     }
+}
+
+private fun noMultiplayerOwner(game: ProcessMultiplayerState, party: ProcessPartySession?): Boolean =
+    game is ProcessMultiplayerState.Idle && party == null
+
+private fun navigateShellBack(navigator: AppNavigator, route: AppRoute, onGuardedBack: () -> Unit) {
+    if (appBackAction(route) == AppBackAction.DelegateToFlow) onGuardedBack()
+    else navigator.navigateBack(route)
 }

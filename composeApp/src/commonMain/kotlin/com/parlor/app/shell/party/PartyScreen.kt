@@ -143,13 +143,7 @@ private fun ActiveParty(
         }
     }
     LaunchedEffect(backRequest) { if (backRequest > 0) requestExit() }
-    val error = when {
-        actions.networkError != null -> roomGameError(checkNotNull(actions.networkError))
-        actions.rejection == PartyRejection.IneligibleCount || actions.rejection == PartyRejection.IncompatibleGame ->
-            stringResource(Res.string.party_cant_switch)
-        actions.rejection != null -> stringResource(Res.string.party_action_error)
-        else -> null
-    }
+    val error = partyError(actions)
 
     if (showingMatch && activeMatch != null && protocol != null && matchUi != null) {
         matchUi.PartyMatch(
@@ -207,6 +201,15 @@ private fun ActiveParty(
             }
         }
     }
+}
+
+@Composable
+private fun partyError(actions: PartyActions): String? = when {
+    actions.networkError != null -> roomGameError(checkNotNull(actions.networkError))
+    actions.rejection == PartyRejection.IneligibleCount || actions.rejection == PartyRejection.IncompatibleGame ->
+        stringResource(Res.string.party_cant_switch)
+    actions.rejection != null -> stringResource(Res.string.party_action_error)
+    else -> null
 }
 
 @Composable

@@ -79,7 +79,11 @@ internal class LastLightGameShellBinding(
         onReturnToParty: () -> Unit,
         onHostStarted: suspend () -> Unit,
         modifier: Modifier,
-    ) = LastLightPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
+    ) = WithLastLightVisibility {
+        ParlorAccentScope(ParlorAccent.Amber) {
+            LastLightPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
+        }
+    }
 
     @Composable
     override fun Content(
@@ -89,21 +93,7 @@ internal class LastLightGameShellBinding(
         modifier: Modifier,
     ) {
         require(launch.gameId == definition.id) { "LastLight binding received another game" }
-        val lifecycle: AppLifecycleCoordinator = koinInject()
-        val visibility by lifecycle.visibility.collectAsState()
-        val readVisibility = remember(lifecycle) {
-            {
-                val current = lifecycle.visibility.value
-                LastLightProcessVisibility(!current.privateContentCovered, current.privacyEpoch)
-            }
-        }
-        CompositionLocalProvider(
-            LocalLastLightProcessVisibility provides LastLightProcessVisibility(
-                isForeground = !visibility.privateContentCovered,
-                concealmentEpoch = visibility.privacyEpoch,
-            ),
-            LocalLastLightVisibilityReader provides readVisibility,
-        ) {
+        WithLastLightVisibility {
             ParlorAccentScope(ParlorAccent.Amber) {
                 LastLightShellContent(
                     launch = launch,
@@ -116,6 +106,27 @@ internal class LastLightGameShellBinding(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun WithLastLightVisibility(content: @Composable () -> Unit) {
+    val lifecycle: AppLifecycleCoordinator = koinInject()
+    val visibility by lifecycle.visibility.collectAsState()
+    val readVisibility = remember(lifecycle) {
+        {
+            val current = lifecycle.visibility.value
+            LastLightProcessVisibility(!current.privateContentCovered, current.privacyEpoch)
+        }
+    }
+    CompositionLocalProvider(
+        LocalLastLightProcessVisibility provides LastLightProcessVisibility(
+            isForeground = !visibility.privateContentCovered,
+            concealmentEpoch = visibility.privacyEpoch,
+        ),
+        LocalLastLightVisibilityReader provides readVisibility,
+    ) {
+        content()
     }
 }
 

@@ -118,6 +118,7 @@ class ProcessPartySessionOwner(private val transport: RoomTransport, private val
 sealed class ProcessPartySession private constructor(room: LocalRoom) {
     val roomInfo = room.info
     val lifecycle = room.lifecycle
+    val foregroundReady = room.foregroundReady
     val selfPlayerId = room.selfPlayerId
     abstract val lobby: StateFlow<PublicPartyLobby?>
     abstract val match: StateFlow<ProcessMultiplayerSession?>
