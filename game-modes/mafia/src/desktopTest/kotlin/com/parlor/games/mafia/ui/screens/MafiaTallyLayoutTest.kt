@@ -128,7 +128,9 @@ class MafiaTallyLayoutTest {
             // elimination headline. Select its exact row under the tally header.
             val name = onNode(
                 hasText(names.getValue(id)) and SemanticsMatcher("name inside the actual tally list") {
-                    it.layoutInfo.parentInfo?.parentInfo === listColumn
+                    val row = it.layoutInfo.parentInfo
+                    val entry = if (night) row else row?.parentInfo
+                    entry?.parentInfo === listColumn
                 },
                 useUnmergedTree = true,
             )

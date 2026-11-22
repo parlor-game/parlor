@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.ContextRibbon
@@ -32,8 +34,8 @@ import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
-import com.parlor.designsystem.components.pressableSurface
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.components.pressableSurface
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.resources.Res
 import com.parlor.games.whodunit.resources.private_player_only_format
@@ -50,6 +52,7 @@ import com.parlor.games.whodunit.resources.vote_tied_body
 import com.parlor.games.whodunit.resources.vote_tied_eyebrow
 import com.parlor.games.whodunit.resources.whodunit_list_separator
 import com.parlor.games.whodunit.ui.components.CandlelitCover
+import com.parlor.games.whodunit.ui.components.WhodunitTable
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -65,40 +68,9 @@ fun VoteBallotScreen(
     onRefuse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ContextRibbon(
-                label = stringResource(Res.string.private_screen_label),
-                detail = stringResource(
-                    Res.string.private_player_only_format,
-                    currentVoterName,
-                ),
-                tone = ParlorContextTone.Private,
-            )
-            Text(
-                text = stringResource(Res.string.vote_ballot_headline_format, currentVoterName),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.vote_ballot_instruction),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(ParlorTheme.spacing.m))
-            candidates.forEach { (id, name) ->
-                CandidateRow(name = name, onClick = { onVote(id) })
-            }
-            Spacer(Modifier.height(ParlorTheme.spacing.l))
+    WhodunitTable(
+        modifier = modifier,
+        actions = {
             ParlorButton(
                 label = stringResource(Res.string.vote_ballot_refuse),
                 contentDescription = stringResource(Res.string.vote_ballot_refuse_description),
@@ -106,7 +78,30 @@ fun VoteBallotScreen(
                 modifier = Modifier.fillMaxWidth(),
                 variant = ParlorButtonVariant.Ghost,
             )
+        },
+    ) {
+        Text(
+            text = stringResource(Res.string.vote_ballot_headline_format, currentVoterName),
+            style = ParlorTheme.typography.headingLarge,
+            color = ParlorTheme.colors.textPrimary,
+        )
+        Text(
+            text = stringResource(Res.string.vote_ballot_instruction),
+            style = ParlorTheme.typography.bodyLarge,
+            color = ParlorTheme.colors.textSecondary,
+        )
+        ContextRibbon(
+            label = stringResource(Res.string.private_screen_label),
+            detail = stringResource(
+                Res.string.private_player_only_format,
+                currentVoterName,
+            ),
+            tone = ParlorContextTone.Private,
+        )
+        candidates.forEach { (id, name) ->
+            CandidateRow(name = name, onClick = { onVote(id) })
         }
+
     }
 }
 
@@ -118,6 +113,7 @@ private fun CandidateRow(name: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .pressableSurface(onClick = onClick, cornerRadius = ParlorTheme.radii.card)
             .background(colors.surfaceElevated, shape)
             .border(
@@ -125,7 +121,7 @@ private fun CandidateRow(name: String, onClick: () -> Unit) {
                 color = colors.borderElevated,
                 shape = shape,
             )
-            .padding(ParlorTheme.spacing.l),
+            .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -149,7 +145,7 @@ private fun CandidateRow(name: String, onClick: () -> Unit) {
         }
         Text(
             text = name,
-            style = ParlorTheme.typography.displayMedium,
+            style = ParlorTheme.typography.bodyLarge,
             color = colors.textPrimary,
             modifier = Modifier.weight(1f),
         )

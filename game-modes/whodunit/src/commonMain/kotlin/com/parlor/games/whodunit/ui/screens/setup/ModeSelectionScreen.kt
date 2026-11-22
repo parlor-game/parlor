@@ -2,26 +2,15 @@ package com.parlor.games.whodunit.ui.screens.setup
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.ModeId
-import com.parlor.designsystem.backdrop.HeroBackdrop
-import com.parlor.designsystem.components.CatalogArtworkBadge
-import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
-import com.parlor.designsystem.components.parlorSafeContentPadding
-import com.parlor.designsystem.icons.ParlorArtwork
+import com.parlor.designsystem.components.ScreenHeader
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.resources.Res
@@ -37,6 +26,7 @@ import com.parlor.games.whodunit.resources.setup_mode_classic_title
 import com.parlor.games.whodunit.resources.setup_mode_elimination_body
 import com.parlor.games.whodunit.resources.setup_mode_elimination_meta
 import com.parlor.games.whodunit.resources.setup_mode_elimination_title
+import com.parlor.games.whodunit.ui.components.WhodunitTable
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -51,73 +41,50 @@ fun ModeSelectionScreen(
         caseSupportedModes = caseSupportedModes,
         caseSupportedPlayerCounts = caseSupportedPlayerCounts,
     )
-    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            if (!compactTypography) {
-                CatalogArtworkBadge(
-                    artwork = ParlorArtwork.CaseFile,
-                    modifier = Modifier.size(ParlorTheme.spacing.xxxl),
-                )
-            }
-            EyebrowLabel(
-                text = stringResource(Res.string.setup_choose_mode_eyebrow),
-                accent = false,
-            )
-            Text(
-                text = stringResource(Res.string.setup_choose_mode_headline),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-
-            // Stack vertically: side-by-side mode cards on a 360 dp phone
-            // crush the body text to two-word lines. Vertical stacking keeps
-            // the bodyLarge readable at every width.
-            availableModes.forEach { choice ->
-                val classic = choice.modeId == WhodunitIds.ClassicVoteModeId
-                ModeCard(
-                    title = stringResource(
-                        if (classic) {
-                            Res.string.setup_mode_classic_title
-                        } else {
-                            Res.string.setup_mode_elimination_title
-                        },
-                    ),
-                    body = stringResource(
-                        if (classic) {
-                            Res.string.setup_mode_classic_body
-                        } else {
-                            Res.string.setup_mode_elimination_body
-                        },
-                    ),
-                    meta = stringResource(
-                        if (classic) {
-                            Res.string.setup_mode_classic_meta
-                        } else {
-                            Res.string.setup_mode_elimination_meta
-                        },
-                        choice.supportedPlayerCounts.first,
-                        choice.supportedPlayerCounts.last,
-                    ),
-                    onClick = { onModeSelected(choice.modeId) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
+    WhodunitTable(
+        modifier = modifier,
+        actions = {
             ParlorButton(
                 label = stringResource(Res.string.setup_back),
                 contentDescription = stringResource(Res.string.setup_back_description),
                 onClick = onBack,
                 modifier = Modifier.fillMaxWidth(),
                 variant = ParlorButtonVariant.Ghost,
+            )
+        },
+    ) {
+        ScreenHeader(
+            title = stringResource(Res.string.setup_choose_mode_headline),
+            eyebrow = stringResource(Res.string.setup_choose_mode_eyebrow),
+        )
+        availableModes.forEach { choice ->
+            val classic = choice.modeId == WhodunitIds.ClassicVoteModeId
+            ModeCard(
+                title = stringResource(
+                    if (classic) {
+                        Res.string.setup_mode_classic_title
+                    } else {
+                        Res.string.setup_mode_elimination_title
+                    },
+                ),
+                body = stringResource(
+                    if (classic) {
+                        Res.string.setup_mode_classic_body
+                    } else {
+                        Res.string.setup_mode_elimination_body
+                    },
+                ),
+                meta = stringResource(
+                    if (classic) {
+                        Res.string.setup_mode_classic_meta
+                    } else {
+                        Res.string.setup_mode_elimination_meta
+                    },
+                    choice.supportedPlayerCounts.first,
+                    choice.supportedPlayerCounts.last,
+                ),
+                onClick = { onModeSelected(choice.modeId) },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -156,18 +123,17 @@ private fun ModeCard(
     val buttonDescription = stringResource(Res.string.setup_mode_choose_description_format, title)
     ParlorCard(
         modifier = modifier.fillMaxWidth(),
-        cornerRadius = ParlorTheme.radii.elevated,
-        contentPadding = ParlorTheme.spacing.xl,
+        contentPadding = ParlorTheme.spacing.l,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
             Text(
                 text = title,
-                style = ParlorTheme.typography.displayLarge,
+                style = ParlorTheme.typography.headingMedium,
                 color = ParlorTheme.colors.textPrimary,
             )
             Text(
                 text = body,
-                style = ParlorTheme.typography.bodyLarge,
+                style = ParlorTheme.typography.bodyMedium,
                 color = ParlorTheme.colors.textSecondary,
             )
             Text(
@@ -179,9 +145,8 @@ private fun ModeCard(
                 label = buttonLabel,
                 contentDescription = buttonDescription,
                 onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
 }
-
-private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

@@ -1,45 +1,41 @@
 package com.parlor.games.mafia.ui.screens.discussion
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.style.TextAlign
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.parlor.designsystem.components.ContextRibbon
-import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
-import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.discussion_alive_card
-import com.parlor.games.mafia.resources.discussion_how_to
-import com.parlor.games.mafia.resources.discussion_host_next
-import com.parlor.games.mafia.resources.discussion_peer_next
-import com.parlor.games.mafia.resources.discussion_public_table
 import com.parlor.games.mafia.resources.discussion_dead_card
 import com.parlor.games.mafia.resources.discussion_eyebrow_format
 import com.parlor.games.mafia.resources.discussion_headline
+import com.parlor.games.mafia.resources.discussion_host_next
+import com.parlor.games.mafia.resources.discussion_how_to
 import com.parlor.games.mafia.resources.discussion_open_vote
 import com.parlor.games.mafia.resources.discussion_open_vote_description
+import com.parlor.games.mafia.resources.discussion_peer_next
+import com.parlor.games.mafia.resources.discussion_public_table
+import com.parlor.games.mafia.ui.components.MafiaTable
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -57,60 +53,10 @@ fun DiscussionScreen(
     onOpenVote: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            EyebrowLabel(
-                text = stringResource(Res.string.discussion_eyebrow_format, day),
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.discussion_headline),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            ContextRibbon(
-                label = stringResource(Res.string.discussion_public_table),
-                detail = stringResource(
-                    if (isHost) Res.string.discussion_host_next else Res.string.discussion_peer_next,
-                ),
-                tone = ParlorContextTone.Public,
-            )
-            Text(
-                text = stringResource(Res.string.discussion_how_to),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
-            if (timerLabel != null) {
-                ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
-                    Text(
-                        text = timerLabel,
-                        style = ParlorTheme.typography.timerLarge,
-                        color = ParlorTheme.colors.accentEmber,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            PlayerListCard(title = stringResource(Res.string.discussion_alive_card), names = aliveNames)
-            if (deadNames.isNotEmpty()) {
-                PlayerListCard(
-                    title = stringResource(Res.string.discussion_dead_card),
-                    names = deadNames,
-                    dim = true,
-                )
-            }
-
-            if (isHost) {
+    MafiaTable(
+        modifier = modifier,
+        actions = if (isHost) {
+            {
                 ParlorButton(
                     label = stringResource(Res.string.discussion_open_vote),
                     contentDescription = stringResource(Res.string.discussion_open_vote_description),
@@ -118,28 +64,67 @@ fun DiscussionScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        } else {
+            null
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+            EyebrowLabel(text = stringResource(Res.string.discussion_eyebrow_format, day))
+            Text(
+                text = stringResource(Res.string.discussion_headline),
+                style = ParlorTheme.typography.headingLarge,
+                color = ParlorTheme.colors.textPrimary,
+                modifier = Modifier.semantics { heading() },
+            )
+        }
+        ContextRibbon(
+            label = stringResource(Res.string.discussion_public_table),
+            detail = stringResource(
+                if (isHost) Res.string.discussion_host_next else Res.string.discussion_peer_next,
+            ),
+            tone = ParlorContextTone.Public,
+        )
+        ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
+            Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
+                if (timerLabel != null) {
+                    Text(
+                        text = timerLabel,
+                        style = ParlorTheme.typography.timerMedium,
+                        color = ParlorTheme.colors.accentEmber,
+                    )
+                }
+                Text(
+                    text = stringResource(Res.string.discussion_how_to),
+                    style = ParlorTheme.typography.bodyMedium,
+                    color = ParlorTheme.colors.textSecondary,
+                )
+            }
+        }
+
+        PlayerListCard(title = stringResource(Res.string.discussion_alive_card), names = aliveNames)
+        if (deadNames.isNotEmpty()) {
+            PlayerListCard(
+                title = stringResource(Res.string.discussion_dead_card),
+                names = deadNames,
+                dim = true,
+            )
         }
     }
 }
 
 @Composable
 private fun PlayerListCard(title: String, names: List<String>, dim: Boolean = false) {
-    val rowShape = RoundedCornerShape(ParlorTheme.radii.subtle)
     val dotColor = if (dim) ParlorTheme.colors.semanticMuted else ParlorTheme.colors.semanticSuccess
-    ParlorCard(modifier = Modifier.fillMaxWidth()) {
+    ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
         ) {
             EyebrowLabel(text = title, accent = false)
-            names.forEach { name ->
+            names.forEachIndexed { index, name ->
+                if (index > 0) HorizontalDivider(color = ParlorTheme.colors.borderSubtle)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(rowShape)
-                        .background(ParlorTheme.colors.surfaceElevated)
-                        .border(ParlorTheme.borders.hairline, ParlorTheme.colors.borderSubtle, rowShape)
-                        .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ParlorTheme.spacing.xxs),
                     horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -152,7 +137,7 @@ private fun PlayerListCard(title: String, names: List<String>, dim: Boolean = fa
                     )
                     Text(
                         text = name,
-                        style = ParlorTheme.typography.bodyLarge,
+                        style = ParlorTheme.typography.bodyMedium,
                         color = if (dim) ParlorTheme.colors.textSecondary else ParlorTheme.colors.textPrimary,
                     )
                 }

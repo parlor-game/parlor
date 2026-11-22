@@ -75,7 +75,7 @@ class WhodunitDiscussionLayoutTest {
         output.parentFile.mkdirs()
         ImageIO.write(onNodeWithTag("discussion-evidence").captureToImage().toAwtImage(), "png", output)
         earlier.performScrollTo().assertIsDisplayed()
-        onNodeWithText(if (arabic) "تابع" else "Move On").performScrollTo().performClick()
+        onNodeWithText(if (arabic) "تابع" else "Move On").performScrollTo().assertIsDisplayed().performClick()
         runOnIdle { assertEquals(1, advances) }
     }
 }
