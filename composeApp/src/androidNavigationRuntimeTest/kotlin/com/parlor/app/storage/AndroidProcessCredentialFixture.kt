@@ -1,6 +1,7 @@
 package com.parlor.app.storage
 
 import com.parlor.app.shell.game.GameShellMultiplayerContract
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.EmptyOk
 import com.parlor.core.result.Result
 import com.parlor.networking.transport.ResumableSessionInfo
@@ -13,7 +14,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * Synthetic persisted schema-v1 membership, admitted by the shipping parser and
+ * Synthetic persisted schema-v2 membership, admitted by the shipping parser and
  * selected/deleted through RoomTransport. This never joins a room, authenticates
  * to a host, replaces transport/store implementations or exposes internals.
  * One active membership is selected. Unrelated credentials and a local save
@@ -73,16 +74,17 @@ internal class AndroidProcessCredentialFixture(
     }
 
     private fun record(): JsonObject = buildJsonObject {
-        put("schemaVersion", 1)
+        put("schemaVersion", SCHEMA_VERSION)
         put("active", selected)
         put("pending", JsonNull)
     }
 
     private fun credential(suffix: String, code: String, name: String): JsonObject = buildJsonObject {
-        put("schemaVersion", 1)
+        put("schemaVersion", SCHEMA_VERSION)
         put("offerId", "$id-$suffix-offer")
         put("membershipId", "$id-$suffix-membership")
         put("roomCode", code)
+        put("roomId", RoomId(id.replace("-", "")).raw)
         put("displayName", name)
         put("playerId", "$id-$suffix-player")
         put("hostPeerId", "$id-$suffix-host")
@@ -96,7 +98,8 @@ internal class AndroidProcessCredentialFixture(
     }
 
     companion object {
-        private const val STORAGE_KEY = "p2p-resumable-session-v1"
+        private const val SCHEMA_VERSION = 2
+        private const val STORAGE_KEY = "p2p-resumable-session-v2"
         private const val SECRET_LENGTH = 64
         private const val FINGERPRINT_BODY_LENGTH = 52
         // A synthetic storage fixture, not a change to real membership deadlines.
