@@ -124,7 +124,7 @@
 
     <string name="night_doctor_eyebrow_format">دكتور · %1$s</string>
     <string name="night_doctor_headline">احمِ لاعبًا</string>
-    <string name="night_doctor_instructions">اختر لاعبًا لحمايته من هجوم هذه الليلة.</string>
+    <string name="night_doctor_instructions">اختر لاعبًا واحدًا لحمايته الليلة.</string>
     <string name="night_doctor_submit">أرسل الحماية</string>
     <string name="night_doctor_skip">تخطي (بدون حماية)</string>
 

@@ -124,7 +124,7 @@
 
     <string name="night_doctor_eyebrow_format">Doctor · %1$s</string>
     <string name="night_doctor_headline">Protect a player</string>
-    <string name="night_doctor_instructions">Pick one player to shield from tonight\'s attack.</string>
+    <string name="night_doctor_instructions">Choose one player to protect tonight.</string>
     <string name="night_doctor_submit">Submit protection</string>
     <string name="night_doctor_skip">Skip (protect no one)</string>
 
