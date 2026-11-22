@@ -64,6 +64,7 @@ internal data class PartyLobby private constructor(
     val revision: Long,
     val matchOrdinal: Long,
     val phase: PartyPhase,
+    val roomName: String?,
 ) {
     fun admit(seat: PartySeat): Result<PartyLobby, PartyRejection> {
         val player = seat.member.playerId
@@ -166,12 +167,12 @@ internal data class PartyLobby private constructor(
         mapValues { (_, seat) -> seat.copy(ready = false) }
 
     companion object {
-        fun open(id: PartyId, host: PartySeat, game: PartyGame): PartyLobby {
+        fun open(id: PartyId, host: PartySeat, game: PartyGame, roomName: String? = null): PartyLobby {
             require(host.member.connected && game.protocol in host.capabilities)
             return PartyLobby(
                 id = id, host = host.member.playerId, game = game,
                 seats = mapOf(host.member.playerId to host.copy(capabilities = host.capabilities.toSet(), ready = false)),
-                revision = 1, matchOrdinal = 0, phase = PartyPhase.Lobby,
+                revision = 1, matchOrdinal = 0, phase = PartyPhase.Lobby, roomName = roomName,
             )
         }
     }

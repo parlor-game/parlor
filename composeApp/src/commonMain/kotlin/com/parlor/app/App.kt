@@ -45,6 +45,8 @@ import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
+import com.parlor.app.shell.party.PartyScreen
 import com.parlor.session.multidevice.routeOrNull
 import com.parlor.storage.settings.SettingsStore
 import com.parlor.storage.snapshot.SnapshotStore
@@ -77,6 +79,8 @@ internal fun App(settings: SettingsStore) {
     val roomTransport: RoomTransport = koinInject()
     val multiplayerSessionOwner: ProcessMultiplayerSessionOwner = koinInject()
     val startupRecoveryGate: StartupMultiplayerRecoveryGate = koinInject()
+    val partyOwner: ProcessPartySessionOwner = koinInject()
+    val ownedParty by partyOwner.session.collectAsState()
     val lifecycle: AppLifecycleCoordinator = koinInject()
     val visibility by lifecycle.visibility.collectAsState()
     val gameShellRegistry: GameShellRegistry = koinInject()
@@ -103,7 +107,9 @@ internal fun App(settings: SettingsStore) {
                 val initialLaunch = remember(ownedMultiplayerRoute, gameShellRouter) {
                     ownedMultiplayerRoute?.let(gameShellRouter::restoreOwned)
                 }
-                val navigator = remember { AppNavigator(initialLaunch) }
+                val navigator = remember {
+                    AppNavigator(initialLaunch).also { if (ownedParty != null && initialLaunch == null) it.openParty() }
+                }
                 val currentRoute = navigator.currentRoute
                 val localResumeCoordinator = remember(
                     appScope,
@@ -134,6 +140,7 @@ internal fun App(settings: SettingsStore) {
                 var hadOwnedMultiplayerRoute by remember {
                     mutableStateOf(ownedMultiplayerRoute != null)
                 }
+                var partyBackRequest by remember(currentRoute) { mutableStateOf(GameShellBackRequest.Initial) }
                 val activeGameRoute = currentRoute as? AppRoute.Game
                 var gameBackRequest by remember(activeGameRoute) {
                     mutableStateOf(GameShellBackRequest.Initial)
@@ -150,7 +157,7 @@ internal fun App(settings: SettingsStore) {
 
                 OpenIncomingJoinLink(
                     active = !visibility.privateContentCovered,
-                    ownerIdle = multiplayerOwnerState is ProcessMultiplayerState.Idle,
+                    ownerIdle = multiplayerOwnerState is ProcessMultiplayerState.Idle && ownedParty == null,
                     openingRecovery = localResumeBusy,
                     deletingRecovery = deletionState.request != null,
                     navigator = navigator,
@@ -164,7 +171,8 @@ internal fun App(settings: SettingsStore) {
                         permitsStartupMultiplayerRecovery(
                             visibility = lifecycle.visibility.value.appVisibility,
                             navigationUntouched = navigator.permitsStartupRecovery,
-                            ownerIdle = multiplayerSessionOwner.state.value is ProcessMultiplayerState.Idle,
+                            ownerIdle = multiplayerSessionOwner.state.value is ProcessMultiplayerState.Idle &&
+                                partyOwner.session.value == null,
                             actionsBlocked = localResumeCoordinator.busy.value || resumeDeletion.state.value.request != null,
                         )
                     },
@@ -225,7 +233,7 @@ internal fun App(settings: SettingsStore) {
 
                 val backAction = appBackAction(currentRoute)
                 val interceptPlatformBack = backAction == AppBackAction.NavigateGames ||
-                    backAction == AppBackAction.DelegateToGame
+                    backAction == AppBackAction.DelegateToGame || backAction == AppBackAction.DelegateToParty
                 PlatformBackHandler(enabled = interceptPlatformBack) {
                     when (backAction) {
                         AppBackAction.AllowPlatformExit -> Unit
@@ -236,6 +244,7 @@ internal fun App(settings: SettingsStore) {
                         AppBackAction.DelegateToGame -> {
                             gameBackRequest = gameBackRequest.next()
                         }
+                        AppBackAction.DelegateToParty -> partyBackRequest = partyBackRequest.next()
                         AppBackAction.HandledByNavDisplay -> Unit
                     }
                 }
@@ -256,6 +265,11 @@ internal fun App(settings: SettingsStore) {
                                 HomeScreen(
                                     games = gameShellRegistry.all,
                                     catalogScrollState = homeScrollState,
+                                    onParty = {
+                                        resumeDeletion.invalidate()
+                                        localResumeCoordinator.invalidate()
+                                        navigator.openParty()
+                                    },
                                     onGameSelected = { gameId ->
                                         resumeDeletion.invalidate()
                                         localResumeCoordinator.invalidate()
@@ -365,9 +379,21 @@ internal fun App(settings: SettingsStore) {
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             },
+                            partyContent = {
+                                PartyScreen(
+                                    owner = partyOwner,
+                                    transport = roomTransport,
+                                    registry = gameShellRegistry,
+                                    invitation = navigator.partyInvitation,
+                                    privateContentCovered = visibility.privateContentCovered,
+                                    backRequest = partyBackRequest.id,
+                                    onExit = { backToHome(AppRoute.Party) },
+                                )
+                            },
                             onBack = { route ->
                                 localResumeCoordinator.invalidate()
-                                navigator.navigateBack(route)
+                                if (route == AppRoute.Party) partyBackRequest = partyBackRequest.next()
+                                else navigator.navigateBack(route)
                             },
                             modifier = Modifier.fillMaxSize(),
                         )

@@ -43,9 +43,16 @@ class ProcessPartySessionOwner(private val transport: RoomTransport, private val
     private val current = MutableStateFlow<ProcessPartySession?>(null)
     val session = current.asStateFlow()
 
-    suspend fun host(displayName: String, games: Set<PartyGame>, initial: PartyGame): Result<ProcessPartySession, NetError> =
+    suspend fun host(
+        displayName: String,
+        games: Set<PartyGame>,
+        initial: PartyGame,
+        roomName: String? = null,
+    ): Result<ProcessPartySession, NetError> =
         open {
-            if (!games.hasValidCatalog() || initial !in games || !displayName.isCanonicalDisplayName()) {
+            if (!games.hasValidCatalog() || initial !in games || !displayName.isCanonicalDisplayName() ||
+                (roomName != null && !roomName.isCanonicalDisplayName())
+            ) {
                 return@open Result.Failure(NetError.InvalidInput)
             }
             val identity = PartyId(SecureIds.id128())
@@ -60,7 +67,7 @@ class ProcessPartySessionOwner(private val transport: RoomTransport, private val
             )
             when (val result = transport.host(config)) {
                 is Result.Failure -> result
-                is Result.Success -> Result.Success(ProcessPartySession.Host(result.data, initial, games, scope))
+                is Result.Success -> Result.Success(ProcessPartySession.Host(result.data, initial, games, scope, roomName))
             }
         }
 
@@ -121,9 +128,10 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         initial: PartyGame,
         private val games: Set<PartyGame>,
         parentScope: CoroutineScope,
+        roomName: String?,
     ) : ProcessPartySession(physical) {
         private val scope = CoroutineScope(parentScope.coroutineContext + Job(parentScope.coroutineContext[Job]))
-        private val owner = PartyHostRoomBinding(physical, initial, games.protocols(), scope)
+        private val owner = PartyHostRoomBinding(physical, initial, games.protocols(), scope, roomName = roomName)
         private val transition = Mutex()
         private val playing = MutableStateFlow<ProcessMultiplayerSession?>(null)
         override val lobby = owner.state.map(PartyLobby::publicLobby)
@@ -145,7 +153,7 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
                     val room = prepared.data
                     val route = MultiplayerSessionRoute.host(room.matchProtocol.gameId, room.info.value.hostDisplayName)
                     val session = ProcessMultiplayerSession(
-                        route, room, SecureIds.randomLong(), scope, room.members.value,
+                        route, room, SecureIds.randomLong(), scope, room.frozenMembers,
                     )
                     playing.value = session
                     Result.Success(session)

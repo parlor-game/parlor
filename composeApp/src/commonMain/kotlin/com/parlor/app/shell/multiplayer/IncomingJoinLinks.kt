@@ -14,19 +14,20 @@ import com.parlor.app.shell.game.GameShellRouter
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.networking.invitation.JoinLinkCodec
+import com.parlor.networking.invitation.PartyJoinInvitation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.jetbrains.compose.resources.stringResource
 
 /** At most one process-local link. It is parsed on receipt and never saved to navigation state. */
 internal object IncomingJoinLinks {
-    class Delivery(val decoded: JoinLinkCodec.Decoded)
+    class Delivery(val decoded: JoinLinkCodec.Decoded, val party: PartyJoinInvitation?)
 
     private val latest = MutableStateFlow<Delivery?>(null)
     val pending = latest.asStateFlow()
 
     fun accept(raw: String) {
-        latest.value = Delivery(JoinLinkCodec.decode(raw))
+        latest.value = Delivery(JoinLinkCodec.decode(raw), JoinLinkCodec.decodeParty(raw))
     }
 
     fun take(delivery: Delivery): Boolean = latest.compareAndSet(delivery, null)
@@ -53,6 +54,8 @@ internal fun OpenIncomingJoinLink(
         val decoded = delivery.decoded
         if (!canOpen || navigator.currentRoute != AppRoute.Home) {
             toast.show(busy, ParlorToastSeverity.Warning)
+        } else if (delivery.party != null) {
+            navigator.openParty(delivery.party)
         } else {
             when (decoded) {
                 JoinLinkCodec.Decoded.Invalid -> toast.show(invalid, ParlorToastSeverity.Warning)

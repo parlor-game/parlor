@@ -54,12 +54,15 @@ data class PublicPartyLobby(
     val seatLimit: Int,
     val activeMatchId: SessionId?,
     val matchOrdinal: Long,
+    val roomName: String? = null,
 ) {
     init {
         require(selectedGame.isValid())
         require(seatLimit in 2..MAX_PARTY_SEATS && members.size in 1..seatLimit)
         require(members.map(PublicPartySeat::playerId).distinct().size == members.size)
         require(matchOrdinal >= 0L)
+        require(roomName == null || (roomName == RoomInputPolicy.normalizeDisplayName(roomName) &&
+            RoomInputPolicy.isValidDisplayName(roomName)))
         val hasMatch = phase == PartyLobbyPhase.MatchStarting || phase == PartyLobbyPhase.InMatch
         require(hasMatch == (activeMatchId != null))
     }

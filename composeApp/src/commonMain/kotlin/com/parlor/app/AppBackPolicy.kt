@@ -5,12 +5,14 @@ internal enum class AppBackAction {
     AllowPlatformExit,
     NavigateGames,
     DelegateToGame,
+    DelegateToParty,
     HandledByNavDisplay,
 }
 
 internal fun appBackAction(route: AppRoute): AppBackAction = when (route) {
     AppRoute.Home -> AppBackAction.AllowPlatformExit
     AppRoute.Settings -> AppBackAction.NavigateGames
+    AppRoute.Party -> AppBackAction.DelegateToParty
     is AppRoute.LocalResumeFailure -> AppBackAction.HandledByNavDisplay
     is AppRoute.Game -> AppBackAction.DelegateToGame
 }
@@ -20,4 +22,4 @@ internal fun appBackAction(route: AppRoute): AppBackAction = when (route) {
 internal fun <T> visibleEntriesForBack(
     route: AppRoute,
     entries: List<T>,
-): List<T> = if (route is AppRoute.Game) entries.takeLast(1) else entries
+): List<T> = if (route is AppRoute.Game || route == AppRoute.Party) entries.takeLast(1) else entries

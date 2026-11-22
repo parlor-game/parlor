@@ -29,6 +29,7 @@ internal class PartyHostRoomBinding(
     supportedGames: Set<GameProtocolRef>,
     parentScope: CoroutineScope,
     private val messageId: () -> String = SecureIds::id128,
+    roomName: String? = null,
 ) {
     private val admissions = checkNotNull(room.partyMatches)
     private val hostId = room.selfPlayerId
@@ -45,6 +46,7 @@ internal class PartyHostRoomBinding(
             admissions.partyId,
             PartySeat(RoomMember(hostId, room.info.value.hostDisplayName, connected = true), supportedGames),
             initialGame,
+            roomName,
         ),
         matchAdmission = admissions,
     )
@@ -95,7 +97,7 @@ internal class PartyHostRoomBinding(
         reconcileMembers()
         when (val prepared = host.prepareMatch()) {
             is Result.Failure -> prepared
-            is Result.Success -> attachMatch((prepared.data.phase as PartyPhase.Starting).match)
+            is Result.Success -> attachMatch(prepared.data)
         }
     }
 
@@ -149,9 +151,10 @@ internal class PartyHostRoomBinding(
         }
     }
 
-    private suspend fun attachMatch(match: PartyMatch): Result<PartyMatchRoom, PartyRejection> =
+    private suspend fun attachMatch(prepared: PartyLobby): Result<PartyMatchRoom, PartyRejection> =
         withContext(NonCancellable) {
-            val matchRoom = PartyMatchRoom.attach(room, match, inbox, scope)
+            val match = (prepared.phase as PartyPhase.Starting).match
+            val matchRoom = PartyMatchRoom.attach(room, match, inbox, scope, prepared.seats.values.map(PartySeat::member))
             if (matchRoom == null) {
                 host.returnToLobby(match.id)
                 Result.Failure(PartyRejection.InvalidPhase)

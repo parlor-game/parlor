@@ -198,6 +198,7 @@ internal fun PartyLobby.publicLobby(): PublicPartyLobby {
         seatLimit = game.playerCounts.last,
         activeMatchId = match?.id,
         matchOrdinal = matchOrdinal,
+        roomName = roomName,
     )
 }
 

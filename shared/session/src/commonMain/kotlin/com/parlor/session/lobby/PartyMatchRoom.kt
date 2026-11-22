@@ -38,6 +38,7 @@ internal class PartyMatchRoom private constructor(
     private val partyId: PartyId,
     private val match: PartyMatch,
     private val inbox: PartyRoomInbox,
+    internal val frozenMembers: List<RoomMember>,
     override val incoming: Flow<RoomMessage>,
     scope: CoroutineScope,
 ) : LocalRoom {
@@ -167,10 +168,13 @@ internal class PartyMatchRoom private constructor(
             match: PartyMatch,
             inbox: PartyRoomInbox,
             scope: CoroutineScope,
+            authoritativeMembers: List<RoomMember> = emptyList(),
         ): PartyMatchRoom? {
             val partyId = physical.info.value.partyId ?: return null
             val incoming = inbox.openMatch(match) ?: return null
-            return PartyMatchRoom(physical, partyId, match, inbox, incoming, scope)
+            val frozen = authoritativeMembers.filter { it.playerId in match.roster && it.playerId != physical.selfPlayerId }
+                .map { it.copy(partySupportedGames = emptyList()) }
+            return PartyMatchRoom(physical, partyId, match, inbox, frozen, incoming, scope)
         }
     }
 }

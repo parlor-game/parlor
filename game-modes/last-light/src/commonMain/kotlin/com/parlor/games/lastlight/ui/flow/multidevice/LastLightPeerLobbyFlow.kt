@@ -40,6 +40,8 @@ import com.parlor.engine.state.Player
 import com.parlor.games.lastlight.LastLightIds
 import com.parlor.games.lastlight.domain.rules.LastLightSessionRules
 import com.parlor.games.lastlight.resources.Res
+import com.parlor.games.lastlight.resources.md_peer_initial_snapshot_loading
+import com.parlor.games.lastlight.resources.md_peer_initial_snapshot_failed
 import com.parlor.games.lastlight.resources.md_peer_connecting_format
 import com.parlor.games.lastlight.resources.md_peer_error_title
 import com.parlor.games.lastlight.resources.md_peer_eyebrow

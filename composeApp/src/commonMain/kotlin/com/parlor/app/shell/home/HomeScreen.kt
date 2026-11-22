@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_open
 import com.parlor.app.resources.app_name
 import com.parlor.app.resources.catalog_empty_body
 import com.parlor.app.resources.catalog_empty_title
@@ -89,6 +90,7 @@ import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EmptyState
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorMark
 import com.parlor.designsystem.components.libraryFocusOutline
@@ -115,6 +117,7 @@ internal fun HomeScreen(
     onDiscardMultiplayer: (String) -> Unit = {},
     recoveryActionsEnabled: Boolean = true,
     catalogScrollState: HomeCatalogScrollState = rememberHomeCatalogScrollState(),
+    onParty: (() -> Unit)? = null,
 ) {
     var selectedFilter by rememberSaveable { mutableStateOf(HomeCatalogFilter.All) }
     var returnFocusKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -141,6 +144,13 @@ internal fun HomeScreen(
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
                 Spacer(Modifier.fillMaxWidth().height(ParlorTheme.borders.hairline).background(ParlorTheme.colors.borderSubtle))
+            }
+
+            if (onParty != null) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "party-entry") {
+                    val label = stringResource(Res.string.party_open)
+                    ParlorButton(label, onParty, label, modifier = Modifier.fillMaxWidth(), variant = ParlorButtonVariant.Secondary)
+                }
             }
 
             when {
