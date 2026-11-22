@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   package-evidence:
-    if: ${{ github.ref == 'refs/heads/capture/native-screens-2026-11-22' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Package screenshot evidence')) }}
+    if: ${{ github.ref == 'refs/heads/capture/native-screens-2026-11-22' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Package native screenshot evidence')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
