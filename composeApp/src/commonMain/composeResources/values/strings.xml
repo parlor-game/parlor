@@ -237,6 +237,11 @@
     <string name="party_settings_game">Choose the first game</string>
     <string name="party_game_selected">Selected · %1$s</string>
     <string name="party_name">Your player name</string>
+    <string name="party_rules_view">View game rules</string>
+    <string name="party_rules_back">Back to party</string>
+    <string name="party_rules_last_light">Bluff to stay lit. The last player whose light is still burning wins.</string>
+    <string name="party_rules_mafia">Classic Mafia with roles assigned for the connected group. The town votes by day and Mafia act at night.</string>
+    <string name="party_rules_whodunit">Classic Vote. Parlor selects a case for this group. Gather clues and vote once at the end.</string>
     <string name="party_room_name">Room name (optional)</string>
     <string name="party_code">Room code</string>
     <string name="party_create">Create party</string>

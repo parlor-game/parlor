@@ -6,13 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -39,6 +45,8 @@ import com.parlor.app.resources.party_play_again
 import com.parlor.app.resources.party_player_line
 import com.parlor.app.resources.party_ready
 import com.parlor.app.resources.party_roster
+import com.parlor.app.resources.party_rules_back
+import com.parlor.app.resources.party_rules_view
 import com.parlor.app.resources.party_start
 import com.parlor.app.resources.party_view_match
 import com.parlor.app.resources.party_waiting
@@ -78,6 +86,7 @@ internal fun PartyLobbyContent(
     onLeave: () -> Unit,
     onViewMatch: () -> Unit,
     commands: PartyLobbyCommands,
+    rules: @Composable (PartyGame, Int) -> Unit,
 ) {
     val info by session.roomInfo.collectAsState()
     val lifecycle by session.lifecycle.collectAsState()
@@ -87,6 +96,7 @@ internal fun PartyLobbyContent(
         lifecycle == RoomLifecycleState.Closed
     val connected = lifecycle == RoomLifecycleState.Active && foregroundReady && !ended
     val selected = titles.keys.firstOrNull { it.protocol == lobby?.selectedGame }
+    var showRules by remember(selected, lobby?.phase) { mutableStateOf(false) }
     PartyScaffold {
         PartyHeading(lobby?.roomName?.asBidiArgument() ?: stringResource(Res.string.party_open))
         if (ended) {
@@ -109,9 +119,29 @@ internal fun PartyLobbyContent(
         } else if (!ended) {
             PartyDetail(stringResource(Res.string.party_waiting))
         }
+        if (!ended && selected != null && lobby?.phase == PartyLobbyPhase.Lobby) {
+            PartyButton(Res.string.party_rules_view, variant = ParlorButtonVariant.Secondary) { showRules = true }
+            if (showRules) {
+                PartyRulesDialog(titles.getValue(selected), onDismiss = { showRules = false }) {
+                    rules(selected, lobby.members.count { it.connected })
+                }
+            }
+        }
         error?.let { PartyError(it) }
         PartyButton(Res.string.party_leave, enabled = !waiting, variant = ParlorButtonVariant.Secondary, onClick = onLeave)
     }
+}
+
+@Composable
+private fun PartyRulesDialog(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { content() }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.party_rules_back)) } },
+    )
 }
 
 @Composable

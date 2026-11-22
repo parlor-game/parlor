@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game
 
 import com.parlor.designsystem.icons.ParlorArtwork
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_rules_mafia
 import com.parlor.app.resources.home_mafia_open
 import com.parlor.app.resources.home_mafia_open_description
 import com.parlor.app.resources.home_mafia_kicker
@@ -22,6 +24,7 @@ import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.designsystem.theme.ParlorAccentScope
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.MafiaDefinition
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostLobbyFlow
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostRoomBridge
@@ -65,6 +68,11 @@ internal class MafiaGameShellBinding(
         accent = ParlorAccent.Crimson,
         artwork = ParlorArtwork.Moon,
     )
+
+    @Composable
+    override fun PartyRules(playerCount: Int) {
+        Text(stringResource(Res.string.party_rules_mafia), color = ParlorTheme.colors.textPrimary)
+    }
 
     @Composable
     override fun PartyMatch(

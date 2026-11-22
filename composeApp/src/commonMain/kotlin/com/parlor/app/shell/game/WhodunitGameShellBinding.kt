@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game
 
 import com.parlor.designsystem.icons.ParlorArtwork
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -10,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_rules_whodunit
 import com.parlor.app.resources.home_whodunit_open
 import com.parlor.app.resources.home_whodunit_open_description
 import com.parlor.app.resources.home_whodunit_kicker
@@ -27,6 +29,7 @@ import com.parlor.core.ids.ModeId
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.designsystem.theme.ParlorAccentScope
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.WhodunitDefinition
 import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.WhodunitPlayModePolicy
@@ -73,6 +76,11 @@ internal class WhodunitGameShellBinding(
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.CaseFile,
     )
+
+    @Composable
+    override fun PartyRules(playerCount: Int) {
+        Text(stringResource(Res.string.party_rules_whodunit), color = ParlorTheme.colors.textPrimary)
+    }
 
     @Composable
     override fun PartyMatch(

@@ -71,6 +71,11 @@ class PartyLobbyRenderingTest {
                                     PartyLobbyContent(
                                         session, current.value, mapOf(game to "Mafia"), false, null,
                                         onLeave = {}, onViewMatch = {},
+                                        rules = { selected, players ->
+                                            assertEquals(game, selected)
+                                            assertEquals(2, players)
+                                            PartyDetail("Selected game rules")
+                                        },
                                         commands = PartyLobbyCommands({}, {}, {}, {}) { ready ->
                                             tapped++
                                             current.value = lobby(game, host, peer, ready)
@@ -81,6 +86,13 @@ class PartyLobbyRenderingTest {
                         }
                     }
                 }
+                val rules = if (ar) "عرض قواعد اللعبة" else "View game rules"
+                val back = if (ar) "العودة إلى المجموعة" else "Back to party"
+                onNodeWithText(rules).performScrollTo().assertIsEnabled().performClick()
+                onNodeWithText("Selected game rules").assertIsDisplayed()
+                onNodeWithText(back).assertIsDisplayed().performClick()
+                onNodeWithText("Selected game rules").assertDoesNotExist()
+
                 // One copy labels the player status and one labels the action.
                 val markReady = if (ar) "جاهز" else "Ready"
                 val markNotReady = if (ar) "غير جاهز" else "Not ready"

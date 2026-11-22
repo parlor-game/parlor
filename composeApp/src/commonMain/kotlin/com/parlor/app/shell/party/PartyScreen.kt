@@ -179,6 +179,9 @@ private fun ActiveParty(
             error = error,
             onLeave = { confirm = PartyConfirmation.Leave },
             onViewMatch = { hiddenForMatch = null },
+            rules = { game, playerCount ->
+                (registry.byId(game.protocol.gameId) as? PartyGameShell)?.PartyRules(playerCount)
+            },
             commands = PartyLobbyCommands(
                 selectGame = { game -> scope.launch { actions.run { host?.let { showParty(it.selectGame(game)) } } } },
                 start = { scope.launch { actions.run { host?.let { showParty(it.start()) } } } },
