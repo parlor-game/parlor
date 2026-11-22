@@ -234,4 +234,6 @@
     <string name="featured_play">العب %1$s</string>
     <string name="home_guest_greeting">أهلًا يا ضيف</string>
     <string name="home_party_subtitle">واي فاي محلي · لعب جماعي</string>
+    <string name="name_character_count">%1$d من %2$d حرفًا</string>
+    <string name="name_seat_preview">الاسم الظاهر في الغرفة: %1$s</string>
 </resources>

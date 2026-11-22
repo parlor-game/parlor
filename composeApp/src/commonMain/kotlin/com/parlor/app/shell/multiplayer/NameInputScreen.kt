@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,7 +22,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
-import com.parlor.app.resources.name_back
 import com.parlor.app.resources.name_back_description
 import com.parlor.app.resources.name_confirm_host
 import com.parlor.app.resources.name_confirm_host_description
@@ -29,10 +30,14 @@ import com.parlor.app.resources.name_confirm_peer_description
 import com.parlor.app.resources.name_eyebrow_host
 import com.parlor.app.resources.name_eyebrow_peer
 import com.parlor.app.resources.name_field
+import com.parlor.app.resources.name_character_count
+import com.parlor.app.resources.name_seat_preview
 import com.parlor.app.resources.name_help
 import com.parlor.app.resources.name_title_host
 import com.parlor.app.resources.name_title_peer
 import com.parlor.designsystem.components.LibrarySurface
+import com.parlor.designsystem.components.LibraryText
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorTextField
 import com.parlor.designsystem.components.ScreenHeader
@@ -109,6 +114,7 @@ fun NameInputScreen(
                             },
                         ),
                     )
+                    NameSeatPreview(sanitized, name.length)
                 }
             },
             actions = {
@@ -132,5 +138,29 @@ fun NameInputScreen(
                 }
             },
         )
+    }
+}
+
+
+@Composable
+private fun NameSeatPreview(displayName: String, characterCount: Int) {
+    val colors = ParlorTheme.colors
+    LibraryText(
+        text = stringResource(
+            Res.string.name_character_count,
+            characterCount,
+            RoomInputPolicy.MAX_DISPLAY_NAME_LENGTH,
+        ),
+        style = ParlorTheme.typography.labelSmall,
+        color = colors.textSecondary,
+    )
+    if (displayName.isNotEmpty()) {
+        val label = stringResource(Res.string.name_seat_preview, displayName)
+        ParlorCard(
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = label },
+            contentPadding = ParlorTheme.spacing.m,
+        ) {
+            LibraryText(label, ParlorTheme.typography.labelLarge, colors.textPrimary)
+        }
     }
 }
