@@ -123,7 +123,10 @@ jobs:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '45072606265'
+          name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN
         if: matrix.pairing == 'mixed'
