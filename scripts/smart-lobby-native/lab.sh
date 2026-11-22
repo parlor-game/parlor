@@ -212,7 +212,7 @@ install() {
     install_android
     if [[ "$PAIRING_NAME" == android ]]; then python3 "$verification" wifi; fi
   else
-    install_ios_controller
+    if [[ "$PAIRING_NAME" != mixed ]]; then install_ios_controller; fi
     install_ios
   fi
 }

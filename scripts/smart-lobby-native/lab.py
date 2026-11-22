@@ -137,7 +137,7 @@ def stop(temp):
             (control / "stop").touch()
 
 
-def start_one(temp, index, device, digest):
+def start_one(temp, index, device, digest, pairing):
     target = os.environ["TARGET"]
     root = temp / "parlor-controllers" / f"device-{index}"
     root.mkdir(mode=0o700, parents=True)
@@ -156,13 +156,25 @@ def start_one(temp, index, device, digest):
         "UI_TEST_APP_IDS": package,
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": str((temp / "parlor-axe-path").read_text().strip())
-        if target == "ios" else "",
+        if target == "ios" and pairing != "mixed" else "",
+        "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
+        if target == "ios" and pairing == "mixed" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
     # Lifecycle startup can log control endpoints. Keep its output outside uploaded paths.
-    with (root / "start.log").open("wb") as log:
-        subprocess.run([sys.executable, str(lifecycle), "start"], env=environment,
-                       stdout=log, stderr=subprocess.STDOUT, check=True, timeout=220)
+    try:
+        with (root / "start.log").open("wb") as log:
+            subprocess.run([sys.executable, str(lifecycle), "start"], env=environment,
+                           stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        lines = (root / "start.log").read_text(errors="replace").lower()
+        markers = ("timed out", "screen capture", "accessibility", "booted ios simulator", "mid-session",
+                   "did not report the geometry", "out of alignment", "modulenotfounderror", "no display",
+                   "no supported", "failed to start tunnel", "did not publish")
+        clues = ", ".join(marker for marker in markers if marker in lines)
+        print(f"{target} guest {index} controller startup: {clues or 'no recognized diagnostic marker'}",
+              flush=True)
+        raise
     connection, = root.glob("ui-session-*/connection.json")
     data = json.loads(connection.read_text())
     origin = urlsplit(data["url"])
@@ -194,7 +206,7 @@ def start():
         raise ValueError("Independent device allocations do not match the operator roster")
     (temp / "parlor-connections").mkdir()
     with ThreadPoolExecutor(max_workers=len(devices)) as pool:
-        jobs = [pool.submit(start_one, temp, index, device, digest)
+        jobs = [pool.submit(start_one, temp, index, device, digest, pairing)
                 for index, (device, digest) in enumerate(zip(devices, digests), 1)]
         for job in jobs:
             job.result()
