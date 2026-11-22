@@ -6,6 +6,12 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyProtocolHeader
+import com.parlor.networking.protocol.PeerMessage
+import com.parlor.networking.protocol.ProtocolVersion
+import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.RoomMember
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -13,6 +19,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PartyLobbyTest {
@@ -119,6 +127,36 @@ class PartyLobbyTest {
 
         hostAuthority.close()
         assertEquals(CommandStatus.SessionEnded, hostAuthority.ready(peer, fresh).status)
+    }
+
+    @Test
+    fun the_party_wire_snapshot_is_public_and_the_ready_actor_comes_from_the_connection() = runTest {
+        val party = partyWithPeer()
+        val authority = PartyHostCoordinator(party)
+        val codec = RoomMessageCodec()
+        val frame = PeerMessage.PartySetReady(
+            header = PartyProtocolHeader(PARTY_WIRE_VERSION, party.id, "peer-message-00001", 0),
+            actor = host,
+            clientSequence = 1,
+            expectedRevision = party.revision,
+            ready = true,
+        )
+        val wrongProtocol = frame.copy(header = frame.header.copy(protocol = ProtocolVersion(4, 3)))
+        assertEquals(CommandStatus.IncompatibleVersion, authority.handleReady(peer, wrongProtocol, "host-message-00001").status)
+        val delivered = assertIs<PeerMessage.PartySetReady>(codec.decode(codec.encode(frame)))
+        val response = authority.handleReady(peer, delivered, "host-message-00002")
+        assertEquals(CommandStatus.Applied, response.status)
+        assertEquals(response, codec.decode(codec.encode(response)))
+        assertTrue(authority.state.value.seats.getValue(peer).ready)
+        assertFalse(authority.state.value.seats.getValue(host).ready)
+        assertNull(authority.snapshotFor(other, "host-message-00003"))
+
+        val snapshot = assertNotNull(authority.snapshotFor(peer, "host-message-00004"))
+        val wire = codec.encode(snapshot)
+        assertEquals(snapshot, assertIs<HostMessage.PartySnapshot>(codec.decode(wire)))
+        assertEquals(2L, snapshot.nextExpectedClientSequence)
+        assertEquals(2, snapshot.lobby.members.size)
+        assertFalse(wire.decodeToString().contains("capabilities"))
     }
 
     private fun partyWithPeer(capabilities: Set<GameProtocolRef> = games): PartyLobby =

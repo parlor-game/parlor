@@ -5,6 +5,13 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
+import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyLobbyPhase
+import com.parlor.networking.protocol.PartyProtocolHeader
+import com.parlor.networking.protocol.PeerMessage
+import com.parlor.networking.protocol.PublicPartyLobby
+import com.parlor.networking.protocol.PublicPartySeat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -48,11 +55,46 @@ internal class PartyHostCoordinator(initial: PartyLobby) {
         nextByPlayer.clear()
     }
 
+    /** This method is called with the identity of the authenticated physical channel. */
+    suspend fun handleReady(
+        actor: PlayerId,
+        message: PeerMessage.PartySetReady,
+        responseId: String,
+    ): HostMessage.PartyCommandResult = mutations.withLock {
+        val header = message.header
+        val receipt = if (header.protocol == PARTY_WIRE_VERSION && header.sequence == 0L) {
+            processReady(actor, PartyReadyCommand(header.partyId, message.clientSequence, message.expectedRevision, message.ready))
+        } else {
+            PartyReadyReceipt(CommandStatus.IncompatibleVersion, lobby.value.revision, nextByPlayer[actor] ?: FIRST_SEQUENCE)
+        }
+        HostMessage.PartyCommandResult(
+            header = PartyProtocolHeader(PARTY_WIRE_VERSION, lobby.value.id, responseId, lobby.value.revision),
+            commandMessageId = header.messageId,
+            status = receipt.status,
+            revision = receipt.revision,
+            nextExpectedClientSequence = receipt.nextSequence,
+        )
+    }
+
+    suspend fun snapshotFor(actor: PlayerId, messageId: String): HostMessage.PartySnapshot? = mutations.withLock {
+        val current = lobby.value
+        if (actor !in current.seats) return@withLock null
+        HostMessage.PartySnapshot(
+            header = PartyProtocolHeader(PARTY_WIRE_VERSION, current.id, messageId, current.revision),
+            revision = current.revision,
+            nextExpectedClientSequence = nextByPlayer[actor] ?: FIRST_SEQUENCE,
+            lobby = current.publicLobby(),
+        )
+    }
+
     /**
      * Actor comes from the authenticated transport, never the frame. The single
      * per-seat high-water mark bounds memory and remains stable across reconnects.
      */
-    suspend fun ready(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt = mutations.withLock {
+    suspend fun ready(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt =
+        mutations.withLock { processReady(actor, command) }
+
+    private fun processReady(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt {
         val current = lobby.value
         val expected = nextByPlayer[actor] ?: FIRST_SEQUENCE
         val status = when {
@@ -64,7 +106,7 @@ internal class PartyHostCoordinator(initial: PartyLobby) {
             command.sequence > expected || expected == Long.MAX_VALUE -> CommandStatus.SequenceGap
             else -> acceptOrderedReadiness(actor, command, expected)
         }
-        PartyReadyReceipt(status, lobby.value.revision, nextByPlayer[actor] ?: FIRST_SEQUENCE)
+        return PartyReadyReceipt(status, lobby.value.revision, nextByPlayer[actor] ?: FIRST_SEQUENCE)
     }
 
     private fun acceptOrderedReadiness(actor: PlayerId, command: PartyReadyCommand, expected: Long): CommandStatus {
@@ -89,4 +131,30 @@ internal class PartyHostCoordinator(initial: PartyLobby) {
     private companion object {
         const val FIRST_SEQUENCE = 1L
     }
+}
+
+private fun PartyLobby.publicLobby(): PublicPartyLobby {
+    val (visiblePhase, match) = when (val status = phase) {
+        PartyPhase.Lobby -> PartyLobbyPhase.Lobby to null
+        is PartyPhase.Starting -> PartyLobbyPhase.MatchStarting to status.match
+        is PartyPhase.Playing -> PartyLobbyPhase.InMatch to status.match
+        PartyPhase.Ended -> PartyLobbyPhase.Ended to null
+    }
+    return PublicPartyLobby(
+        phase = visiblePhase,
+        selectedGame = game.protocol,
+        members = seats.values.map { seat ->
+            val player = seat.member
+            PublicPartySeat(
+                playerId = player.playerId,
+                displayName = player.displayName,
+                connected = player.connected,
+                ready = seat.ready,
+                inActiveMatch = match?.roster?.contains(player.playerId) == true,
+            )
+        },
+        seatLimit = game.playerCounts.last,
+        activeMatchId = match?.id,
+        matchOrdinal = matchOrdinal,
+    )
 }

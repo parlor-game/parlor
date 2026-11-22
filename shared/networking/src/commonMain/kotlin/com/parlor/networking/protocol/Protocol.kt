@@ -150,6 +150,23 @@ sealed interface HostMessage : RoomMessage {
         val rejoinToken: String,
     ) : HostMessage
 
+    @Serializable
+    data class PartySnapshot(
+        val header: PartyProtocolHeader,
+        val revision: Long,
+        val nextExpectedClientSequence: Long,
+        val lobby: PublicPartyLobby,
+    ) : HostMessage
+
+    @Serializable
+    data class PartyCommandResult(
+        val header: PartyProtocolHeader,
+        val commandMessageId: String,
+        val status: CommandStatus,
+        val revision: Long,
+        val nextExpectedClientSequence: Long,
+    ) : HostMessage
+
     /** Initial host approval; the peer must durably stage [offer] before confirming. */
     @Serializable
     data class AdmissionOffered(
@@ -268,6 +285,15 @@ sealed interface PeerMessage : RoomMessage {
      * First encrypted application frame on a newly connected transport.
      * [actor] is overwritten by the transport with the authenticated peer id.
      */
+    @Serializable
+    data class PartySetReady(
+        val header: PartyProtocolHeader,
+        val actor: PlayerId,
+        val clientSequence: Long,
+        val expectedRevision: Long,
+        val ready: Boolean,
+    ) : PeerMessage
+
     @Serializable
     data class AdmissionRequest(
         val protocol: ProtocolVersion,

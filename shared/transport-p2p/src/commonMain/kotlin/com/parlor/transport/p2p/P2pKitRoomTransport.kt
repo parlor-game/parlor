@@ -1826,6 +1826,8 @@ private fun P2pDiagnostics.recordCommandResult(
 
 private fun PeerMessage.hasValidPeerPayloadBounds(): Boolean = when (this) {
     is PeerMessage.ClientCommand -> payload.size <= MAX_COMMAND_PAYLOAD_BYTES
+    // A standalone game room has no party authority.
+    is PeerMessage.PartySetReady -> false
     else -> true
 }
 
