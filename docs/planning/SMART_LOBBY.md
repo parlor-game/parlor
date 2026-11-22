@@ -26,10 +26,10 @@ baseline above until the complete change is reviewed and integrated.
 
 | Area | Implementation in this branch | Remaining qualification |
 |---|---|---|
-| Admission | Exact game/version admission before approval, host-side approval expiry, a fresh room identity, v2 protected rejoin with room/game binding, and an authenticated game/room preview before the approval wait. The obsolete v1 slot is removed when read and cannot restore a room. | Live Android and iOS admission and reconnect; the host and peer countdown UI remains outstanding. |
+| Admission | Exact game/version admission before approval, a monotonic host deadline shown in all six game lobbies, and an authenticated game/room preview before the approval wait. The party join form shows the authenticated host and a local estimate of the time remaining. Protected rejoin binds the exact room/game and discards obsolete v1 credentials. | Add the authenticated countdown to the six standalone join screens. Exercise approval, decline, timeout and cancellation on Android and iOS. |
 | Discovery | Game-scoped advertisements and dial selection, bounded nearby room rows, public room tags on both host and peer UI, and exact candidate selection in all six game flows. | Native discovery and removal; the legacy-version banner, network-change refresh and quarantine acceptance rows are still outstanding. |
-| Invitations | Local QR render, OS sharing, strict versioned link parsing, game/version routing, and fingerprint-pinned admission using the exact room identity. | Verify the system camera, share sheet, native deep linking and join/reject behavior on devices. |
-| Party and rematch | Explicit party admission and rejoin use a separate scope. Host readiness, game selection, capacity, and reversible match rosters are tested. The Linux two-process probe covers party resume and another roster freeze on the same physical room. | Connect the party lobby and the six game start/end flows to the tested match-scoped inbox, then run mobile acceptance. |
+| Invitations | Local QR render, explicit OS sharing, strict v1 game links and v2 party links. Both pin the authenticated host and the exact room. Party links route to a separate guarded entry and do not encode the current game. | Verify the system camera, share sheet, native deep linking and join/reject behavior on devices. |
+| Party and rematch | The app catalog opens a process-owned party with its own authorization and resume entry. Party readiness and game selection use host snapshots. All six bindings attach their existing game coordinators to a frozen match. Match completion returns to the party, where the host can start a rematch or explicitly select another game. The Linux two-process probes on `86252cb0` and `41b28c03` preserved the same authenticated seat, applied a game switch, and exchanged scoped traffic on the original connection after committing the first match end. | Finish full gameplay qualification across consecutive party matches for all six games. Qualify Android↔Android, Android↔iOS, iOS↔Android and iOS↔iOS on real same-LAN hardware. |
 
 ---
 
@@ -533,7 +533,9 @@ Validation (`JoinLinkCodec`, pure Kotlin in `:shared:networking`):
   no path, fragment, user-info or port.
 - Every parameter appears exactly once; unknown parameters are **rejected**
   (strict, like CBOR `ignoreUnknownKeys = false`). A future optional field
-  needs `v=2`.
+  needs a new schema. Schema 2 is a separate Party link and replaces `g` and
+  `gv` with the exact `party` ID, using protocol 5.0. The selected game is
+  authorized by the host after connection and remains changeable.
 - No percent-decoding: every allowed character is unreserved ASCII, so any `%`
   is a rejection. Parameter order is not significant.
 - The decoded link is a value object with a redacting `toString()` (like
