@@ -263,6 +263,8 @@
     <string name="party_offline">جارٍ إعادة الاتصال</string>
     <string name="party_roster">اللاعبون</string>
     <string name="party_player_line">%1$s · %2$s</string>
+    <string name="party_invite_players">دعوة اللاعبين</string>
+    <string name="party_invite_loading">جاري تجهيز الدعوة…</string>
     <string name="party_invitation">انضم إلى الغرفة عبر الدعوة</string>
     <string name="party_pending">طلبات الانضمام</string>
     <string name="party_approve">قبول</string>

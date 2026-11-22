@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.parlor.app.shell.game.DefaultGameShellRegistry
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
@@ -71,19 +73,22 @@ class PartyLobbyRenderingTest {
                         ProvideAppLanguage(language) {
                             ParlorTheme(reducedMotion = true) {
                                 Box(Modifier.size(320.dp, 640.dp)) {
-                                    PartyLobbyContent(
-                                        session, current.value, mapOf(game to "Mafia"), false, null,
-                                        onLeave = {}, onViewMatch = {},
-                                        rules = { selected, players ->
-                                            assertEquals(game, selected)
-                                            assertEquals(2, players)
+                                    val showRules = remember { mutableStateOf(false) }
+                                    if (showRules.value) {
+                                        PartyRulesContent("Mafia", onBack = { showRules.value = false }) {
                                             PartyDetail("Selected game rules")
-                                        },
-                                        commands = PartyLobbyCommands({}, {}, {}, {}) { ready ->
-                                            tapped++
-                                            current.value = lobby(game, host, peer, ready)
-                                        },
-                                    )
+                                        }
+                                    } else {
+                                        PartyLobbyContent(
+                                            session, current.value, mapOf(game to "Mafia"), false, null,
+                                            onLeave = {}, onViewMatch = {},
+                                            onViewRules = { showRules.value = true }, onInvite = {},
+                                            commands = PartyLobbyCommands({}, {}, {}, {}) { ready ->
+                                                tapped++
+                                                current.value = lobby(game, host, peer, ready)
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -93,6 +98,7 @@ class PartyLobbyRenderingTest {
                 val back = if (ar) "العودة إلى المجموعة" else "Back to party"
                 onNodeWithText(rules).performScrollTo().assertIsEnabled().performClick()
                 onNodeWithText("Selected game rules").assertIsDisplayed()
+                onNodeWithText(if (ar) "جاهز" else "Ready").assertDoesNotExist()
                 onNodeWithText(back).assertIsDisplayed().performClick()
                 onNodeWithText("Selected game rules").assertDoesNotExist()
 
@@ -128,6 +134,36 @@ class PartyLobbyRenderingTest {
             onNode(hasSetTextAction() and hasText("Room code")).performTextInput("ABCDEF")
             onNodeWithText("Request to join").assertIsDisplayed().assertIsEnabled().performClick()
             onNodeWithText("This room has closed or been replaced. Ask the host for a new invitation.").assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun privacy_cover_temporarily_hides_the_in_window_leave_confirmation() = runTest {
+        val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
+        val transport = LobbyTransport(PlayerId("host"), PlayerId("player"))
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        assertIs<Result.Success<ProcessPartySession>>(owner.join("Guest", "ABCDEF", setOf(game)))
+        val registry = DefaultGameShellRegistry(emptyList())
+        val covered = mutableStateOf(false)
+        runComposeUiTest {
+            setContent {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        PartyScreen(owner, transport, registry, invitation = null, privateContentCovered = covered.value,
+                            backRequest = 0, onExit = {})
+                    }
+                }
+            }
+            onNodeWithText("Leave party").performScrollTo().performClick()
+            onNodeWithText("Leave this party?").assertIsDisplayed()
+            runOnIdle { covered.value = true }
+            onNodeWithText("Party hidden while Parlor is inactive").assertIsDisplayed()
+            onNodeWithText("Leave this party?").assertDoesNotExist()
+            onNodeWithText("Party room").assertDoesNotExist()
+            runOnIdle { covered.value = false }
+            onNodeWithText("Leave this party?").assertIsDisplayed()
+            onNodeWithText("Cancel").performClick()
+            onNodeWithText("Leave this party?").assertDoesNotExist()
         }
     }
 

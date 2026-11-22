@@ -255,6 +255,8 @@
     <string name="party_offline">Reconnecting</string>
     <string name="party_roster">Players</string>
     <string name="party_player_line">%1$s · %2$s</string>
+    <string name="party_invite_players">Invite players</string>
+    <string name="party_invite_loading">Preparing invitation…</string>
     <string name="party_invitation">Join the invited party</string>
     <string name="party_pending">Join requests</string>
     <string name="party_approve">Approve</string>
