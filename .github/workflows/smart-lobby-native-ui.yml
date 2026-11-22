@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
-      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
+      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -97,7 +97,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
-      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
+      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
@@ -119,20 +119,8 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: matrix.target == 'android'
         with:
-          github-token: ${{ github.token }}
-          repository: parlor-game/parlor
-          run-id: '45060464381'
-          name: candidate-${{ matrix.target }}-1
-          path: ${{ runner.temp }}/parlor-package
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: matrix.target == 'ios'
-        with:
-          github-token: ${{ github.token }}
-          repository: parlor-game/parlor
-          run-id: '45072606265'
-          name: candidate-ios-1
+          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN
         if: matrix.pairing == 'mixed'
