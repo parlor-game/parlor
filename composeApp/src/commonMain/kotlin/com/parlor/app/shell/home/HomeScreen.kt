@@ -140,7 +140,7 @@ internal fun HomeScreen(
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
-                if (showFeatured && games.isNotEmpty()) FeaturedGames(games, onGameSelected)
+                if (showFeatured && games.size > 1) FeaturedGames(games, onGameSelected)
             }
 
             when {
