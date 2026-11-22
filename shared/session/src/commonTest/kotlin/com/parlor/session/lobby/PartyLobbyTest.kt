@@ -90,8 +90,6 @@ class PartyLobbyTest {
         val first = ready.prepareMatch().value()
         val expired = assertIs<PartyPhase.Starting>(first.phase).match
         val disconnected = first.updatePresence(peer, false).value()
-        assertEquals(Result.Failure(PartyRejection.WaitingForReadiness), disconnected.commitMatch(expired.id))
-
         val reset = disconnected.returnToLobby(expired.id).value()
         assertEquals(0L, reset.matchOrdinal)
         assertEquals(Result.Failure(PartyRejection.IneligibleCount), reset.prepareMatch())
@@ -103,6 +101,20 @@ class PartyLobbyTest {
         assertEquals(expired.ordinal, retry.ordinal)
         assertEquals(Result.Failure(PartyRejection.StaleMatch), next.commitMatch(expired.id))
         assertTrue(next.commitMatch(retry.id).value().acceptsGameplay(retry.id, mafia.protocol, peer))
+    }
+
+    @Test
+    fun a_late_disconnect_cannot_undo_the_games_irreversible_start() {
+        val party = partyWithPeer()
+        val ready = party.setReady(peer, true, party.revision).value()
+        val starting = ready.prepareMatch().value()
+        val match = assertIs<PartyPhase.Starting>(starting.phase).match
+        val disconnected = starting.updatePresence(peer, false).value()
+        val committed = disconnected.commitMatch(match.id).value()
+
+        assertEquals(match, assertIs<PartyPhase.Playing>(committed.phase).match)
+        assertFalse(committed.acceptsGameplay(match.id, mafia.protocol, peer))
+        assertTrue(committed.updatePresence(peer, true).value().acceptsGameplay(match.id, mafia.protocol, peer))
     }
 
     @Test

@@ -279,4 +279,5 @@
     <string name="party_cant_switch">المجموعة الحالية لا تستوفي متطلبات هذه اللعبة.</string>
     <string name="party_action_error">تغيرت حالة الغرفة. راجع الردهة وحاول مرة أخرى.</string>
     <string name="party_private_cover">الغرفة مخفية عندما يكون بارلور غير نشط</string>
+    <string name="party_network_settings">فتح إعدادات الشبكة</string>
 </resources>

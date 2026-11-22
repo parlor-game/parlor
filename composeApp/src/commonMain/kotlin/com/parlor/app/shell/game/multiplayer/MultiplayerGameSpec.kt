@@ -27,6 +27,7 @@ internal interface MultiplayerGameSpec<S : GameState, A : GameAction, E : GameEv
     fun isAllowed(action: A, actor: PlayerId, host: PlayerId, state: S): Boolean
     fun disconnected(state: S): Set<PlayerId>
     fun isAborted(state: S): Boolean
+    fun isCompleted(state: S): Boolean = false
     fun disconnectedAction(id: PlayerId): A
     fun reconnectedAction(id: PlayerId): A
     fun encodeAction(action: A): ByteArray

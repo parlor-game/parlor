@@ -132,9 +132,8 @@ internal data class PartyLobby private constructor(
     fun commitMatch(matchId: SessionId): Result<PartyLobby, PartyRejection> {
         val current = (phase as? PartyPhase.Starting)?.match ?: return Result.Failure(PartyRejection.InvalidPhase)
         if (current.id != matchId) return Result.Failure(PartyRejection.StaleMatch)
-        if (current.roster.any { seats[it]?.member?.connected != true }) {
-            return Result.Failure(PartyRejection.WaitingForReadiness)
-        }
+        // Called after the game coordinator's irreversible Ready/Commit
+        // barrier. A disconnect after that barrier must not undo the result.
         return Result.Success(copy(
             phase = PartyPhase.Playing(current), matchOrdinal = current.ordinal, revision = revision + 1,
         ))

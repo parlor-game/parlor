@@ -35,7 +35,10 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PartyMatchContent(
         val settings = session.route.contentId?.let(::CaseId) ?: spec.defaultCaseId
         val cancel = { onEndHostMatch(SessionEndReason.Cancelled) }
         if (spec.acceptsSettings(settings.raw, roster.size + 1)) {
-            HostedGamePanel(spec, session, roster, settings, cancel, cancel, false, modifier, onStarted)
+            HostedGamePanel(
+                spec, session, roster, settings, cancel, cancel, false, modifier, onStarted,
+                onCompleted = { onEndHostMatch(SessionEndReason.Completed) },
+            )
         } else {
             RoomGameStatus(stringResource(Res.string.room_game_error), cancel, modifier)
         }

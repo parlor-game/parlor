@@ -24,6 +24,8 @@ import com.parlor.app.resources.party_open
 import com.parlor.app.resources.party_resume
 import com.parlor.app.resources.party_room_name
 import com.parlor.app.resources.party_settings_game
+import com.parlor.app.resources.party_network_settings
+import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.shell.game.multiplayer.roomGameError
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.ParlorButtonVariant
@@ -34,6 +36,7 @@ import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.transport.ResumablePartySessionInfo
 import com.parlor.networking.transport.RoomTransport
+import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.lobby.PartyGame
 import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.session.lobby.ProcessPartySessionOwner
@@ -51,6 +54,7 @@ internal fun PartyEntry(
     onExit: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val gate = rememberP2pPermissionGate(transport.localNetworkAccess)
     var job by remember { mutableStateOf<Job?>(null) }
     var waiting by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<NetError?>(null) }
@@ -111,6 +115,9 @@ internal fun PartyEntry(
         }
         if (waiting) PartyDetail(stringResource(Res.string.party_joining))
         problem?.let { PartyError(roomGameError(it)) }
+        if (problem != null && gate.canOpenNetworkSettings && transport.localNetworkAccess.value.needsRecoveryGuidance) {
+            PartyButton(Res.string.party_network_settings, variant = ParlorButtonVariant.Secondary, onClick = gate::openAppSettings)
+        }
         PartyButton(Res.string.party_cancel, variant = ParlorButtonVariant.Secondary, modifier = Modifier.fillMaxWidth(), onClick = leave)
     }
 }

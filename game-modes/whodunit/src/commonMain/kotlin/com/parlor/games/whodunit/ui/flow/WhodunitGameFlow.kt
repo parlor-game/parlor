@@ -1164,7 +1164,12 @@ fun WhodunitMultiplayerHostFlow(
                     payload = payload,
                     session = session,
                     scope = scope,
-                    onBackToLibrary = { exitToLibrary(SessionEndReason.HostLeft) },
+                    onBackToLibrary = {
+                        val reason = if (onPartyEnd != null && state.phase == WhodunitPhase.PostGame) {
+                            SessionEndReason.Completed
+                        } else SessionEndReason.HostLeft
+                        exitToLibrary(reason)
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
                 if (

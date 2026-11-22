@@ -259,7 +259,12 @@ fun MafiaMultiDeviceHostFlow(
                     isHost = true,
                     session = session,
                     scope = scope,
-                    onBackToHome = { exitToHome(SessionEndReason.HostLeft) },
+                    onBackToHome = {
+                        val reason = if (onPartyEnd != null && state.phase == MafiaPhase.PostGame) {
+                            SessionEndReason.Completed
+                        } else SessionEndReason.HostLeft
+                        exitToHome(reason)
+                    },
                     modifier = modifier.fillMaxSize(),
                 )
             }

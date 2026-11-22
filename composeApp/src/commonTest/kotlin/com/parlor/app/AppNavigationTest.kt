@@ -5,6 +5,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigationevent.NavigationEvent
 import com.parlor.app.shell.game.GameShellLaunch
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.RoomId
+import com.parlor.networking.invitation.JoinLinkCodec
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.core.ids.SessionId
 import kotlinx.serialization.encodeToString
@@ -14,6 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 
 class AppNavigationTest {
@@ -37,6 +41,29 @@ class AppNavigationTest {
             ),
             routes.map(AppRoute::owner),
         )
+    }
+
+    @Test
+    fun a_party_invitation_opens_a_guarded_route_without_serializing_the_invitation() {
+        val raw = assertNotNull(JoinLinkCodec.encodeParty(
+            PartyId("a".repeat(32)), RoomId("b".repeat(32)), "K7QX", "ABCDEF",
+            "p2f1-zlmerarbaugm753v5mvipavkkhwxbvlu3cpx4unzvuvov7zu7dkq",
+        ))
+        val invitation = assertNotNull(JoinLinkCodec.decodeParty(raw))
+        val navigator = AppNavigator()
+        navigator.openParty(invitation)
+
+        assertEquals(AppRoute.Party, navigator.currentRoute)
+        assertSame(invitation, navigator.partyInvitation)
+        assertEquals(AppTopLevelDestination.Games, navigator.currentRoute.owner())
+        assertEquals(AppBackAction.DelegateToFlow, appBackAction(navigator.currentRoute))
+        assertEquals(AppNavigationMutation.RejectedActiveFlow, navigator.navigateBack(AppRoute.Party))
+        assertEquals(AppNavigationMutation.RejectedActiveFlow, navigator.selectTopLevel(AppTopLevelDestination.Settings))
+        assertEquals("""{"type":"party"}""", Json.encodeToString<AppRoute>(navigator.currentRoute))
+
+        assertEquals(AppNavigationMutation.Applied, navigator.navigateHome(AppRoute.Party))
+        assertNull(navigator.partyInvitation)
+        assertEquals(AppRoute.Party, AppNavigator(restoreParty = true).currentRoute)
     }
 
     @Test

@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.party_action_error
 import com.parlor.app.resources.party_cancel
@@ -25,6 +26,7 @@ import com.parlor.app.resources.party_leave_confirm
 import com.parlor.app.resources.party_private_cover
 import com.parlor.app.shell.game.GameShellRegistry
 import com.parlor.app.shell.game.PartyGameShell
+import com.parlor.app.shell.game.P2pPermissionRoute
 import com.parlor.app.shell.game.multiplayer.roomGameError
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
@@ -36,6 +38,7 @@ import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.NetError
+import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.lobby.PartyGame
 import com.parlor.session.lobby.PartyRejection
@@ -56,6 +59,8 @@ internal fun PartyScreen(
 ) {
     val current by owner.session.collectAsState()
     val session = current
+    val gate = rememberP2pPermissionGate(transport.localNetworkAccess)
+    var permissionAcknowledged by remember { mutableStateOf(false) }
     val titles = linkedMapOf<PartyGame, String>()
     registry.all.forEach { binding ->
         val contract = binding.multiplayerContract
@@ -69,7 +74,12 @@ internal fun PartyScreen(
             Text(stringResource(Res.string.party_private_cover), color = ParlorTheme.colors.textSecondary)
         }
     } else if (session == null) {
-        PartyEntry(owner, transport, titles, invitation, backRequest, onExit)
+        if (permissionAcknowledged) {
+            PartyEntry(owner, transport, titles, invitation, backRequest, onExit)
+        } else {
+            LaunchedEffect(backRequest) { if (backRequest > 0) onExit() }
+            P2pPermissionRoute(gate, onContinue = { permissionAcknowledged = true }, onBack = onExit)
+        }
     } else {
         ActiveParty(owner, session, registry, titles, backRequest, onExit)
     }
@@ -121,6 +131,7 @@ private fun ActiveParty(
     onExit: () -> Unit,
 ) {
     val lobby by session.lobby.collectAsState()
+    val lifecycle by session.lifecycle.collectAsState()
     val match by session.match.collectAsState()
     val activeMatch = match
     val protocol = activeMatch?.room?.matchProtocol
@@ -129,7 +140,7 @@ private fun ActiveParty(
     val actions = remember(session) { PartyActions() }
     var hiddenForMatch by remember(session) { mutableStateOf<SessionId?>(null) }
     var confirm by remember(session) { mutableStateOf<PartyConfirmation?>(null) }
-    val showingMatch = protocol != null && hiddenForMatch != protocol.sessionId
+    val showingMatch = protocol != null && hiddenForMatch != protocol.sessionId && !isEndedRoom(lifecycle)
     val host = session as? ProcessPartySession.Host
     val requestExit = {
         if (confirm != null) {
@@ -232,3 +243,6 @@ private fun PartyConfirmationDialog(
         dismissButton = { ParlorButton(cancel, onDismiss, cancel, enabled = !waiting, variant = ParlorButtonVariant.Ghost) },
     )
 }
+
+private fun isEndedRoom(lifecycle: RoomLifecycleState): Boolean =
+    lifecycle == RoomLifecycleState.Closed || lifecycle == RoomLifecycleState.Expired

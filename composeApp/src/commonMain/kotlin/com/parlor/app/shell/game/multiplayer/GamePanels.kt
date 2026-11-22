@@ -51,6 +51,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGamePanel(
     spec: MultiplayerGameSpec<S, A, E>, session: ProcessMultiplayerSession, roster: List<RoomMember>, caseId: CaseId,
     onLeave: () -> Unit, onNewRoom: () -> Unit, busy: Boolean, modifier: Modifier,
     onStarted: suspend () -> Unit = {},
+    onCompleted: (() -> Unit)? = null,
 ) {
     val clock: Clock = koinInject()
     val lookup by produceState<RetainedValueResult<*>?>(null, session) {
@@ -79,8 +80,11 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostedGamePanel(
             body = roomGameError((gate as HostStartGateState.Failed).error), onNewRoom = onNewRoom, enabled = !busy)
         gate != HostStartGateState.Started -> RoomGameStatus(
             stringResource(Res.string.room_game_starting), onLeave, modifier, enabled = !busy)
-        else -> GameTableSurface(spec, own.state, true, session.room, runtime.actions,
-            runtime.bridge.recoveryEpoch, onLeave, busy, modifier)
+        else -> {
+            val leave = onCompleted?.takeIf { spec.isCompleted(own.state) } ?: onLeave
+            GameTableSurface(spec, own.state, true, session.room, runtime.actions,
+                runtime.bridge.recoveryEpoch, leave, busy, modifier)
+        }
     }
 }
 

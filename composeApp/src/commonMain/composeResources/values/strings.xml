@@ -271,4 +271,5 @@
     <string name="party_cant_switch">The current party does not meet this game\'s requirements.</string>
     <string name="party_action_error">The party changed. Check the lobby and try again.</string>
     <string name="party_private_cover">Party hidden while Parlor is inactive</string>
+    <string name="party_network_settings">Open network settings</string>
 </resources>
