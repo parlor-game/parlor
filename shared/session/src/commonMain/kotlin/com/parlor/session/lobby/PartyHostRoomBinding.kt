@@ -14,6 +14,8 @@ import com.parlor.networking.security.SecureIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -41,6 +43,7 @@ internal class PartyHostRoomBinding(
     private val scope = CoroutineScope(parentScope.coroutineContext + Job(parentScope.coroutineContext[Job]))
     private val transactions = Mutex()
     private val publishing = Mutex()
+    private var broadcastRevision = 0L
     private val host = PartyHostCoordinator(
         initial = PartyLobby.open(
             admissions.partyId,
@@ -92,13 +95,18 @@ internal class PartyHostRoomBinding(
         host.selectGame(game)
     }
 
-    suspend fun prepareMatch(): Result<PartyMatchRoom, PartyRejection> = transactions.withLock {
-        if (!room.acceptsLocalGameCommands) return@withLock Result.Failure(PartyRejection.InvalidPhase)
-        reconcileMembers()
-        when (val prepared = host.prepareMatch()) {
-            is Result.Failure -> prepared
-            is Result.Success -> attachMatch(prepared.data)
+    suspend fun prepareMatch(): Result<PartyMatchRoom, PartyRejection> {
+        val match = transactions.withLock {
+            if (!room.acceptsLocalGameCommands) return@withLock Result.Failure(PartyRejection.InvalidPhase)
+            reconcileMembers()
+            when (val prepared = host.prepareMatch()) {
+                is Result.Failure -> prepared
+                is Result.Success -> attachMatch(prepared.data)
+            }
         }
+        // Peers need the scoped roster before the game runtime sends its first start offer.
+        if (match is Result.Success) publishState()
+        return match
     }
 
     suspend fun commitMatch(match: SessionId): Result<PartyLobby, PartyRejection> = transactions.withLock {
@@ -195,12 +203,18 @@ internal class PartyHostRoomBinding(
     }
 
     private suspend fun publishState(onePlayer: PlayerId? = null) = publishing.withLock {
-        val messages = transactions.withLock { snapshotFrames(onePlayer) }
-        coroutineScope {
-            messages.forEach { (recipient, message) ->
-                launch { withTimeoutOrNull(CONTROL_DELIVERY_MS) { room.send(recipient, message) } }
-            }
+        val (revision, messages) = transactions.withLock {
+            val current = state.value.revision
+            if (onePlayer == null && current <= broadcastRevision) null else current to snapshotFrames(onePlayer)
+        } ?: return@withLock
+        val delivered = coroutineScope {
+            messages.map { (recipient, message) ->
+                async {
+                    withTimeoutOrNull(CONTROL_DELIVERY_MS) { room.send(recipient, message) } is Result.Success
+                }
+            }.awaitAll()
         }
+        if (onePlayer == null && delivered.all { it }) broadcastRevision = revision
     }
 
     private suspend fun snapshotFrames(onePlayer: PlayerId? = null) =

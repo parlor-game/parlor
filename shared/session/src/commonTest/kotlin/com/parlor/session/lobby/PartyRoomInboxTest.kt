@@ -7,17 +7,24 @@ import com.parlor.core.ids.SessionId
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
+import com.parlor.networking.protocol.PublicPartyLobby
+import com.parlor.networking.protocol.PublicPartySeat
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.SessionEnvelopeHeader
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -86,6 +93,50 @@ class PartyRoomInboxTest {
             physical.send(wanted.copy(header = wanted.header.copy(partyId = null)))
             physical.send(wanted)
             assertEquals(wanted, response.await())
+        } finally {
+            router.close()
+        }
+    }
+
+    @Test
+    fun peer_routes_the_first_game_frame_after_its_matching_party_snapshot_is_installed() = runTest {
+        val physical = Channel<RoomMessage>(16)
+        val router = PartyRoomInbox(party, player, false, physical.receiveAsFlow(), backgroundScope)
+        try {
+            val match = PartyMatch(SessionId("word-first"), word, setOf(host, player), 1)
+            val header = PartyProtocolHeader(PARTY_WIRE_VERSION, party, "party-snapshot-0001", 1)
+            val snapshot = HostMessage.PartySnapshot(
+                header, 1, 1,
+                PublicPartyLobby(
+                    PartyLobbyPhase.MatchStarting, word,
+                    listOf(
+                        PublicPartySeat(host, "Host", connected = true, ready = false, inActiveMatch = true),
+                        PublicPartySeat(player, "Peer", connected = true, ready = true, inActiveMatch = true),
+                    ),
+                    4, match.id, 0,
+                ),
+            )
+            val received = CompletableDeferred<Unit>()
+            val install = CompletableDeferred<Unit>()
+            val scopeInstalled = CompletableDeferred<Flow<RoomMessage>>()
+            val installation = async {
+                router.controls.first {
+                    assertEquals(snapshot, it)
+                    received.complete(Unit)
+                    install.await()
+                    scopeInstalled.complete(assertNotNull(router.openMatch(match)))
+                    true
+                }
+            }
+            physical.send(snapshot)
+            received.await()
+            val first = HostMessage.Heartbeat(heartbeat(match, player).header, 0)
+            physical.send(first.copy(header = first.header.copy(gameId = mafia.gameId)))
+            physical.send(first)
+            runCurrent()
+            install.complete(Unit)
+            installation.await()
+            assertEquals(first, withTimeout(1_000L) { scopeInstalled.await().first() })
         } finally {
             router.close()
         }

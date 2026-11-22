@@ -9,11 +9,13 @@ import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.SessionEnvelopeHeader
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -36,17 +38,34 @@ internal class PartyRoomInbox(
         val retired = mutableSetOf<PlayerId>()
     }
 
+    private class ControlFrame(val message: RoomMessage) {
+        val installed = if (message is HostMessage.PartySnapshot) CompletableDeferred<Unit>() else null
+    }
+
     private val mutations = Mutex()
-    private val control = Channel<RoomMessage>(CONTROL_CAPACITY)
+    private val control = Channel<ControlFrame>(CONTROL_CAPACITY)
     private var active: MatchInbox? = null
     private var closed = false
-    val controls: Flow<RoomMessage> = control.receiveAsFlow()
+    val controls: Flow<RoomMessage> = flow {
+        for (frame in control) {
+            try {
+                emit(frame.message)
+            } finally {
+                frame.installed?.complete(Unit)
+            }
+        }
+    }
 
     private val collector = scope.launch(start = CoroutineStart.UNDISPATCHED) {
         try {
             incoming.collect { message ->
                 if (message.isPartyControl()) {
-                    if (message.isControlForThisParty()) control.send(message)
+                    if (message.isControlForThisParty()) {
+                        val frame = ControlFrame(message)
+                        control.send(frame)
+                        // Install the peer's match scope before routing any following game frame.
+                        frame.installed?.await()
+                    }
                 } else {
                     mutations.withLock { routeMatch(message) }
                 }

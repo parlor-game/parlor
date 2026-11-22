@@ -881,7 +881,10 @@ Member --PartyEnded/SessionEnded(HostLeft)--> Ended
 - **Resume into a party:** after `ResumeCommitted` the host sends
   `PartySnapshot` first. If `activeMatchId` is set **and** the peer is in that
   match roster, the existing stable start-offer replay and initial snapshot
-  request follow. Otherwise the peer stays in the lobby view.
+  request follow. Otherwise the peer stays in the lobby view. For a new
+  match, the host publishes the frozen roster before starting the game
+  runtime. The peer finishes handling that party snapshot before it routes
+  any subsequent match frame from the same connection.
 - **Host persistence:** none. Host process death ends the party (§8.2),
   consistent with "no host migration".
 - **Local snapshots:** multiplayer matches don't use local protected

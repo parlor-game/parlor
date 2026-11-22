@@ -9,6 +9,7 @@ import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
@@ -21,7 +22,9 @@ import com.parlor.networking.room.SendTarget
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -29,6 +32,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
@@ -85,6 +89,38 @@ class PartyHostRoomBindingTest {
     }
 
     @Test
+    fun match_room_is_not_returned_until_the_starting_roster_has_been_announced() = runTest {
+        val room = HostRoom()
+        val host = PartyHostRoomBinding(room, mafia, games, backgroundScope)
+        val attempted = CompletableDeferred<HostMessage.PartySnapshot>()
+        val release = CompletableDeferred<Unit>()
+        room.beforeSend = { message ->
+            if (message is HostMessage.PartySnapshot && message.lobby.phase == PartyLobbyPhase.MatchStarting) {
+                attempted.complete(message)
+                release.await()
+            }
+        }
+        try {
+            room.members.value = listOf(RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList()))
+            runCurrent()
+            room.messages.send(ready(1, host.state.value.revision))
+            runCurrent()
+
+            val start = async { host.prepareMatch() }
+            val announcement = attempted.await()
+            assertFalse(start.isCompleted)
+            release.complete(Unit)
+            val matchRoom = assertIs<Result.Success<PartyMatchRoom>>(start.await()).data
+            assertEquals(matchRoom.matchProtocol.sessionId, announcement.lobby.activeMatchId)
+            assertEquals(mafia.protocol, announcement.lobby.selectedGame)
+            assertTrue(announcement.lobby.members.single { it.playerId == playerId }.inActiveMatch)
+        } finally {
+            release.complete(Unit)
+            host.leave()
+        }
+    }
+
+    @Test
     fun process_owner_opens_exactly_one_party_and_only_the_current_owner_can_close_it() = runTest {
         var openCalls = 0
         var lastRoom: HostRoom? = null
@@ -131,6 +167,7 @@ class PartyHostRoomBindingTest {
         val messages = Channel<RoomMessage>(16)
         override val incoming = messages.receiveAsFlow()
         val sent = mutableListOf<HostMessage>()
+        var beforeSend: suspend (HostMessage) -> Unit = {}
         var selected = mafia.protocol
         var frozen: SessionId? = null
         var leaveCount = 0
@@ -163,6 +200,7 @@ class PartyHostRoomBindingTest {
 
         override suspend fun send(target: SendTarget, message: HostMessage): Result<Unit, NetError> {
             assertEquals(SendTarget.Direct(playerId), target)
+            beforeSend(message)
             sent += message
             return Result.Success(Unit)
         }

@@ -150,16 +150,18 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
             if (game in games) owner.selectGame(game).toUnit() else Result.Failure(PartyRejection.IncompatibleGame)
 
         suspend fun start(): Result<ProcessMultiplayerSession, PartyRejection> = transition.withLock {
-            when (val prepared = owner.prepareMatch()) {
-                is Result.Failure -> prepared
-                is Result.Success -> {
-                    val room = prepared.data
-                    val route = MultiplayerSessionRoute.host(room.matchProtocol.gameId, room.info.value.hostDisplayName)
-                    val session = ProcessMultiplayerSession(
-                        route, room, SecureIds.randomLong(), scope, room.frozenMembers,
-                    )
-                    playing.value = session
-                    Result.Success(session)
+            withContext(NonCancellable) {
+                when (val prepared = owner.prepareMatch()) {
+                    is Result.Failure -> prepared
+                    is Result.Success -> {
+                        val room = prepared.data
+                        val route = MultiplayerSessionRoute.host(room.matchProtocol.gameId, room.info.value.hostDisplayName)
+                        val session = ProcessMultiplayerSession(
+                            route, room, SecureIds.randomLong(), scope, room.frozenMembers,
+                        )
+                        playing.value = session
+                        Result.Success(session)
+                    }
                 }
             }
         }
