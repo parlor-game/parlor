@@ -208,6 +208,12 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     })
 
     init {
+        collectLifecycleEvents()
+    }
+
+    // A named collector keeps Kotlin's suspend class distinct from the
+    // anonymous class names D8 gives this type's desugared Java lambdas.
+    private fun collectLifecycleEvents() {
         scope.launch {
             for (event in lifecycleEvents) {
                 try {
