@@ -159,6 +159,10 @@ install_android() {
   while IFS= read -r serial <&3; do
     local record="$proof/$serial"
     mkdir -p "$record"
+    if (( DEVICE_COUNT >= 5 )); then
+      adb -s "$serial" shell wm density 320
+      adb -s "$serial" shell wm density > "$record/display-density.txt"
+    fi
     if [[ "$PAIRING_NAME" == android ]]; then
       timeout 45 bash -c '
         until adb -s "$1" shell svc wifi enable && adb -s "$1" shell svc data disable; do sleep 2; done
