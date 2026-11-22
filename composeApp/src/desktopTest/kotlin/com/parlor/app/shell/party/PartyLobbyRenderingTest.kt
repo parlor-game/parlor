@@ -10,9 +10,12 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -106,6 +109,28 @@ class PartyLobbyRenderingTest {
         }
     }
 
+    @Test
+    fun join_failure_appears_by_its_button_on_a_narrow_screen() = runTest {
+        val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
+        val transport = LobbyTransport(PlayerId("host"), PlayerId("player"), joinError = NetError.StaleRoom)
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        runComposeUiTest {
+            setContent {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        Box(Modifier.size(320.dp, 570.dp)) {
+                            PartyEntry(owner, transport, mapOf(game to "Mafia"), null, 0) {}
+                        }
+                    }
+                }
+            }
+            onNode(hasSetTextAction() and hasText("Your player name")).performTextInput("Guest")
+            onNode(hasSetTextAction() and hasText("Room code")).performTextInput("ABCDEF")
+            onNodeWithText("Request to join").assertIsDisplayed().assertIsEnabled().performClick()
+            onNodeWithText("This room has closed or been replaced. Ask the host for a new invitation.").assertIsDisplayed()
+        }
+    }
+
     private fun lobby(game: PartyGame, host: PlayerId, peer: PlayerId, ready: Boolean) = PublicPartyLobby(
         PartyLobbyPhase.Lobby, game.protocol,
         listOf(
@@ -115,7 +140,11 @@ class PartyLobbyRenderingTest {
         game.playerCounts.last, null, 0,
     )
 
-    private class LobbyTransport(host: PlayerId, peer: PlayerId) : RoomTransport {
+    private class LobbyTransport(
+        host: PlayerId,
+        peer: PlayerId,
+        private val joinError: NetError? = null,
+    ) : RoomTransport {
         override val capability = TransportCapability(false, 0, 16_384)
         val foregroundReady = MutableStateFlow(true)
         private val room = object : LocalRoom {
@@ -135,6 +164,7 @@ class PartyLobbyRenderingTest {
         override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = Result.Failure(NetError.Unauthorized)
         override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
             Result.Failure(NetError.Unauthorized)
-        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> = Result.Success(room)
+        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
+            joinError?.let { Result.Failure(it) } ?: Result.Success(room)
     }
 }
