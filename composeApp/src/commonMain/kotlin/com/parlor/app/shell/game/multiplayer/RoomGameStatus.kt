@@ -1,9 +1,11 @@
 package com.parlor.app.shell.game.multiplayer
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -14,7 +16,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error_body
 import com.parlor.app.resources.room_game_incompatible
@@ -22,9 +24,10 @@ import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_new_room
 import com.parlor.app.resources.room_game_retry
 import com.parlor.app.resources.room_game_settings
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.NetError
@@ -41,29 +44,50 @@ internal fun RoomGameStatus(
     onSettings: (() -> Unit)? = null,
     enabled: Boolean = true,
 ) {
-    HeroBackdrop(modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(title, color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.displayMedium,
-                textAlign = TextAlign.Center, modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite })
-            body?.let {
-                Text(it, color = ParlorTheme.colors.textSecondary, style = ParlorTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier.widthIn(max = 560.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                    .parlorSafeContentPadding(ParlorTheme.spacing.m),
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            ) {
+                ParlorCard(contentPadding = ParlorTheme.spacing.m) {
+                    Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+                        Text(
+                            text = title,
+                            color = ParlorTheme.colors.textPrimary,
+                            style = ParlorTheme.typography.headingLarge,
+                            modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite },
+                        )
+                        body?.let {
+                            Text(it, color = ParlorTheme.colors.textSecondary, style = ParlorTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                // Keep network recovery/leave controls away from the entry screen's bottom submit target.
+                onRetry?.let { RoomButton(stringResource(Res.string.room_game_retry), it, enabled) }
+                onNewRoom?.let { RoomButton(stringResource(Res.string.room_game_new_room), it, enabled) }
+                onSettings?.let { RoomButton(stringResource(Res.string.room_game_settings), it, enabled) }
+                RoomButton(stringResource(Res.string.room_game_leave), onLeave, enabled, secondary = true)
             }
-            onRetry?.let { RoomButton(stringResource(Res.string.room_game_retry), it, enabled) }
-            onNewRoom?.let { RoomButton(stringResource(Res.string.room_game_new_room), it, enabled) }
-            onSettings?.let { RoomButton(stringResource(Res.string.room_game_settings), it, enabled) }
-            RoomButton(stringResource(Res.string.room_game_leave), onLeave, enabled, secondary = true)
         }
     }
 }
 
 @Composable
-internal fun RoomButton(label: String, onClick: () -> Unit, enabled: Boolean = true, secondary: Boolean = false) {
-    ParlorButton(label = label, contentDescription = label, onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth(), variant = if (secondary) ParlorButtonVariant.Secondary else ParlorButtonVariant.Primary)
+internal fun RoomButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    secondary: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    ParlorButton(
+        label = label, contentDescription = label, onClick = onClick, enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        variant = if (secondary) ParlorButtonVariant.Secondary else ParlorButtonVariant.Primary,
+        illuminated = !secondary,
+    )
 }
 
 @Composable

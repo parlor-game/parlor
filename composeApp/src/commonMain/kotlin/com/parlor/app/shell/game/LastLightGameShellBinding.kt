@@ -214,6 +214,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = LastLightShellScreen.HostName },
             onBack = onExit,
         )
@@ -249,6 +251,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = LastLightShellScreen.JoinName },
             onBack = onExit,
         )
@@ -269,6 +273,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == LastLightShellScreen.JoinPrompt) screen = LastLightShellScreen.JoinName },
             onConfirm = { code ->
                 if (screen == LastLightShellScreen.JoinPrompt) {
                     pendingJoinCode = code

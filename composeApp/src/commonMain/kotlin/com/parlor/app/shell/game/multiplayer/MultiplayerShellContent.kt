@@ -70,8 +70,12 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             onBack = onExit, capabilities = capabilities,
             supportedPlayerCounts = spec.definition.supportedPlayerCounts, modifier = modifier,
         )
-        ShellStep.HostPermission -> P2pPermissionRoute(gate, { step = ShellStep.HostName }, onExit)
-        ShellStep.JoinPermission -> P2pPermissionRoute(gate, { step = ShellStep.JoinName }, onExit)
+        ShellStep.HostPermission -> P2pPermissionRoute(
+            gate, { step = ShellStep.HostName }, onExit, gameTitle = presentation.title, isHost = true,
+        )
+        ShellStep.JoinPermission -> P2pPermissionRoute(
+            gate, { step = ShellStep.JoinName }, onExit, gameTitle = presentation.title, isHost = false,
+        )
         ShellStep.ResumePermission -> P2pPermissionRoute(gate, { step = ShellStep.Resume }, onExit)
         ShellStep.HostName, ShellStep.JoinName -> {
             val nameStep = step
@@ -91,6 +95,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         }
         ShellStep.JoinCode -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = name,
+            onChangeName = { if (step == ShellStep.JoinCode) step = ShellStep.JoinName },
             onConfirm = {
                 // Once accepted, late editor/activation callbacks cannot select
                 // a different room or move an owned peer back into setup.

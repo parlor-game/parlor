@@ -38,6 +38,7 @@ import com.parlor.app.shell.game.MafiaGameShellBinding
 import com.parlor.app.shell.game.WhodunitGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
 import com.parlor.app.shell.playmode.PlayModePickerScreen
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
 import com.parlor.designsystem.localization.AppLanguage
@@ -61,13 +62,25 @@ import org.jetbrains.skia.Image
 @OptIn(ExperimentalTestApi::class)
 class HomeCatalogVisualEvidenceTest {
     @Test
-    fun dark_catalog_comparison_includes_the_production_navigation_dock() = runComposeUiTest {
+    fun catalog_comparison_includes_the_real_dock_and_saved_name_fixture() {
+        for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
+            for (theme in listOf(ThemeMode.Dark, ThemeMode.Light)) {
+                catalogWithDock(language, theme)
+            }
+        }
+    }
+
+    private fun catalogWithDock(language: AppLanguage, theme: ThemeMode) = runComposeUiTest {
         val games = catalogBindings()
+        val english = language == AppLanguage.English
         setContent {
-            CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
-                ProvideAppLanguage(AppLanguage.English) {
-                    ParlorTheme(themeMode = ThemeMode.Dark, reducedMotion = true) {
-                        Box(Modifier.size(390.dp, 760.dp).testTag("shell-preview")) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, 1f),
+                LocalPreferredDisplayName provides if (english) "Layla" else "ليلى",
+            ) {
+                ProvideAppLanguage(language) {
+                    ParlorTheme(themeMode = theme, reducedMotion = true) {
+                        Box(Modifier.size(390.dp, 740.dp).testTag("shell-preview")) {
                             Column {
                                 HomeScreen(games, onGameSelected = {}, modifier = Modifier.weight(1f), onOpenProfile = {})
                                 AppNavigationBar(AppTopLevelDestination.Games, {})
@@ -77,11 +90,14 @@ class HomeCatalogVisualEvidenceTest {
                 }
             }
         }
-        onNodeWithText("Play Last Light").assertIsDisplayed()
+        onNodeWithText(if (english) "Play Last Light" else "العب الضوء الأخير").assertIsDisplayed()
         val outputDir = System.getenv("PARLOR_UI_SCREENSHOT_DIR") ?: "build/reports/tests/public-ux"
-        val output = File(outputDir, "compose-home-en-dark-390.png")
+        val output = File(outputDir, "library-${language.tag}-${theme.tag}-390.png")
         check(output.parentFile.mkdirs() || output.parentFile.isDirectory)
         capturePublicScreen(output)
+        val last = if (english) "Open Word Impostor" else "افتح لعبة الإمبوستر"
+        onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(last, substring = true))
+        capturePublicScreen(File(outputDir, "catalog-${language.tag}-${theme.tag}-390.png"))
     }
 
     private fun catalogBindings() = listOf(
@@ -185,7 +201,10 @@ class HomeCatalogVisualEvidenceTest {
         val setupGame = games[setupGameIndex ?: 0]
         lateinit var selectedTitle: String
         setContent {
-            CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, fontScale),
+                LocalPreferredDisplayName provides if (language == AppLanguage.English) "Layla" else "ليلى",
+            ) {
                 ProvideAppLanguage(language) {
                     ParlorTheme(themeMode = theme, reducedMotion = true) {
                         Box(Modifier.size(width.dp, 740.dp).testTag("shell-preview")) {

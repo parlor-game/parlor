@@ -11,10 +11,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.parlor.app.shell.captureShellAcceptance
@@ -37,7 +39,7 @@ class ProfileScreenTest {
         val screen = mutableStateOf(Screen.Profile)
         val decisions = mutableListOf<String>()
         setContent {
-            val preferredName by settings.preferredDisplayName.collectAsState(initial = null)
+            val preferredName by settings.preferredDisplayName.collectAsState()
             CompositionLocalProvider(
                 LocalPreferredDisplayName provides preferredName,
                 LocalParlorToastState provides ParlorToastState(),
@@ -68,12 +70,22 @@ class ProfileScreenTest {
 
         runOnIdle { screen.value = Screen.Join }
         onNodeWithText("Nour").assertIsDisplayed()
+        onNodeWithText("Your name").performTextReplacement("Join alias")
         onNodeWithContentDescription("Save your name and continue to enter a room code.").performClick()
 
         runOnIdle { screen.value = Screen.RoomDraft }
         onNodeWithText("Room alias").assertIsDisplayed()
         onNodeWithContentDescription("Save your name and continue to enter a room code.").performClick()
-        runOnIdle { assertEquals(listOf("Nour", "Nour", "Room alias"), decisions) }
+        runOnIdle {
+            assertEquals(listOf("Nour", "Join alias", "Room alias"), decisions)
+            assertEquals("Nour", settings.preferredDisplayName.value)
+            screen.value = Screen.Profile
+        }
+        onNodeWithText("Clear saved name").performClick()
+        waitUntil { settings.preferredDisplayName.value == null }
+        runOnIdle { screen.value = Screen.Host }
+        onNodeWithText("Nour").assertDoesNotExist()
+        onNodeWithContentDescription("Save your name and continue to set up your table.").assertIsNotEnabled()
     }
 }
 

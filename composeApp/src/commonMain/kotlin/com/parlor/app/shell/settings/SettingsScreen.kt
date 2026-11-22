@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -66,7 +67,6 @@ import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
 import com.parlor.designsystem.tokens.AmberActionBrush
 import com.parlor.designsystem.tokens.AmberActionInk
-import androidx.compose.ui.graphics.Color
 import com.parlor.storage.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
@@ -195,7 +195,11 @@ private fun SettingsHeading(onOpenProfile: (() -> Unit)?) {
                     text = title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary,
                     modifier = Modifier.semantics { heading() },
                 )
-                Text(text = summary, style = ParlorTheme.typography.bodySmall, color = ParlorTheme.colors.textSecondary)
+                Text(
+                    text = summary,
+                    style = ParlorTheme.typography.bodySmall.copy(fontSize = 11.5.sp, lineHeight = 15.sp),
+                    color = ParlorTheme.colors.textSecondary,
+                )
             }
             if (onOpenProfile != null) OpenProfileButton(onOpenProfile)
         }
@@ -259,7 +263,8 @@ private fun SettingsChoices(options: List<SettingsChoice>) {
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth().clip(shape).background(colors.surfaceHigher)
-                    .border(ParlorTheme.borders.hairline, colors.borderSubtle, shape).padding(ParlorTheme.spacing.xs),
+                    .border(ParlorTheme.borders.hairline, colors.borderSubtle, shape)
+                    .padding(horizontal = ParlorTheme.spacing.xs),
                 horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
             ) {
                 options.forEach { option ->
@@ -338,13 +343,13 @@ private fun ToggleOption(
 private fun SettingsSwitchTrack(checked: Boolean, modifier: Modifier = Modifier) {
     val colors = ParlorTheme.colors
     Box(
-        modifier = modifier.size(width = 46.dp, height = 26.dp).clip(CircleShape)
+        modifier = modifier.size(width = 48.dp, height = 28.dp).clip(CircleShape)
             .then(if (checked) Modifier.background(AmberActionBrush) else Modifier.background(colors.surfaceHigher))
             .border(ParlorTheme.borders.hairline, colors.borderElevated, CircleShape)
-            .padding(horizontal = ParlorTheme.spacing.xs),
+            .padding(horizontal = 3.dp),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
-        Box(Modifier.size(18.dp).background(Color.White, CircleShape))
+        Box(Modifier.size(22.dp).background(colors.coverScreenTextPrimary, CircleShape))
     }
 }
 

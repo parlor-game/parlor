@@ -58,6 +58,8 @@
     <string name="join_title">Join with a code</string>
     <string name="join_code_help">Get the six characters from the host.</string>
     <string name="join_code_field">Room code</string>
+    <string name="join_seat_label">Playing as</string>
+    <string name="join_change_seat">Change name</string>
     <string name="join_confirm">Find the room</string>
     <string name="join_confirm_description">Connect to the host using the entered room code.</string>
     <string name="join_cancel">Cancel</string>
@@ -241,11 +243,15 @@
     <string name="navigation_profile_label">Profile</string>
     <string name="navigation_profile_description">Open profile.</string>
     <string name="home_profile_greeting">Hello, %1$s</string>
-    <string name="profile_title">Your profile</string>
     <string name="profile_subtitle">Your name is saved on this device.</string>
     <string name="profile_display_name">Display name</string>
     <string name="profile_name_help">Parlor fills in this name when you host or join a room. You can change it before sending it.</string>
     <string name="profile_save">Save name</string>
     <string name="profile_clear">Clear saved name</string>
+    <string name="profile_edit">Edit</string>
+    <string name="profile_cancel">Cancel</string>
+    <string name="profile_guest_help">Play as a guest or save a name for nearby rooms.</string>
+    <string name="profile_saved_seat">Saved name · Prefilled for nearby rooms</string>
+    <string name="name_seat_label">Seat label in room</string>
     <string name="profile_saved">Name saved.</string>
 </resources>

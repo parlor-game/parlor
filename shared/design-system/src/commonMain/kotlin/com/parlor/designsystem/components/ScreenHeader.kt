@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
 
@@ -30,10 +31,11 @@ fun ScreenHeader(
     onBack: (() -> Unit)? = null,
     backContentDescription: String? = null,
     trailing: (@Composable () -> Unit)? = null,
+    compact: Boolean = false,
 ) {
     val colors = ParlorTheme.colors
     Column(
-        modifier = modifier.fillMaxWidth().padding(bottom = ParlorTheme.spacing.m),
+        modifier = modifier.fillMaxWidth().padding(bottom = if (compact) 0.dp else ParlorTheme.spacing.m),
         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
     ) {
         if (onBack != null || eyebrow != null || trailing != null) {
@@ -60,14 +62,14 @@ fun ScreenHeader(
         }
         Text(
             text = title,
-            style = ParlorTheme.typography.displayMedium,
+            style = if (compact) ParlorTheme.typography.headingLarge else ParlorTheme.typography.displayMedium,
             color = colors.textPrimary,
             modifier = Modifier.fillMaxWidth().semantics { heading() },
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
-                style = ParlorTheme.typography.bodyMedium,
+                style = if (compact) ParlorTheme.typography.bodySmall else ParlorTheme.typography.bodyMedium,
                 color = colors.textSecondary,
             )
         }

@@ -10,6 +10,10 @@ import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.P2pPermissionGate
 import com.parlor.app.permissions.P2pPermissionRationaleScreen
 import com.parlor.app.permissions.entersMultiplayerWithoutRationale
+import com.parlor.app.resources.Res
+import com.parlor.app.resources.setup_host_title
+import com.parlor.app.resources.setup_join_title
+import org.jetbrains.compose.resources.stringResource
 
 /** Shared permission step; game bindings decide where success routes next. */
 @Composable
@@ -17,6 +21,8 @@ internal fun P2pPermissionRoute(
     gate: P2pPermissionGate,
     onContinue: () -> Unit,
     onBack: () -> Unit,
+    gameTitle: String? = null,
+    isHost: Boolean? = null,
 ) {
     val status by gate.status.collectAsState()
     LaunchedEffect(status) {
@@ -31,6 +37,12 @@ internal fun P2pPermissionRoute(
             onContinue = onContinue,
             onBack = onBack,
             modifier = Modifier.fillMaxSize(),
+            gameTitle = gameTitle,
+            roomAction = when (isHost) {
+                true -> stringResource(Res.string.setup_host_title)
+                false -> stringResource(Res.string.setup_join_title)
+                null -> null
+            },
         )
     }
 }

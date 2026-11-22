@@ -249,11 +249,17 @@
     <string name="navigation_profile_label">الملف الشخصي</string>
     <string name="navigation_profile_description">افتح الملف الشخصي.</string>
     <string name="home_profile_greeting">أهلًا، %1$s</string>
-    <string name="profile_title">ملفك الشخصي</string>
     <string name="profile_subtitle">يُحفظ اسمك على هذا الجهاز.</string>
     <string name="profile_display_name">اسم العرض</string>
     <string name="profile_name_help">يملأ بارلور هذا الاسم عند استضافة غرفة أو الانضمام إليها. يمكنك تغييره قبل إرساله.</string>
     <string name="profile_save">احفظ الاسم</string>
     <string name="profile_clear">امسح الاسم المحفوظ</string>
     <string name="profile_saved">تم حفظ الاسم.</string>
+    <string name="profile_edit">تعديل</string>
+    <string name="profile_cancel">إلغاء</string>
+    <string name="profile_guest_help">العب كضيف أو احفظ اسمًا للغرف القريبة.</string>
+    <string name="profile_saved_seat">اسم محفوظ · يُملأ مسبقًا في الغرف القريبة</string>
+    <string name="name_seat_label">الاسم الظاهر في الغرفة</string>
+    <string name="join_seat_label">تلعب باسم</string>
+    <string name="join_change_seat">تغيير الاسم</string>
 </resources>

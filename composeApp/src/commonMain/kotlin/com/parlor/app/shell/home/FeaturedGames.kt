@@ -1,5 +1,6 @@
 package com.parlor.app.shell.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,12 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,16 +56,16 @@ import com.parlor.app.resources.featured_top
 import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.core.ids.GameId
-import com.parlor.designsystem.components.CatalogArtworkBadge
+import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.LibraryText
 import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.tokens.AmberActionBrush
 import com.parlor.designsystem.tokens.AmberActionGlow
 import com.parlor.designsystem.tokens.AmberActionInk
-import com.parlor.designsystem.tokens.CozyNoirPalette
-import com.parlor.designsystem.tokens.isLight
+import com.parlor.designsystem.tokens.NeonDarkShellPalette
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
 internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Unit) {
@@ -71,7 +73,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
     val index = selected.coerceIn(0, games.lastIndex)
     val activeGame = games[index]
     val presentation = activeGame.catalogPresentation()
-    val colors = ParlorTheme.colors
+    val colors = NeonDarkShellPalette
     val shape = RoundedCornerShape(22.dp)
 
     Column(
@@ -79,7 +81,9 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
             .border(ParlorTheme.borders.hairline, colors.borderSubtle, shape),
         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
     ) {
-        FeaturedCover(presentation, activeGame.multiplayerContract?.supportedPlayerCounts ?: activeGame.definition.supportedPlayerCounts)
+        val supportedPlayers = activeGame.multiplayerContract?.supportedPlayerCounts
+            ?: activeGame.definition.supportedPlayerCounts
+        FeaturedCover(presentation, supportedPlayers)
         Row(
             modifier = Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp),
@@ -91,11 +95,11 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
                 val active = position == index
                 val tile = RoundedCornerShape(ParlorTheme.radii.subtle)
                 Box(
-                    modifier = Modifier.size(width = 48.dp, height = 60.dp).clip(tile)
+                    modifier = Modifier.size(width = 48.dp, height = 62.dp).clip(tile)
                         .selectable(selected = active, role = Role.Tab) { selected = position }
                         .semantics { contentDescription = label },
                 ) {
-                    CatalogArtworkBadge(option.artwork, Modifier.fillMaxSize())
+                    CatalogCover(option.artwork, Modifier.fillMaxSize())
                     Box(
                         Modifier.fillMaxSize().border(
                             width = if (active) 2.dp else 1.dp,
@@ -122,7 +126,7 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
         Row(
             modifier = Modifier.fillMaxWidth().drawWithCache {
                 val center = Offset(size.width / 2f, size.height * PLAY_HALO_Y)
-                val radius = size.width * PLAY_HALO_RADIUS
+                val radius = size.height * PLAY_HALO_RADIUS
                 val halo = Brush.radialGradient(
                     listOf(AmberActionGlow.copy(alpha = PLAY_GLOW_ALPHA), AmberActionGlow.copy(alpha = 0f)),
                     center = center,
@@ -155,6 +159,7 @@ private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> 
     val pill = RoundedCornerShape(ParlorTheme.radii.pill)
     Row(
         modifier = modifier.widthIn(max = 240.dp).heightIn(min = ParlorTheme.spacing.xxl)
+            .shadow(7.dp, pill, ambientColor = AmberActionGlow, spotColor = AmberActionGlow)
             .clip(pill).background(AmberActionBrush)
             .clickable(role = Role.Button, onClick = onPlay)
             .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.s),
@@ -173,12 +178,12 @@ private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> 
 
 @Composable
 private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRange) {
-    val colors = ParlorTheme.colors
+    val colors = NeonDarkShellPalette
     val playerLabel = playerRangeLabel(players)
     val badge = presentation.genre?.let { stringResource(Res.string.catalog_players_and_genre, it, playerLabel) } ?: playerLabel
     Box(Modifier.fillMaxWidth().heightIn(min = 194.dp)) {
         Box(Modifier.matchParentSize().clipToBounds()) {
-            CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize().offset(y = (-8).dp))
+            CatalogCover(presentation.artwork, Modifier.matchParentSize().offset(y = (-8).dp))
         }
         Box(
             Modifier.matchParentSize().background(
@@ -186,14 +191,14 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
                     0f to colors.coverScreen.copy(alpha = 0.28f),
                     FEATURED_SCRIM_CLEAR_STOP to colors.transparent,
                     FEATURED_SCRIM_FADE_STOP to colors.coverScreen.copy(alpha = 0.84f),
-                    1f to if (colors.isLight) colors.coverScreen else colors.surfaceElevated,
+                    1f to colors.surfaceElevated,
                 ),
             ),
         )
         Column(Modifier.align(Alignment.TopStart).padding(ParlorTheme.spacing.m)) {
             val headline = ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, lineHeight = 17.sp)
             LibraryText(stringResource(Res.string.featured_top), headline, colors.coverScreenTextPrimary)
-            LibraryText(stringResource(Res.string.featured_accent), headline, CozyNoirPalette.accentEmberGlow)
+            LibraryText(stringResource(Res.string.featured_accent), headline, colors.accentEmber)
         }
         val badgeShape = RoundedCornerShape(ParlorTheme.radii.pill)
         LibraryText(
@@ -208,14 +213,19 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = 50.dp).clipToBounds(),
         ) {
-            CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize().blur(12.dp))
+            // Bundled blur preserves the same artwork treatment on Android levels without RenderEffect.
+            Image(
+                painter = painterResource(presentation.artwork.blurredCover),
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop,
+            )
             Box(
                 Modifier.matchParentSize().background(
                     Brush.verticalGradient(
-                        listOf(
-                            colors.coverScreen.copy(alpha = HERO_GLASS_TOP_ALPHA),
-                            if (colors.isLight) colors.coverScreen else colors.surfaceElevated,
-                        ),
+                        0f to colors.coverScreen.copy(alpha = 0.90f),
+                        0.45f to colors.coverScreen.copy(alpha = HERO_GLASS_ALPHA),
+                        1f to colors.surfaceElevated,
                     ),
                 ),
             )
@@ -241,9 +251,9 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
 
 private const val FEATURED_SCRIM_CLEAR_STOP = 0.43f
 private const val PLAY_GLOW_ALPHA = 0.44f
-private const val HERO_GLASS_TOP_ALPHA = 0.78f
-private const val PLAY_HALO_Y = 0.62f
-private const val PLAY_HALO_RADIUS = 0.35f
+private const val HERO_GLASS_ALPHA = 0.70f
+private const val PLAY_HALO_Y = 0.78f
+private const val PLAY_HALO_RADIUS = 1.5f
 private const val HERO_BADGE_ALPHA = 0.65f
 private const val FEATURED_SCRIM_FADE_STOP = 0.8f
 

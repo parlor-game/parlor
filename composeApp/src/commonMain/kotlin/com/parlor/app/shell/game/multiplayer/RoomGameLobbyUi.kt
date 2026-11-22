@@ -2,6 +2,7 @@ package com.parlor.app.shell.game.multiplayer
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
@@ -37,7 +38,7 @@ import com.parlor.app.resources.room_game_wait_for_connection
 import com.parlor.app.resources.room_game_wait_for_players
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorToastSeverity
@@ -80,8 +81,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
         !settingsAccepted -> stringResource(Res.string.room_game_cannot_start)
         else -> null
     }
-    HeroBackdrop(modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.l),
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.m),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
             Text(stringResource(Res.string.room_game_local), color = ParlorTheme.colors.textSecondary)
             LobbyInvitation(info.code, info.hostDisplayName)
@@ -113,10 +114,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
                                 }
                             }
                         }
-                        RoomButton(stringResource(Res.string.room_game_approve, request.displayName.asBidiArgument()),
-                            { act(true) }, enabled && request.playerId !in admitting)
-                        RoomButton(stringResource(Res.string.room_game_decline, request.displayName.asBidiArgument()),
-                            { act(false) }, enabled && request.playerId !in admitting, true)
+                        AdmissionActions(request.displayName, enabled && request.playerId !in admitting, act)
                     }
                 }
             }
@@ -139,6 +137,24 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
             }, canStart)
             RoomButton(stringResource(Res.string.room_game_leave), onLeave, !operationInFlight, true)
         }
+    }
+}
+
+@Composable
+private fun AdmissionActions(name: String, enabled: Boolean, action: (Boolean) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+    ) {
+        val isolated = name.asBidiArgument()
+        RoomButton(
+            stringResource(Res.string.room_game_approve, isolated), { action(true) }, enabled,
+            modifier = Modifier.weight(1f),
+        )
+        RoomButton(
+            stringResource(Res.string.room_game_decline, isolated), { action(false) }, enabled, secondary = true,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

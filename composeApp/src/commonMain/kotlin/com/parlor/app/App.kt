@@ -63,7 +63,7 @@ fun App() = App(koinInject<SettingsStore>())
 @Suppress("LongMethod") // Declarative root composition; stateful effects are separately tested.
 @Composable
 internal fun App(settings: SettingsStore) {
-    val preferredDisplayName by settings.preferredDisplayName.collectAsState(initial = null)
+    val preferredDisplayName by settings.preferredDisplayName.collectAsState()
     val languageTag by settings.languageOverride.collectAsState(initial = null)
     val themeModeTag by settings.themeMode.collectAsState(initial = ThemeMode.Default.tag)
     val reducedMotion by settings.reducedMotion.collectAsState(initial = false)

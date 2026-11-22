@@ -17,6 +17,8 @@ package com.parlor.designsystem.icons
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
@@ -30,6 +32,27 @@ import androidx.compose.ui.unit.dp
  * to Compose's automatic RTL mirroring.
  */
 object ParlorIcons {
+    val Lantern: ImageVector = ImageVector.Builder("Parlor.Lantern", 24.dp, 24.dp, 24f, 24f).apply {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f,
+            strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(9f, 5f)
+            horizontalLineTo(15f)
+            moveTo(8f, 8f)
+            horizontalLineTo(16f)
+            lineTo(17f, 17f)
+            quadTo(17f, 20f, 14f, 20f)
+            horizontalLineTo(10f)
+            quadTo(7f, 20f, 7f, 17f)
+            close()
+        }
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(12f, 11.5f)
+            quadTo(15.3f, 16.4f, 12f, 16.4f)
+            quadTo(8.7f, 16.4f, 12f, 11.5f)
+            close()
+        }
+    }.build()
+
     val GamesGrid: ImageVector = parlorIcon("GamesGrid") {
         for (top in listOf(3f, 13f)) {
             for (left in listOf(3f, 13f)) {

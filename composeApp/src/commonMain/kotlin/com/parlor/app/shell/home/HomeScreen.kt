@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,10 +48,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
@@ -67,7 +63,6 @@ import com.parlor.app.resources.catalog_mode_wifi_only
 import com.parlor.app.resources.catalog_players_and_genre
 import com.parlor.app.resources.home_continue_label
 import com.parlor.app.resources.home_guest
-import com.parlor.app.resources.home_profile_greeting
 import com.parlor.app.resources.home_party_subtitle
 import com.parlor.app.resources.home_games_count
 import com.parlor.app.resources.home_local_lan_meta
@@ -97,9 +92,10 @@ import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.app.shell.profile.OpenProfileButton
+import com.parlor.app.shell.profile.ProfileGreeting
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
-import com.parlor.designsystem.components.CatalogArtworkBadge
+import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.EmptyState
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
@@ -269,28 +265,16 @@ private fun catalogGameCount(count: Int): String = pluralStringResource(Res.plur
 @Composable
 private fun HomeTopBar(onOpenProfile: (() -> Unit)?) {
     val name = LocalPreferredDisplayName.current ?: stringResource(Res.string.home_guest)
-    val template = stringResource(Res.string.home_profile_greeting, GREETING_NAME_PLACEHOLDER)
-    val accent = ParlorTheme.colors.accentEmber
-    val greeting = buildAnnotatedString {
-        append(template.substringBefore(GREETING_NAME_PLACEHOLDER))
-        withStyle(SpanStyle(color = accent)) { append(name) }
-        append(template.substringAfter(GREETING_NAME_PLACEHOLDER, missingDelimiterValue = ""))
-    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                text = greeting,
-                style = ParlorTheme.typography.headingMedium.copy(fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold),
-                color = ParlorTheme.colors.textPrimary,
-                modifier = Modifier.testTag(HOME_BRAND_TEST_TAG),
-            )
+            ProfileGreeting(name, Modifier.testTag(HOME_BRAND_TEST_TAG))
             LibraryText(
                 text = stringResource(Res.string.home_party_subtitle),
-                style = ParlorTheme.typography.bodySmall,
+                style = ParlorTheme.typography.bodySmall.copy(fontSize = 11.5.sp, lineHeight = 15.sp),
                 color = ParlorTheme.colors.textSecondary,
             )
         }
@@ -530,7 +514,7 @@ private fun GameHeroCard(
             )
         } else Column {
             if (!compact) {
-                CatalogArtworkBadge(
+                CatalogCover(
                     presentation.artwork,
                     Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO),
                 )
@@ -544,7 +528,7 @@ private fun GameHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxxl))
+                        CatalogCover(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxxl))
                         CatalogGameTitle(presentation.title)
                     }
                 } else {
@@ -584,7 +568,7 @@ private fun CompactGameRow(presentation: GameCatalogPresentation, details: Strin
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CatalogArtworkBadge(
+        CatalogCover(
             presentation.artwork,
             Modifier.size(56.dp).clip(coverShape).border(1.dp, colors.borderSubtle, coverShape),
         )
@@ -656,7 +640,6 @@ internal fun playerRangeLabel(range: IntRange): String =
         stringResource(Res.string.home_players_range_format, range.first, range.last)
     }
 
-private const val GREETING_NAME_PLACEHOLDER = "{name}"
 private const val HOME_COMPACT_INTRODUCTION_FONT_SCALE = 1.5f
 private val TwoCoverWidth = 440.dp
 private val ThreeCoverWidth = 688.dp

@@ -17,6 +17,7 @@ import com.parlor.app.resources.navigation_profile_description
 import com.parlor.app.resources.navigation_profile_label
 import com.parlor.app.resources.navigation_settings_description
 import com.parlor.app.resources.navigation_settings_label
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.designsystem.components.ParlorBottomTab
 import com.parlor.designsystem.components.ParlorBottomTabBar
 import com.parlor.designsystem.icons.ParlorIcons
@@ -142,6 +143,7 @@ internal fun AppNavigationBar(
             label = stringResource(Res.string.navigation_profile_label),
             contentDescription = stringResource(Res.string.navigation_profile_description),
             icon = ParlorIcons.Profile,
+            hasBadge = LocalPreferredDisplayName.current != null,
         ),
         ParlorBottomTab(
             label = stringResource(Res.string.navigation_settings_label),

@@ -240,6 +240,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = WhodunitShellScreen.HostName },
             onBack = onExit,
         )
@@ -307,6 +309,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = WhodunitShellScreen.JoinName },
             onBack = onExit,
         )
@@ -327,6 +331,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == WhodunitShellScreen.JoinPrompt) screen = WhodunitShellScreen.JoinName },
             onConfirm = { code ->
                 if (screen == WhodunitShellScreen.JoinPrompt) {
                     pendingJoinCode = code

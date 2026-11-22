@@ -192,6 +192,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = MafiaShellScreen.HostName },
             onBack = onExit,
         )
@@ -227,6 +229,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = MafiaShellScreen.JoinName },
             onBack = onExit,
         )
@@ -247,6 +251,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == MafiaShellScreen.JoinPrompt) screen = MafiaShellScreen.JoinName },
             onConfirm = { code ->
                 if (screen == MafiaShellScreen.JoinPrompt) {
                     pendingJoinCode = code

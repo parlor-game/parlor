@@ -49,6 +49,7 @@ import com.parlor.app.resources.playmode_passandplay_title
 import com.parlor.app.resources.playmode_solo_body
 import com.parlor.app.resources.playmode_solo_choose_description
 import com.parlor.app.resources.playmode_solo_title
+import com.parlor.app.resources.profile_saved_seat
 import com.parlor.app.resources.setup_back_description
 import com.parlor.app.resources.setup_each_device_label
 import com.parlor.app.resources.setup_eyebrow
@@ -71,7 +72,9 @@ import com.parlor.app.shell.game.GameShellCapabilities
 import com.parlor.app.shell.home.CatalogBadge
 import com.parlor.app.shell.home.catalogModeLabel
 import com.parlor.app.shell.home.playerRangeLabel
-import com.parlor.designsystem.components.CatalogArtworkBadge
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
+import com.parlor.app.shell.profile.SeatIdentityCard
+import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorIconButton
@@ -138,6 +141,10 @@ internal fun PlayModePickerScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SelectedGameHeader(presentation, model, onBack)
+            val savedName = LocalPreferredDisplayName.current
+            if (savedName != null && (availability.host || availability.join)) {
+                SeatIdentityCard(savedName, stringResource(Res.string.profile_saved_seat))
+            }
             if (availability.solo || availability.passAndPlay) {
                 LocalPlayOptions(model, onModeSelected)
             }
@@ -185,7 +192,7 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, model: Pla
         }
         if (largeText && maxWidth < NarrowPickerWidth) {
             Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxl).clip(coverShape))
+                CatalogCover(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxl).clip(coverShape))
                 caption()
             }
         } else {
@@ -194,7 +201,7 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, model: Pla
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                 ) {
-                    CatalogArtworkBadge(
+                    CatalogCover(
                         presentation.artwork,
                         Modifier.size(68.dp).clip(coverShape).border(1.dp, ParlorTheme.colors.borderSubtle, coverShape),
                     )

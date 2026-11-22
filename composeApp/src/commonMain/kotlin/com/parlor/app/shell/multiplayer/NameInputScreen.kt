@@ -33,12 +33,13 @@ import com.parlor.app.resources.name_eyebrow_peer
 import com.parlor.app.resources.name_field
 import com.parlor.app.resources.name_character_count
 import com.parlor.app.resources.name_seat_preview
+import com.parlor.app.resources.name_seat_label
 import com.parlor.app.resources.name_help
 import com.parlor.app.resources.name_title_host
 import com.parlor.app.resources.name_title_peer
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.LibraryText
-import com.parlor.designsystem.components.ParlorCard
+import com.parlor.app.shell.profile.SeatIdentityCard
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorTextField
 import com.parlor.designsystem.components.ScreenHeader
@@ -79,7 +80,7 @@ fun NameInputScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val sanitized = normalizedMultiplayerDisplayName(name)
 
-    LibrarySurface(modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
         StickyActionLayout(
             modifier = Modifier.fillMaxSize().parlorImePadding(),
             content = {
@@ -100,6 +101,7 @@ fun NameInputScreen(
                         ),
                         subtitle = stringResource(Res.string.name_help),
                         onBack = onBack,
+                        compact = true,
                         backContentDescription = stringResource(Res.string.name_back_description),
                     )
 
@@ -159,11 +161,10 @@ private fun NameSeatPreview(displayName: String, characterCount: Int) {
     )
     if (displayName.isNotEmpty()) {
         val label = stringResource(Res.string.name_seat_preview, displayName)
-        ParlorCard(
-            modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = label },
-            contentPadding = ParlorTheme.spacing.m,
-        ) {
-            LibraryText(label, ParlorTheme.typography.labelLarge, colors.textPrimary)
-        }
+        SeatIdentityCard(
+            name = displayName,
+            caption = stringResource(Res.string.name_seat_label),
+            modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+        )
     }
 }
