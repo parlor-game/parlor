@@ -3,13 +3,16 @@ package com.parlor.games.mafia.ui.screens.night
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -25,7 +28,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.parlor.core.ids.PlayerId
@@ -163,14 +168,21 @@ private fun TargetRow(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(ParlorTheme.radii.card)
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     val borderColor = if (selected) ParlorTheme.colors.accentEmber else ParlorTheme.colors.borderSubtle
+    val borderWidth = if (selected) ParlorTheme.borders.regular else ParlorTheme.borders.hairline
+    val backgroundColor = if (selected) {
+        ParlorTheme.colors.accentEmber.copy(alpha = SELECTED_BG_ALPHA)
+    } else {
+        ParlorTheme.colors.surfaceElevated
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ParlorTheme.spacing.xxl)
             .clip(shape)
-            .background(ParlorTheme.colors.surfaceElevated)
-            .border(ParlorTheme.borders.hairline, borderColor, shape)
+            .background(backgroundColor)
+            .border(borderWidth, borderColor, shape)
             .selectable(
                 selected = selected,
                 enabled = target.enabled,
@@ -181,6 +193,34 @@ private fun TargetRow(
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!compactTypography) {
+            val initial = target.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+            val badgeBg = if (selected) {
+                ParlorTheme.colors.accentEmber
+            } else {
+                ParlorTheme.colors.surfaceHigher
+            }
+            val badgeInk = if (selected) {
+                ParlorTheme.colors.textOnAccent
+            } else {
+                ParlorTheme.colors.textSecondary
+            }
+            Box(
+                modifier = Modifier
+                    .size(ParlorTheme.spacing.xl + ParlorTheme.spacing.xs)
+                    .clip(CircleShape)
+                    .background(badgeBg)
+                    .border(ParlorTheme.borders.hairline, borderColor, CircleShape)
+                    .clearAndSetSemantics { },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initial,
+                    style = ParlorTheme.typography.labelMedium,
+                    color = badgeInk,
+                )
+            }
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
@@ -209,3 +249,6 @@ private fun TargetRow(
         )
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f
+private const val SELECTED_BG_ALPHA = 0.12f

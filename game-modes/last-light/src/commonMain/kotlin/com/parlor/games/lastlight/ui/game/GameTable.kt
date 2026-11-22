@@ -203,8 +203,12 @@ private fun LatestClaim(
     Row(
         modifier = modifier.fillMaxWidth().testTag("game-latest-claim")
             .clip(RoundedCornerShape(20.dp))
-            .background(Brush.verticalGradient(listOf(LastLightColors.Surface, LastLightColors.Ink)))
-            .border(1.dp, LastLightColors.Divider, RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(LastLightColors.SurfaceHero, LastLightColors.Surface)))
+            .border(
+                width = 1.dp,
+                color = if (claim != null) LastLightColors.Citron.copy(alpha = 0.35f) else LastLightColors.Divider,
+                shape = RoundedCornerShape(20.dp),
+            )
             .padding(if (compact) 8.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (compact || largeText) 12.dp else 18.dp),

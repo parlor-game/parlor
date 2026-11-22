@@ -5,20 +5,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.vote_abstain
@@ -88,6 +91,7 @@ fun VoteAnnouncementScreen(
     waitingLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -97,30 +101,51 @@ fun VoteAnnouncementScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EyebrowLabel(
-                text = stringResource(Res.string.vote_announcement_eyebrow_format, day),
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = eliminatedName ?: stringResource(Res.string.vote_announcement_no_elimination),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            if (eliminatedRole != null) {
-                Text(
-                    text = stringResource(Res.string.vote_announcement_revealed_role_format, eliminatedRole),
-                    style = ParlorTheme.typography.bodyLarge,
-                    color = ParlorTheme.colors.textSecondary,
-                    textAlign = TextAlign.Center,
-                )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.Moon,
+                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                        )
+                    }
+                    EyebrowLabel(
+                        text = stringResource(Res.string.vote_announcement_eyebrow_format, day),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = eliminatedName ?: stringResource(Res.string.vote_announcement_no_elimination),
+                        style = ParlorTheme.typography.displayMedium,
+                        color = if (eliminatedName != null) {
+                            ParlorTheme.colors.semanticDanger
+                        } else {
+                            ParlorTheme.colors.textPrimary
+                        },
+                        textAlign = TextAlign.Center,
+                    )
+                    if (eliminatedRole != null) {
+                        Text(
+                            text = stringResource(
+                                Res.string.vote_announcement_revealed_role_format,
+                                eliminatedRole,
+                            ),
+                            style = ParlorTheme.typography.bodyLarge,
+                            color = ParlorTheme.colors.textSecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Text(
+                        text = outcomeLine,
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
-            Text(
-                text = outcomeLine,
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
 
             ParlorCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -144,8 +169,8 @@ fun VoteAnnouncementScreen(
                                 )
                                 Text(
                                     text = count.toString(),
-                                    style = ParlorTheme.typography.bodyLarge,
-                                    color = ParlorTheme.colors.textSecondary,
+                                    style = ParlorTheme.typography.headingMedium,
+                                    color = ParlorTheme.colors.accentEmber,
                                 )
                             }
                         }
@@ -172,3 +197,5 @@ fun VoteAnnouncementScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

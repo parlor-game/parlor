@@ -6,23 +6,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.domain.state.PublicTimerState
 import com.parlor.games.whodunit.domain.state.RevealedClue
@@ -51,6 +54,7 @@ fun RoundTitleCardScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -65,26 +69,35 @@ fun RoundTitleCardScreen(
                 detail = authorityLabel,
                 tone = ParlorContextTone.Public,
             )
-            EyebrowLabel(
-                text = stringResource(Res.string.round_eyebrow_format, roundIndex),
-                accent = false,
-            )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-            ) {
-                Text(
-                    text = title,
-                    style = ParlorTheme.typography.displayHero,
-                    color = ParlorTheme.colors.textPrimary,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = tagline,
-                    style = ParlorTheme.typography.narration,
-                    color = ParlorTheme.colors.textNarration,
-                    textAlign = TextAlign.Center,
-                )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+                ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.CaseFile,
+                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                        )
+                    }
+                    EyebrowLabel(
+                        text = stringResource(Res.string.round_eyebrow_format, roundIndex),
+                        accent = true,
+                    )
+                    Text(
+                        text = title,
+                        style = ParlorTheme.typography.displayHero,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = tagline,
+                        style = ParlorTheme.typography.narration,
+                        color = ParlorTheme.colors.textNarration,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             ParlorButton(
                 label = stringResource(Res.string.round_reveal_clue_button),
@@ -202,3 +215,5 @@ fun DiscussionScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

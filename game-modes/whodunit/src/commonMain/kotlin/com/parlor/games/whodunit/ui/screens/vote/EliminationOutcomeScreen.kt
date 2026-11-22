@@ -6,18 +6,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.resources.Res
 import com.parlor.games.whodunit.resources.elim_innocent_body
@@ -44,6 +48,7 @@ fun EliminationInnocentOutcomeScreen(
     onContinue: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -53,19 +58,33 @@ fun EliminationInnocentOutcomeScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EyebrowLabel(text = stringResource(Res.string.elim_innocent_eyebrow))
-            Text(
-                text = stringResource(Res.string.elim_innocent_title_format, eliminatedPlayerName),
-                style = ParlorTheme.typography.displayLarge,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.elim_innocent_body),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.CaseFile,
+                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                        )
+                    }
+                    EyebrowLabel(text = stringResource(Res.string.elim_innocent_eyebrow))
+                    Text(
+                        text = stringResource(Res.string.elim_innocent_title_format, eliminatedPlayerName),
+                        style = ParlorTheme.typography.displayLarge,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(Res.string.elim_innocent_body),
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             Spacer(Modifier.height(ParlorTheme.spacing.l))
             if (onContinue != null) {
                 ParlorButton(
@@ -85,3 +104,5 @@ fun EliminationInnocentOutcomeScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

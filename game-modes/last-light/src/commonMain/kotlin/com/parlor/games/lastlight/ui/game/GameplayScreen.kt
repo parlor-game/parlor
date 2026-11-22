@@ -393,8 +393,9 @@ private fun ChallengeButton(
         enabled = enabled,
         modifier = modifier.heightIn(min = 56.dp).testTag("game-challenge"),
         shape = RoundedCornerShape(28.dp),
-        border = BorderStroke(1.dp, LastLightColors.Outline),
+        border = BorderStroke(1.dp, LastLightColors.Copper.copy(alpha = 0.6f)),
         colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = LastLightColors.Surface.copy(alpha = 0.72f),
             contentColor = LastLightColors.Copper,
             disabledContentColor = LastLightColors.Muted,
         ),

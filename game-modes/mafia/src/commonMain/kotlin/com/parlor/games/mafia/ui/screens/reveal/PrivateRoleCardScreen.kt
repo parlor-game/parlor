@@ -1,15 +1,21 @@
 package com.parlor.games.mafia.ui.screens.reveal
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.EyebrowLabel
@@ -54,6 +60,11 @@ fun PrivateRoleCardScreen(
     onAcknowledged: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val factionAccent = when (team) {
+        Team.Mafia -> ParlorTheme.colors.semanticDanger
+        Team.Town -> ParlorTheme.colors.semanticSuccess
+    }
+    val pillShape = RoundedCornerShape(ParlorTheme.radii.pill)
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -61,26 +72,42 @@ fun PrivateRoleCardScreen(
                 .verticalScroll(rememberScrollState())
                 .parlorSafeContentPadding(ParlorTheme.spacing.xl),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ContextRibbon(
                 label = stringResource(Res.string.private_screen_label),
                 detail = stringResource(Res.string.handoff_player_only_format, playerName),
                 tone = ParlorContextTone.Private,
             )
-            EyebrowLabel(text = playerName, textAlign = TextAlign.Center)
-            Text(
-                text = roleDisplayName(role),
-                style = ParlorTheme.typography.displayLarge,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = teamDisplayName(team),
-                style = ParlorTheme.typography.headingMedium,
-                color = ParlorTheme.colors.accentEmber,
-                textAlign = TextAlign.Center,
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    EyebrowLabel(text = playerName, textAlign = TextAlign.Center)
+                    Text(
+                        text = roleDisplayName(role),
+                        style = ParlorTheme.typography.displayLarge,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(pillShape)
+                            .background(factionAccent.copy(alpha = 0.14f))
+                            .border(ParlorTheme.borders.hairline, factionAccent.copy(alpha = 0.45f), pillShape)
+                            .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.xs),
+                    ) {
+                        Text(
+                            text = teamDisplayName(team),
+                            style = ParlorTheme.typography.labelMedium,
+                            color = factionAccent,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
 
             ParlorCard(modifier = Modifier.fillMaxWidth()) {
                 Column(

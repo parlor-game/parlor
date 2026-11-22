@@ -79,9 +79,9 @@ class L08CopyContractTests(unittest.TestCase):
     def test_mafia_settings_observation_preserves_original_updates_and_start(self):
         source = (ROOT / extension.MAFIA_SETUP).read_text()
         changed = extension.transform(extension.MAFIA_SETUP, source)
-        self.assertEqual(changed.count('draft = draft.copy(doctorCanProtectSamePlayerConsecutively = it)'), 1)
+        self.assertEqual(changed.count('onDraftChange(draft.copy(doctorCanProtectSamePlayerConsecutively = it))'), 1)
         self.assertEqual(changed.count('                    onStart(settings)'), 1)
-        self.assertIn('L08MafiaSetupObservation.repeatChanged(it)\n                    draft =', changed)
+        self.assertIn('L08MafiaSetupObservation.repeatChanged(it)\n                    onDraftChange(draft.copy(', changed)
         self.assertIn('L08MafiaSetupObservation.start(settings)\n                    onStart(settings)', changed)
         self.assertIn('enabled = canStart,', changed)
         self.assertEqual(changed.count('.testTag("l08-mafia-repeat")'), 1)

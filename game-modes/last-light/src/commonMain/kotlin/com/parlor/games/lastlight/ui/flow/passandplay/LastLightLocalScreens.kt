@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.heading
@@ -26,12 +29,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.bringIntoViewOnFocus
 import com.parlor.designsystem.components.parlorImePadding
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.lastlight.resources.Res
 import com.parlor.games.lastlight.resources.local_action_rejected
@@ -53,6 +59,7 @@ import com.parlor.games.lastlight.resources.local_setup_duplicate
 import com.parlor.games.lastlight.resources.local_setup_eyebrow
 import com.parlor.games.lastlight.resources.local_setup_start
 import com.parlor.games.lastlight.resources.local_setup_title
+import com.parlor.games.lastlight.ui.game.TablePanel
 import com.parlor.games.lastlight.ui.theme.DeckButton
 import com.parlor.games.lastlight.ui.theme.LastLightColors
 import com.parlor.networking.room.RoomInputPolicy
@@ -69,31 +76,47 @@ internal fun LastLightLocalSetupScreen(
 ) {
     val normalized = names.map(RoomInputPolicy::normalizeDisplayName)
     val duplicate = normalized.filter(String::isNotBlank).let { it.size != it.toSet().size }
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     LocalPage(modifier) {
+        if (!largeText) {
+            CatalogArtworkBadge(artwork = ParlorArtwork.Cards, modifier = Modifier.size(56.dp))
+        }
         EyebrowLabel(stringResource(Res.string.local_setup_eyebrow))
         LocalHeading(stringResource(Res.string.local_setup_title))
         Text(
             stringResource(Res.string.local_setup_body),
             style = ParlorTheme.typography.bodyLarge,
             color = ParlorTheme.colors.textSecondary,
+            textAlign = TextAlign.Center,
         )
-        names.forEachIndexed { index, name ->
-            PlayerNameField(
-                index = index,
-                value = name,
-                isLast = index == names.lastIndex,
-                enabled = actionsEnabled,
-                onValueChange = { next -> onNamesChanged(names.toMutableList().also { it[index] = next }) },
-            )
-        }
-        if (duplicate) {
-            Text(stringResource(Res.string.local_setup_duplicate), color = ParlorTheme.colors.textSecondary)
-        }
-        if (names.size < 6) {
-            LocalButton(Res.string.local_player_add, { onNamesChanged(names + "") }, actionsEnabled, secondary = true)
-        }
-        if (names.size > 2) {
-            LocalButton(Res.string.local_player_remove, { onNamesChanged(names.dropLast(1)) }, actionsEnabled, secondary = true)
+        ParlorCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            ) {
+                names.forEachIndexed { index, name ->
+                    PlayerNameField(
+                        index = index,
+                        value = name,
+                        isLast = index == names.lastIndex,
+                        enabled = actionsEnabled,
+                        onValueChange = { next -> onNamesChanged(names.toMutableList().also { it[index] = next }) },
+                    )
+                }
+                if (duplicate) {
+                    Text(
+                        stringResource(Res.string.local_setup_duplicate),
+                        style = ParlorTheme.typography.bodyMedium,
+                        color = ParlorTheme.colors.semanticDanger,
+                    )
+                }
+                if (names.size < 6) {
+                    LocalButton(Res.string.local_player_add, { onNamesChanged(names + "") }, actionsEnabled, secondary = true)
+                }
+                if (names.size > 2) {
+                    LocalButton(Res.string.local_player_remove, { onNamesChanged(names.dropLast(1)) }, actionsEnabled, secondary = true)
+                }
+            }
         }
         LocalButton(
             Res.string.local_setup_start,
@@ -138,6 +161,7 @@ internal fun LastLightHandoffScreen(
     onTakeDevice: () -> Unit,
 ) {
     val title = stringResource(Res.string.local_handoff_title, playerName)
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -147,32 +171,47 @@ internal fun LastLightHandoffScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineLarge,
-            color = LastLightColors.Paper,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            stringResource(Res.string.local_handoff_body),
-            style = MaterialTheme.typography.bodyLarge,
-            color = LastLightColors.Muted,
-            textAlign = TextAlign.Center,
-        )
-        if (rejected) {
-            Text(
-                stringResource(Res.string.local_action_rejected),
-                color = LastLightColors.Error,
-                textAlign = TextAlign.Center,
-            )
+        TablePanel(
+            modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+            accent = LastLightColors.Citron.copy(alpha = 0.55f),
+            padding = 24.dp,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (!largeText) {
+                    CatalogArtworkBadge(artwork = ParlorArtwork.Cards, modifier = Modifier.size(56.dp))
+                }
+                Text(
+                    title,
+                    style = if (largeText) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
+                    color = LastLightColors.Paper,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(
+                    stringResource(Res.string.local_handoff_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = LastLightColors.Muted,
+                    textAlign = TextAlign.Center,
+                )
+                if (rejected) {
+                    Text(
+                        stringResource(Res.string.local_action_rejected),
+                        color = LastLightColors.Error,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                DeckButton(
+                    text = stringResource(Res.string.local_handoff_continue, playerName),
+                    onClick = onTakeDevice,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-        DeckButton(
-            text = stringResource(Res.string.local_handoff_continue, playerName),
-            onClick = onTakeDevice,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -191,9 +230,14 @@ internal fun LastLightRecoveryScreen(
             stringResource(Res.string.local_recovery_body),
             style = ParlorTheme.typography.bodyLarge,
             color = ParlorTheme.colors.textSecondary,
+            textAlign = TextAlign.Center,
         )
         if (discardFailed) {
-            Text(stringResource(Res.string.local_recovery_discard_failed), color = ParlorTheme.colors.textSecondary)
+            Text(
+                stringResource(Res.string.local_recovery_discard_failed),
+                color = ParlorTheme.colors.semanticDanger,
+                textAlign = TextAlign.Center,
+            )
         }
         LocalButton(Res.string.local_recovery_retry, onRetry, actionsEnabled)
         LocalButton(Res.string.local_recovery_discard, onDiscard, actionsEnabled, secondary = true)

@@ -1,16 +1,25 @@
 package com.parlor.games.mafia.ui.screens.discussion
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.ContextRibbon
@@ -81,12 +90,15 @@ fun DiscussionScreen(
                 textAlign = TextAlign.Center,
             )
             if (timerLabel != null) {
-                Text(
-                    text = timerLabel,
-                    style = ParlorTheme.typography.timerLarge,
-                    color = ParlorTheme.colors.accentEmber,
-                    textAlign = TextAlign.Center,
-                )
+                ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                    Text(
+                        text = timerLabel,
+                        style = ParlorTheme.typography.timerLarge,
+                        color = ParlorTheme.colors.accentEmber,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             PlayerListCard(title = stringResource(Res.string.discussion_alive_card), names = aliveNames)
@@ -112,6 +124,8 @@ fun DiscussionScreen(
 
 @Composable
 private fun PlayerListCard(title: String, names: List<String>, dim: Boolean = false) {
+    val rowShape = RoundedCornerShape(ParlorTheme.radii.subtle)
+    val dotColor = if (dim) ParlorTheme.colors.semanticMuted else ParlorTheme.colors.semanticSuccess
     ParlorCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -119,11 +133,29 @@ private fun PlayerListCard(title: String, names: List<String>, dim: Boolean = fa
         ) {
             EyebrowLabel(text = title, accent = false)
             names.forEach { name ->
-                Text(
-                    text = name,
-                    style = ParlorTheme.typography.bodyLarge,
-                    color = if (dim) ParlorTheme.colors.textSecondary else ParlorTheme.colors.textPrimary,
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(rowShape)
+                        .background(ParlorTheme.colors.surfaceElevated)
+                        .border(ParlorTheme.borders.hairline, ParlorTheme.colors.borderSubtle, rowShape)
+                        .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
+                    horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(ParlorTheme.spacing.s)
+                            .clip(CircleShape)
+                            .background(dotColor)
+                            .clearAndSetSemantics { },
+                    )
+                    Text(
+                        text = name,
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = if (dim) ParlorTheme.colors.textSecondary else ParlorTheme.colors.textPrimary,
+                    )
+                }
             }
         }
     }
