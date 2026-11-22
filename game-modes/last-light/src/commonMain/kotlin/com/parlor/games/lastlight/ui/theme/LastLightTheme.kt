@@ -74,11 +74,10 @@ fun LastLightTheme(
     reduceMotion: Boolean = ParlorTheme.reducedMotion,
     content: @Composable () -> Unit,
 ) {
-    // The bundled Latin fonts have no Arabic glyphs. Match Parlor's platform sans-serif
-    // fallback for RTL text so Arabic shaping does not depend on a missing font face.
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val display = if (rtl) FontFamily.SansSerif else FontFamily(Font(Res.font.fraunces_semibold, FontWeight.SemiBold))
-    val body = if (rtl) FontFamily.SansSerif else FontFamily(
+    val arabicSans = ParlorTheme.typography.bodyMedium.fontFamily ?: FontFamily.SansSerif
+    val display = if (rtl) arabicSans else FontFamily(Font(Res.font.fraunces_semibold, FontWeight.SemiBold))
+    val body = if (rtl) arabicSans else FontFamily(
         Font(Res.font.manrope_regular, FontWeight.Normal),
         Font(Res.font.manrope_medium, FontWeight.Medium),
         Font(Res.font.manrope_semibold, FontWeight.SemiBold),

@@ -1,5 +1,9 @@
 # Preserve verbatim third-party notice bytes, including upstream CRLF files.
 composeApp/src/commonMain/composeResources/files/legal/* -text
+shared/design-system/src/commonMain/composeResources/files/licenses/*_ofl.txt -text
+# Both shared OFL files have a trailing space in the original preamble.
+shared/design-system/src/commonMain/composeResources/files/licenses/bricolage_grotesque_ofl.txt whitespace=-blank-at-eol
+shared/design-system/src/commonMain/composeResources/files/licenses/noto_sans_arabic_ofl.txt whitespace=-blank-at-eol
 # These exact upstream files include CRLF and/or intentional blank final lines.
 # Their byte digests remain pinned; ordinary trailing whitespace is still an error.
 composeApp/src/commonMain/composeResources/files/legal/SLF4J-2.0.16-LICENSE.txt whitespace=cr-at-eol,-blank-at-eof
