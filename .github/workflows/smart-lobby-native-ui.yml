@@ -25,6 +25,7 @@ jobs:
     outputs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
+      reuse_android: ${{ steps.plan.outputs.reuse_android }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -38,6 +39,7 @@ jobs:
 
   build:
     needs: plan
+    if: needs.plan.outputs.reuse_android != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +77,10 @@ jobs:
 
   lab:
     needs: [plan, build]
+    if: >-
+      ${{ always() && !cancelled() && needs.plan.result == 'success' &&
+          (needs.build.result == 'success' ||
+            (needs.build.result == 'skipped' && needs.plan.outputs.reuse_android == 'true')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +113,15 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.reuse_android == 'true'
+        with:
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '45060464381'
+          name: candidate-android-1
+          path: ${{ runner.temp }}/parlor-package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.reuse_android != 'true'
         with:
           name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/parlor-package
@@ -123,6 +138,11 @@ jobs:
           path: ${{ runner.temp }}/mobile-lan/public
           if-no-files-found: error
           retention-days: 1
+      - name: Install Android emulator host libraries
+        if: matrix.target == 'android'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpulse0
       - name: Install the verified package independently on every guest
         env:
           DEVICE_COUNT: ${{ matrix.count }}

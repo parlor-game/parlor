@@ -46,6 +46,9 @@ def plan():
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
+        reuse_android = (pairing == "android" and os.environ.get("GITHUB_EVENT_NAME") == "push"
+                         and json.loads(CONFIG.read_text()).get("reuse_android") is True)
+        print(f"reuse_android={str(reuse_android).lower()}", file=stream)
 
 
 def manifest():
