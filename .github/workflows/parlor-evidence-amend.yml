@@ -1,0 +1,43 @@
+name: Finalize Parlor screenshot evidence metadata
+
+on:
+  push:
+    branches: [capture/native-screens-2026-11-22]
+    paths:
+      - .github/workflows/parlor-evidence-amend.yml
+      - scripts/screenshots/amend_evidence_metadata.py
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  finalize-evidence:
+    if: ${{ github.ref == 'refs/heads/capture/native-screens-2026-11-22' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the validated combined capture package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: '45011186142'
+          name: parlor-full-app-screens-45006277598-45007491810-45003845633
+          path: build/final-evidence
+      - name: Add the verified small-phone XCTest and size-review notes
+        run: |
+          python3 scripts/screenshots/amend_evidence_metadata.py \
+            --root build/final-evidence \
+            --source-run-id 45011186142 \
+            --amendment-sha "$(git rev-parse HEAD)"
+      - name: Upload finalized screenshots, gallery, and coverage manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parlor-full-app-screens-final-45011186142
+          path: build/final-evidence/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
