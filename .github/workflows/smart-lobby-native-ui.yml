@@ -1,0 +1,162 @@
+name: Smart Lobby installed app LAN lab
+on:
+  workflow_dispatch:
+    inputs:
+      pairing:
+        description: Native pairing
+        type: choice
+        options: [android, ios, mixed]
+        required: true
+      token_digests:
+        description: JSON array of one SHA-256 bearer digest per device
+        type: string
+        required: true
+  push:
+    branches: [test/smart-lobby-native-ui]
+    paths: [scripts/smart-lobby-native/dispatch.json]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      lab: ${{ steps.plan.outputs.lab }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - id: plan
+        shell: bash
+        env:
+          PAIRING: ${{ inputs.pairing }}
+          DIGESTS: ${{ inputs.token_digests }}
+        run: python3 scripts/smart-lobby-native/lab.py plan
+
+  build:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.build) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      TARGET: ${{ matrix.target }}
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Build the exact source and bind the binary to it
+        shell: bash
+        run: bash scripts/smart-lobby-native/lab.sh build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parlor-package
+          if-no-files-found: error
+          retention-days: 7
+
+  lab:
+    needs: [plan, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.lab) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 100
+    env:
+      TARGET: ${{ matrix.target }}
+      PAIRING: ${{ inputs.pairing }}
+      DIGESTS: ${{ inputs.token_digests }}
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
+      DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
+      LAN_KEEP: '1'
+      LAN_UI_DIR: ${{ github.workspace }}/ui-client
+      PYTHONPATH: ${{ github.workspace }}/ui-client
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ui-test-actions/ui-test-actions
+          ref: 0c818c5d72e8c30c59bd1287c330a40392bf8e89
+          persist-credentials: false
+          path: ui-client
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parlor-package
+      - name: Initialize the public upstream isolated LAN
+        if: matrix.pairing == 'mixed'
+        working-directory: ui-client
+        run: |
+          bash verification/mobile-lan/trial.sh identity "$TARGET"
+          if [[ "$TARGET" == android ]]; then bash verification/mobile-lan/trial.sh rendezvous "$TARGET"; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: matrix.pairing == 'mixed'
+        with:
+          name: lan-${{ matrix.target }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mobile-lan/public
+          if-no-files-found: error
+          retention-days: 1
+      - name: Install the verified package independently on every guest
+        env:
+          DEVICE_COUNT: ${{ matrix.count }}
+        run: bash scripts/smart-lobby-native/lab.sh install
+      - name: Verify isolated cross-platform transport
+        if: matrix.pairing == 'mixed'
+        working-directory: ui-client
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash verification/mobile-lan/trial.sh bridge "$TARGET"
+          bash verification/mobile-lan/trial.sh verify "$TARGET"
+      - name: Open independent UI controllers
+        run: python3 scripts/smart-lobby-native/lab.py start
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: parlor-ui-${{ matrix.target }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parlor-connections
+          if-no-files-found: error
+          retention-days: 1
+      - name: Keep all controllers available for visible UI actions
+        run: python3 scripts/smart-lobby-native/lab.py hold
+      - name: Retire job-owned devices and sessions
+        if: always()
+        env:
+          LAB_PAIRING: ${{ matrix.pairing }}
+        run: bash scripts/smart-lobby-native/lab.sh cleanup
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: parlor-native-proof-${{ matrix.target }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/parlor-proof
+            ${{ runner.temp }}/mobile-lan-preflight/traffic.json
+            ${{ runner.temp }}/mobile-lan-preflight/android-to-mac.txt
+            ${{ runner.temp }}/mobile-lan-preflight/mac-to-android.txt
+          retention-days: 7
