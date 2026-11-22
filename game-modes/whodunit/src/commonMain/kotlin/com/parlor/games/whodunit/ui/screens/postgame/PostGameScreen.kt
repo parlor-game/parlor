@@ -22,6 +22,7 @@ import com.parlor.games.whodunit.resources.Res
 import com.parlor.games.whodunit.resources.postgame_back_to_library
 import com.parlor.games.whodunit.resources.postgame_back_to_library_description
 import com.parlor.games.whodunit.resources.postgame_eyebrow
+import com.parlor.games.whodunit.resources.postgame_party_exit
 import com.parlor.games.whodunit.resources.postgame_question
 import com.parlor.games.whodunit.resources.postgame_replay
 import com.parlor.games.whodunit.resources.postgame_replay_description
@@ -35,6 +36,7 @@ fun PostGameScreen(
     onTryOtherMode: () -> Unit,
     onBackToLibrary: () -> Unit,
     modifier: Modifier = Modifier,
+    returnToParty: Boolean = false,
 ) {
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
@@ -55,25 +57,29 @@ fun PostGameScreen(
                 color = ParlorTheme.colors.textPrimary,
                 textAlign = TextAlign.Center,
             )
+            if (!returnToParty) {
+                ParlorButton(
+                    label = stringResource(Res.string.postgame_replay),
+                    contentDescription = stringResource(Res.string.postgame_replay_description),
+                    onClick = onReplaySameCase,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ParlorButton(
+                    label = stringResource(Res.string.postgame_try_other_mode),
+                    contentDescription = stringResource(Res.string.postgame_try_other_mode_description),
+                    onClick = onTryOtherMode,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = ParlorButtonVariant.Secondary,
+                )
+            }
             ParlorButton(
-                label = stringResource(Res.string.postgame_replay),
-                contentDescription = stringResource(Res.string.postgame_replay_description),
-                onClick = onReplaySameCase,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            ParlorButton(
-                label = stringResource(Res.string.postgame_try_other_mode),
-                contentDescription = stringResource(Res.string.postgame_try_other_mode_description),
-                onClick = onTryOtherMode,
-                modifier = Modifier.fillMaxWidth(),
-                variant = ParlorButtonVariant.Secondary,
-            )
-            ParlorButton(
-                label = stringResource(Res.string.postgame_back_to_library),
-                contentDescription = stringResource(Res.string.postgame_back_to_library_description),
+                label = stringResource(if (returnToParty) Res.string.postgame_party_exit else Res.string.postgame_back_to_library),
+                contentDescription = stringResource(
+                    if (returnToParty) Res.string.postgame_party_exit else Res.string.postgame_back_to_library_description,
+                ),
                 onClick = onBackToLibrary,
                 modifier = Modifier.fillMaxWidth(),
-                variant = ParlorButtonVariant.Ghost,
+                variant = if (returnToParty) ParlorButtonVariant.Primary else ParlorButtonVariant.Ghost,
             )
         }
     }

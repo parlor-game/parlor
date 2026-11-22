@@ -105,6 +105,7 @@ internal fun HostPhaseRouter(
     scope: kotlinx.coroutines.CoroutineScope,
     onBackToLibrary: () -> Unit,
     modifier: Modifier = Modifier,
+    returnToParty: Boolean = false,
 ) {
     require(playMode.isHost) { "A peer must render through PeerPhaseRouter" }
     if (playMode is PlayMode.Solo) {
@@ -125,6 +126,7 @@ internal fun HostPhaseRouter(
         scope = scope,
         verdict = verdict,
         onBackToLibrary = onBackToLibrary,
+        returnToParty = returnToParty,
         modifier = modifier,
     )
 }
@@ -177,6 +179,7 @@ private fun HostPhaseScreens(
     verdict: Verdict?,
     onBackToLibrary: () -> Unit,
     modifier: Modifier,
+    returnToParty: Boolean,
 ) {
     val multiDeviceSelf = (playMode as? PlayMode.MultiDevice)?.selfPlayerId
     var introAdvanceRequested by remember(phase, multiDeviceSelf) { mutableStateOf(false) }
@@ -316,6 +319,7 @@ private fun HostPhaseScreens(
             onTryOtherMode = onBackToLibrary,
             onBackToLibrary = onBackToLibrary,
             modifier = modifier,
+            returnToParty = returnToParty,
         )
     }
 }

@@ -193,6 +193,7 @@
     <string name="vote_outcome_all_abstained">Everyone abstained — no one is eliminated.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">Back to party</string>
     <string name="postgame_eyebrow">Game over</string>
     <string name="postgame_mafia_wins">Mafia wins</string>
     <string name="postgame_town_wins">Town wins</string>

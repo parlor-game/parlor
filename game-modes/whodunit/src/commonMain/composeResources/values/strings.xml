@@ -255,6 +255,7 @@
     <string name="reveal_stage_continue_description">Acknowledge the reveal and continue to post-game.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">Back to party</string>
     <string name="postgame_eyebrow">AFTER THE GAME</string>
     <string name="postgame_question">What's next?</string>
     <string name="postgame_replay">Play Again — New Killer</string>

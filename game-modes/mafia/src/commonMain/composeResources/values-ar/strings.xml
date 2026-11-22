@@ -193,6 +193,7 @@
     <string name="vote_outcome_all_abstained">امتنع الجميع — لم يُطرد أحد.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">العودة إلى المجموعة</string>
     <string name="postgame_eyebrow">انتهت اللعبة</string>
     <string name="postgame_mafia_wins">فاز الحرامية</string>
     <string name="postgame_town_wins">فاز الظباط</string>

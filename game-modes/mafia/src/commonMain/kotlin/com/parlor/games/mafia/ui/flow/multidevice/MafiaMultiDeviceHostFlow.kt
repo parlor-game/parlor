@@ -266,6 +266,7 @@ fun MafiaMultiDeviceHostFlow(
                         exitToHome(reason)
                     },
                     modifier = modifier.fillMaxSize(),
+                    returnToParty = ownedSession.room.matchProtocol?.partyId != null,
                 )
             }
         }
