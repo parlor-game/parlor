@@ -82,11 +82,13 @@ class PartyLobbyRenderingTest {
                                         PartyLobbyContent(
                                             session, current.value, mapOf(game to "Mafia"), false, null,
                                             onLeave = {}, onViewMatch = {},
-                                            onViewRules = { showRules.value = true }, onInvite = {},
-                                            commands = PartyLobbyCommands({}, {}, {}, {}) { ready ->
-                                                tapped++
-                                                current.value = lobby(game, host, peer, ready)
-                                            },
+                                            commands = PartyLobbyCommands(
+                                                {}, {}, {}, {}, setReady = { ready ->
+                                                    tapped++
+                                                    current.value = lobby(game, host, peer, ready)
+                                                },
+                                                viewRules = { showRules.value = true }, invite = {},
+                                            ),
                                         )
                                     }
                                 }

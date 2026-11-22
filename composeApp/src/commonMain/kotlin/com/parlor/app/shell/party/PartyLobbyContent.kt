@@ -68,6 +68,8 @@ internal class PartyLobbyCommands(
     val approve: (PlayerId) -> Unit,
     val reject: (PlayerId) -> Unit,
     val setReady: (Boolean) -> Unit,
+    val viewRules: () -> Unit,
+    val invite: () -> Unit,
 )
 
 @Composable
@@ -80,8 +82,6 @@ internal fun PartyLobbyContent(
     onLeave: () -> Unit,
     onViewMatch: () -> Unit,
     commands: PartyLobbyCommands,
-    onViewRules: () -> Unit,
-    onInvite: () -> Unit,
 ) {
     val info by session.roomInfo.collectAsState()
     val lifecycle by session.lifecycle.collectAsState()
@@ -103,7 +103,7 @@ internal fun PartyLobbyContent(
         if (lobby != null && !ended) {
             PartySeats(lobby, info.hostPlayerId)
             if (session is ProcessPartySession.Host && lobby.phase == PartyLobbyPhase.Lobby) {
-                HostPartyControls(session, lobby, titles, selected, connected && !waiting, onInvite, commands)
+                HostPartyControls(session, lobby, titles, selected, connected && !waiting, commands)
             } else if (session is ProcessPartySession.Peer && lobby.phase == PartyLobbyPhase.Lobby) {
                 val ready = lobby.members.firstOrNull { it.playerId == session.selfPlayerId }?.ready == true
                 PartyButton(if (ready) Res.string.party_not_ready else Res.string.party_ready, enabled = connected && !waiting) {
@@ -114,7 +114,7 @@ internal fun PartyLobbyContent(
             PartyDetail(stringResource(Res.string.party_waiting))
         }
         if (!ended && selected != null && lobby?.phase == PartyLobbyPhase.Lobby) {
-            PartyButton(Res.string.party_rules_view, variant = ParlorButtonVariant.Secondary, onClick = onViewRules)
+            PartyButton(Res.string.party_rules_view, variant = ParlorButtonVariant.Secondary, onClick = commands.viewRules)
         }
         error?.let { PartyError(it) }
         PartyButton(Res.string.party_leave, enabled = !waiting, variant = ParlorButtonVariant.Secondary, onClick = onLeave)
@@ -155,12 +155,11 @@ private fun HostPartyControls(
     titles: Map<PartyGame, String>,
     selected: PartyGame?,
     enabled: Boolean,
-    onInvite: () -> Unit,
     commands: PartyLobbyCommands,
 ) {
     val info by host.roomInfo.collectAsState()
     val pending by host.approvals.collectAsState()
-    LobbyInvitation(info.code, info.hostDisplayName, info.roomTag, onInvite = onInvite)
+    LobbyInvitation(info.code, info.hostDisplayName, info.roomTag, onInvite = commands.invite)
     if (pending.isNotEmpty()) {
         PartyHeading(stringResource(Res.string.party_pending))
         pending.forEach { request ->

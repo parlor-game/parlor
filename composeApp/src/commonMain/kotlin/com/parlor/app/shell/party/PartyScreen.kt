@@ -41,6 +41,7 @@ import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.transport.RoomTransport
@@ -48,6 +49,7 @@ import com.parlor.session.lobby.PartyGame
 import com.parlor.session.lobby.PartyRejection
 import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.session.lobby.ProcessPartySessionOwner
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -152,7 +154,7 @@ private fun ActiveParty(
     var hiddenForMatch by remember(session) { mutableStateOf<SessionId?>(null) }
     var confirm by remember(session) { mutableStateOf<PartyConfirmation?>(null) }
     var lobbyPage by remember(session, lobby?.selectedGame, lobby?.phase) { mutableStateOf<PartyLobbyPage?>(null) }
-    val showingMatch = protocol != null && hiddenForMatch != protocol.sessionId && !isEndedRoom(lifecycle)
+    val showingMatch = matchVisible(protocol, hiddenForMatch, lifecycle)
     val host = session as? ProcessPartySession.Host
     val requestExit = {
         if (confirm != null) {
@@ -178,11 +180,9 @@ private fun ActiveParty(
         PartyConfirmationContent(confirmation, actions.waiting, error, { confirm = null }) {
             scope.launch {
                 actions.run {
-                    when (confirmation) {
-                        PartyConfirmation.Leave -> if (showNetwork(owner.leave(session))) onExit()
-                        is PartyConfirmation.EndMatch -> if (host != null) {
-                            if (showParty(host.returnToLobby(confirmation.id, confirmation.reason))) confirm = null
-                        }
+                    if (applyConfirmation(confirmation, owner, session)) {
+                        confirm = null
+                        if (confirmation == PartyConfirmation.Leave) onExit()
                     }
                 }
             }
@@ -217,27 +217,50 @@ private fun ActiveParty(
             error = error,
             onLeave = { confirm = PartyConfirmation.Leave },
             onViewMatch = { hiddenForMatch = null },
-            onViewRules = { lobbyPage = PartyLobbyPage.Rules },
-            onInvite = { lobbyPage = PartyLobbyPage.Invite },
-            commands = PartyLobbyCommands(
-                selectGame = { game -> scope.launch { actions.run { host?.let { showParty(it.selectGame(game)) } } } },
-                start = { scope.launch { actions.run { host?.let { showParty(it.start()) } } } },
-                approve = { player -> scope.launch { actions.run { host?.let { showNetwork(it.approve(player)) } } } },
-                reject = { player -> scope.launch { actions.run { host?.let { showNetwork(it.reject(player)) } } } },
-                setReady = { ready ->
-                    scope.launch {
-                        actions.run {
-                            val peer = session as? ProcessPartySession.Peer ?: return@run
-                            val result = peer.setReady(ready)
-                            if (showNetwork(result) && (result as Result.Success).data != CommandStatus.Applied) {
-                                showParty(Result.Failure(PartyRejection.StaleRevision))
-                            }
-                        }
-                    }
-                },
-            ),
+            commands = partyLobbyCommands(session, scope, actions, viewRules = { lobbyPage = PartyLobbyPage.Rules },
+                invite = { lobbyPage = PartyLobbyPage.Invite }),
         )
     }
+}
+
+private suspend fun PartyActions.applyConfirmation(
+    confirmation: PartyConfirmation,
+    owner: ProcessPartySessionOwner,
+    session: ProcessPartySession,
+): Boolean = when (confirmation) {
+    PartyConfirmation.Leave -> showNetwork(owner.leave(session))
+    is PartyConfirmation.EndMatch -> (session as? ProcessPartySession.Host)?.let { host ->
+        showParty(host.returnToLobby(confirmation.id, confirmation.reason))
+    } == true
+}
+
+private fun partyLobbyCommands(
+    session: ProcessPartySession,
+    scope: CoroutineScope,
+    actions: PartyActions,
+    viewRules: () -> Unit,
+    invite: () -> Unit,
+): PartyLobbyCommands {
+    val host = session as? ProcessPartySession.Host
+    return PartyLobbyCommands(
+        selectGame = { game -> scope.launch { actions.run { host?.let { showParty(it.selectGame(game)) } } } },
+        start = { scope.launch { actions.run { host?.let { showParty(it.start()) } } } },
+        approve = { player -> scope.launch { actions.run { host?.let { showNetwork(it.approve(player)) } } } },
+        reject = { player -> scope.launch { actions.run { host?.let { showNetwork(it.reject(player)) } } } },
+        setReady = { ready ->
+            scope.launch {
+                actions.run {
+                    val peer = session as? ProcessPartySession.Peer ?: return@run
+                    val result = peer.setReady(ready)
+                    if (showNetwork(result) && (result as Result.Success).data != CommandStatus.Applied) {
+                        showParty(Result.Failure(PartyRejection.StaleRevision))
+                    }
+                }
+            }
+        },
+        viewRules = viewRules,
+        invite = invite,
+    )
 }
 
 @Composable
@@ -287,5 +310,9 @@ private fun PartyConfirmationContent(
     }
 }
 
-private fun isEndedRoom(lifecycle: RoomLifecycleState): Boolean =
-    lifecycle == RoomLifecycleState.Closed || lifecycle == RoomLifecycleState.Expired
+private fun matchVisible(
+    protocol: SessionProtocol?,
+    hiddenMatch: SessionId?,
+    lifecycle: RoomLifecycleState,
+): Boolean = protocol != null && hiddenMatch != protocol.sessionId &&
+    lifecycle != RoomLifecycleState.Closed && lifecycle != RoomLifecycleState.Expired
