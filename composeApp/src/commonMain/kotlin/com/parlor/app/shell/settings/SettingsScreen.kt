@@ -119,7 +119,11 @@ fun SettingsScreen(
             ) {
                 SettingsChoices(
                     listOf(
-                        SettingsChoice(stringResource(Res.string.settings_language_system), currentLanguage == null) {
+                        SettingsChoice(
+                            label = stringResource(Res.string.settings_language_system),
+                            selected = currentLanguage == null,
+                            compactLabel = stringResource(Res.string.settings_appearance_system),
+                        ) {
                             mutations.submit { settings.setLanguageOverride(null) }
                         },
                         SettingsChoice(stringResource(Res.string.settings_language_english), currentLanguage == AppLanguage.English) {
@@ -226,7 +230,12 @@ private fun SettingsSection(
     }
 }
 
-private data class SettingsChoice(val label: String, val selected: Boolean, val select: () -> Unit)
+private data class SettingsChoice(
+    val label: String,
+    val selected: Boolean,
+    val compactLabel: String = label,
+    val select: () -> Unit,
+)
 
 @Composable
 private fun SettingsChoices(options: List<SettingsChoice>) {
@@ -258,7 +267,7 @@ private fun SettingsChoices(options: List<SettingsChoice>) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = option.label,
+                                text = option.compactLabel,
                                 style = ParlorTheme.typography.labelMedium,
                                 color = if (option.selected) AmberActionInk else colors.textSecondary,
                                 textAlign = TextAlign.Center,

@@ -228,4 +228,5 @@
     <string name="home_party_subtitle">Local Wi-Fi · Party play</string>
     <string name="name_character_count">%1$d of %2$d characters</string>
     <string name="name_seat_preview">Seat label in room: %1$s</string>
+    <string name="setup_lan_join_steps">Same Wi-Fi · Enter your name and the room code · Wait for host approval</string>
 </resources>

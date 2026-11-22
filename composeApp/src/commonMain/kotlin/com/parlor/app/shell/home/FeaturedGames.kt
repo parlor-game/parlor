@@ -29,8 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -109,7 +111,16 @@ internal fun FeaturedGames(games: List<GameShellBinding>, onPlay: (GameId) -> Un
         }
         val playLabel = stringResource(Res.string.featured_play, presentation.title)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = ParlorTheme.spacing.s).padding(bottom = ParlorTheme.spacing.s),
+            modifier = Modifier.fillMaxWidth().drawWithCache {
+                val center = Offset(size.width / 2f, size.height * PLAY_HALO_Y)
+                val radius = size.width * PLAY_HALO_RADIUS
+                val halo = Brush.radialGradient(
+                    listOf(AmberActionGlow.copy(alpha = PLAY_GLOW_ALPHA), AmberActionGlow.copy(alpha = 0f)),
+                    center = center,
+                    radius = radius,
+                )
+                onDrawBehind { drawRect(halo, size = Size(size.width, size.height)) }
+            }.padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.s),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s, Alignment.CenterHorizontally),
         ) {
@@ -130,14 +141,6 @@ private fun FeaturedPlayButton(label: String, modifier: Modifier, onPlay: () -> 
     val pill = RoundedCornerShape(ParlorTheme.radii.pill)
     Box(
         modifier = modifier.widthIn(max = 240.dp).heightIn(min = ParlorTheme.spacing.xxl)
-            .drawWithCache {
-                val halo = Brush.radialGradient(
-                    listOf(AmberActionGlow.copy(alpha = PLAY_GLOW_ALPHA), AmberActionGlow.copy(alpha = 0f)),
-                    center = Offset(size.width / 2f, size.height),
-                    radius = size.width / 2f,
-                )
-                onDrawBehind { drawCircle(halo, radius = size.width / 2f, center = Offset(size.width / 2f, size.height)) }
-            }
             .clip(pill).background(AmberActionBrush)
             .clickable(role = Role.Button, onClick = onPlay)
             .padding(horizontal = ParlorTheme.spacing.l, vertical = ParlorTheme.spacing.s),
@@ -179,8 +182,21 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
                 .background(colors.coverScreen.copy(alpha = HERO_BADGE_ALPHA), RoundedCornerShape(ParlorTheme.radii.pill))
                 .padding(horizontal = ParlorTheme.spacing.s, vertical = ParlorTheme.spacing.xs),
         )
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = 42.dp).blur(8.dp)
-            .background(colors.coverScreen.copy(alpha = HERO_COPY_GLASS_ALPHA)))
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = 50.dp).clipToBounds(),
+        ) {
+            CatalogArtworkBadge(presentation.artwork, Modifier.matchParentSize().blur(12.dp))
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(
+                        listOf(
+                            colors.coverScreen.copy(alpha = HERO_GLASS_TOP_ALPHA),
+                            if (colors.isLight) colors.coverScreen else colors.surfaceElevated,
+                        ),
+                    ),
+                ),
+            )
+        }
         Column(
             modifier = Modifier.align(Alignment.BottomCenter).padding(ParlorTheme.spacing.s),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -202,6 +218,8 @@ private fun FeaturedCover(presentation: GameCatalogPresentation, players: IntRan
 
 private const val FEATURED_SCRIM_CLEAR_STOP = 0.43f
 private const val PLAY_GLOW_ALPHA = 0.44f
-private const val HERO_COPY_GLASS_ALPHA = 0.38f
+private const val HERO_GLASS_TOP_ALPHA = 0.78f
+private const val PLAY_HALO_Y = 0.62f
+private const val PLAY_HALO_RADIUS = 0.35f
 private const val HERO_BADGE_ALPHA = 0.65f
 private const val FEATURED_SCRIM_FADE_STOP = 0.8f

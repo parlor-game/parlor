@@ -236,4 +236,5 @@
     <string name="home_party_subtitle">واي فاي محلي · لعب جماعي</string>
     <string name="name_character_count">%1$d من %2$d حرفًا</string>
     <string name="name_seat_preview">الاسم الظاهر في الغرفة: %1$s</string>
+    <string name="setup_lan_join_steps">نفس شبكة الواي فاي · اكتب اسمك ورمز الغرفة · انتظر موافقة المضيف</string>
 </resources>

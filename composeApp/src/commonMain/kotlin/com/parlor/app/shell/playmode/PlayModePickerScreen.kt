@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.playmode_passandplay_body
@@ -53,6 +54,7 @@ import com.parlor.app.resources.setup_join_body
 import com.parlor.app.resources.setup_join_choose_description
 import com.parlor.app.resources.setup_join_title
 import com.parlor.app.resources.setup_lan_note
+import com.parlor.app.resources.setup_lan_join_steps
 import com.parlor.app.resources.setup_one_device_label
 import com.parlor.app.resources.setup_solo_requires_exact
 import com.parlor.app.resources.setup_solo_requires_range
@@ -232,6 +234,14 @@ private fun NearbyPlayOptions(availability: PlayModePickerAvailability, onHost: 
             body = stringResource(Res.string.setup_join_body),
             contentDescription = stringResource(Res.string.setup_join_choose_description),
             onClick = onJoin,
+        )
+        LibraryText(
+            text = stringResource(Res.string.setup_lan_join_steps),
+            modifier = Modifier.fillMaxWidth(),
+            style = ParlorTheme.typography.bodySmall,
+            color = ParlorTheme.colors.textSecondary,
+            textAlign = TextAlign.Center,
+            preferredLines = 2,
         )
     }
 }
