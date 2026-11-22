@@ -37,6 +37,18 @@ class PersistentSettingsStoreTest {
     }
 
     @Test
+    fun profile_name_is_canonical_and_survives_recreation_until_cleared() = runTest {
+        val backing = FakeBacking()
+        val store = PersistentSettingsStore(backing)
+        store.setPreferredDisplayName("  ليلى  ")
+        assertEquals("ليلى", PersistentSettingsStore(backing).preferredDisplayName.first())
+        assertFailsWith<IllegalArgumentException> { store.setPreferredDisplayName(" ") }
+        assertEquals("ليلى", store.preferredDisplayName.first())
+        store.setPreferredDisplayName(null)
+        assertNull(PersistentSettingsStore(backing).preferredDisplayName.first())
+    }
+
+    @Test
     fun corrupt_persisted_tags_fall_back_without_blocking_startup() = runTest {
         val backing = FakeBacking().apply {
             strings["language_override"] = "not-installed"

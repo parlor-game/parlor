@@ -25,6 +25,8 @@ import com.parlor.games.dominoes.resources.dom_title
 import com.parlor.games.dominoes.ui.DominoSettingsContent
 import com.parlor.games.dominoes.ui.DominoTable
 import com.parlor.session.multidevice.PlayerSnapshotPayload
+import com.parlor.app.resources.Res as AppRes
+import com.parlor.app.resources.catalog_genre_domino
 import org.jetbrains.compose.resources.stringResource
 
 /** Composition-root binding; the room, rejoin and authority machinery remains game-neutral. */
@@ -58,6 +60,7 @@ internal class DominoGameShellBinding(override val definition: DominoDefinition)
         title = stringResource(Res.string.dom_title), subtitle = stringResource(Res.string.dom_subtitle),
         tagline = stringResource(Res.string.dom_tagline), openLabel = stringResource(Res.string.dom_open),
         openContentDescription = stringResource(Res.string.dom_open_description),
+        genre = stringResource(AppRes.string.catalog_genre_domino),
         artwork = ParlorArtwork.Tiles,
     )
 

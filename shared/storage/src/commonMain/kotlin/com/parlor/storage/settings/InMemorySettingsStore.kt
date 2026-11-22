@@ -11,6 +11,7 @@ class InMemorySettingsStore(
     initialReducedMotion: Boolean = false,
     initialLanguageOverride: String? = null,
     initialThemeMode: String = "system",
+    initialPreferredDisplayName: String? = null,
 ) : SettingsStore {
     private val _reducedMotion = MutableStateFlow(initialReducedMotion)
     private val _language = MutableStateFlow(
@@ -20,9 +21,12 @@ class InMemorySettingsStore(
         SettingsPolicy.canonicalStoredTheme(initialThemeMode),
     )
 
+    private val _preferredDisplayName = MutableStateFlow(SettingsPolicy.canonicalStoredDisplayName(initialPreferredDisplayName))
+
     override val reducedMotion = _reducedMotion.asStateFlow()
     override val languageOverride = _language.asStateFlow()
     override val themeMode = _themeMode.asStateFlow()
+    override val preferredDisplayName = _preferredDisplayName.asStateFlow()
 
     override suspend fun setReducedMotion(enabled: Boolean) { _reducedMotion.value = enabled }
     override suspend fun setLanguageOverride(language: String?) {
@@ -30,5 +34,8 @@ class InMemorySettingsStore(
     }
     override suspend fun setThemeMode(tag: String) {
         _themeMode.value = SettingsPolicy.requireCanonicalTheme(tag)
+    }
+    override suspend fun setPreferredDisplayName(name: String?) {
+        _preferredDisplayName.value = SettingsPolicy.requireCanonicalDisplayName(name)
     }
 }

@@ -9,7 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToIndexAction
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -79,8 +79,8 @@ class HomeCatalogRenderingTest {
             .performScrollTo().performClick().assertIsSelected()
         runOnIdle { assertEquals(emptyList(), selections) }
         onNodeWithText(if (arabic) "لعبة واحدة (1)" else "1 game").assertExists()
-        onNodeWithText(if (arabic) "هواتف قريبة" else "Nearby phones")
-            .assertDoesNotExist()
+        val nearbyDescription = if (arabic) "افتح الدومنة المصرية" else "Open Egyptian Dominoes"
+        onNodeWithContentDescription(nearbyDescription).assertDoesNotExist()
         onNodeWithContentDescription(if (arabic) "افتح لعبة حرامية وظباط." else "Open the Mafia game.")
             .performScrollTo().assertIsDisplayed().performClick()
         runOnIdle { assertEquals(listOf(local.definition.id), selections) }
@@ -91,8 +91,7 @@ class HomeCatalogRenderingTest {
         onNodeWithText(if (arabic) "الكل" else "All")
             .performScrollTo().performClick().assertIsSelected()
         onNodeWithText(if (arabic) "لعبتان (2)" else "2 games").assertExists()
-        val nearbyLabel = if (arabic) "هواتف قريبة" else "Nearby phones"
-        onNode(hasScrollToIndexAction()).performScrollToNode(hasText(nearbyLabel))
-        onNodeWithText(nearbyLabel).assertExists()
+        onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(nearbyDescription))
+        onNodeWithContentDescription(nearbyDescription).assertIsDisplayed()
     }
 }

@@ -1,5 +1,6 @@
 package com.parlor.storage.settings
 
+import com.parlor.core.text.DisplayNamePolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -42,9 +43,14 @@ class PersistentSettingsStore(
         SettingsPolicy.canonicalStoredTheme(backing.readString(KEY_THEME)),
     )
 
+    private val _preferredDisplayName = MutableStateFlow(
+        SettingsPolicy.canonicalStoredDisplayName(backing.readString(KEY_DISPLAY_NAME)),
+    )
+
     override val reducedMotion = _reducedMotion.asStateFlow()
     override val languageOverride = _language.asStateFlow()
     override val themeMode = _themeMode.asStateFlow()
+    override val preferredDisplayName = _preferredDisplayName.asStateFlow()
 
     override suspend fun setReducedMotion(enabled: Boolean) {
         writes.withLock {
@@ -69,10 +75,19 @@ class PersistentSettingsStore(
         }
     }
 
+    override suspend fun setPreferredDisplayName(name: String?) {
+        val canonical = SettingsPolicy.requireCanonicalDisplayName(name)
+        writes.withLock {
+            backing.writeString(KEY_DISPLAY_NAME, canonical)
+            _preferredDisplayName.value = canonical
+        }
+    }
+
     private companion object {
         const val KEY_REDUCED_MOTION = "reduced_motion"
         const val KEY_LANGUAGE = "language_override"
         const val KEY_THEME = "theme_mode"
+        const val KEY_DISPLAY_NAME = "preferred_display_name"
 
         const val DEFAULT_REDUCED_MOTION = false
     }
@@ -81,6 +96,15 @@ class PersistentSettingsStore(
 internal object SettingsPolicy {
     private val supportedLanguages = setOf("en", "ar")
     private val supportedThemes = setOf("system", "light", "dark")
+
+    fun canonicalStoredDisplayName(name: String?): String? = name
+        ?.let(DisplayNamePolicy::normalizeDisplayName)
+        ?.takeIf(DisplayNamePolicy::isValidDisplayName)
+
+    fun requireCanonicalDisplayName(name: String?): String? {
+        if (name == null) return null
+        return canonicalStoredDisplayName(name) ?: throw IllegalArgumentException("Invalid display name preference")
+    }
 
     fun canonicalStoredLanguage(language: String?): String? =
         language

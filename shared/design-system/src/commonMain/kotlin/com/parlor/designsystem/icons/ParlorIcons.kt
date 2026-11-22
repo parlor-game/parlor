@@ -30,6 +30,40 @@ import androidx.compose.ui.unit.dp
  * to Compose's automatic RTL mirroring.
  */
 object ParlorIcons {
+    val GamesGrid: ImageVector = parlorIcon("GamesGrid") {
+        for (top in listOf(3f, 13f)) {
+            for (left in listOf(3f, 13f)) {
+                moveTo(left, top)
+                lineTo(left + 8f, top)
+                lineTo(left + 8f, top + 8f)
+                lineTo(left, top + 8f)
+                close()
+                moveTo(left + 2f, top + 2f)
+                lineTo(left + 2f, top + 6f)
+                lineTo(left + 6f, top + 6f)
+                lineTo(left + 6f, top + 2f)
+                close()
+            }
+        }
+    }
+
+
+    val Profile: ImageVector = parlorIcon("Profile") {
+        moveTo(12f, 3.5f)
+        curveTo(6.5f, 3.5f, 6.5f, 12f, 12f, 12f)
+        curveTo(17.5f, 12f, 17.5f, 3.5f, 12f, 3.5f)
+        close()
+        moveTo(12f, 5.3f)
+        curveTo(15.2f, 5.3f, 15.2f, 10.2f, 12f, 10.2f)
+        curveTo(8.8f, 10.2f, 8.8f, 5.3f, 12f, 5.3f)
+        close()
+        moveTo(4f, 20.5f)
+        curveTo(4f, 11.3f, 20f, 11.3f, 20f, 20.5f)
+        lineTo(18f, 20.5f)
+        curveTo(18f, 13.8f, 6f, 13.8f, 6f, 20.5f)
+        close()
+    }
+
     val Settings: ImageVector = parlorIcon("Settings") {
         moveTo(19.14f, 12.94f)
         curveToRelative(0.04f, -0.3f, 0.06f, -0.61f, 0.06f, -0.94f)
@@ -90,6 +124,23 @@ object ParlorIcons {
         lineTo(7.83f, 13.0f)
         horizontalLineTo(20.0f)
         verticalLineToRelative(-2.0f)
+        close()
+    }
+
+    val ChevronNext: ImageVector = parlorIcon("ChevronNext", autoMirror = true) {
+        moveTo(9f, 6f)
+        lineTo(15f, 12f)
+        lineTo(9f, 18f)
+        lineTo(7.6f, 16.6f)
+        lineTo(12.2f, 12f)
+        lineTo(7.6f, 7.4f)
+        close()
+    }
+
+    val Play: ImageVector = parlorIcon("Play", autoMirror = true) {
+        moveTo(8f, 5f)
+        lineTo(19f, 12f)
+        lineTo(8f, 19f)
         close()
     }
 

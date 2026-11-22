@@ -1,6 +1,7 @@
 package com.parlor.app.shell.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
@@ -20,11 +21,15 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.parlor.app.AppNavigationBar
+import com.parlor.app.AppTopLevelDestination
 import com.parlor.app.shell.fullTextLayout
 import com.parlor.app.shell.game.DominoGameShellBinding
 import com.parlor.app.shell.game.GhamzaGameShellBinding
@@ -33,6 +38,7 @@ import com.parlor.app.shell.game.MafiaGameShellBinding
 import com.parlor.app.shell.game.WhodunitGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
 import com.parlor.app.shell.playmode.PlayModePickerScreen
+import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.localization.ProvideAppLanguage
@@ -46,6 +52,7 @@ import com.parlor.games.whodunit.WhodunitDefinition
 import com.parlor.games.wordimpostor.WordImpostorDefinition
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import org.jetbrains.skia.Image
@@ -53,6 +60,60 @@ import org.jetbrains.skia.Image
 /** Render the shipping composables, not screenshot-only replicas or production-private state. */
 @OptIn(ExperimentalTestApi::class)
 class HomeCatalogVisualEvidenceTest {
+    @Test
+    fun dark_catalog_comparison_includes_the_production_navigation_dock() = runComposeUiTest {
+        val games = catalogBindings()
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(themeMode = ThemeMode.Dark, reducedMotion = true) {
+                        Box(Modifier.size(390.dp, 760.dp).testTag("shell-preview")) {
+                            Column {
+                                HomeScreen(games, onGameSelected = {}, modifier = Modifier.weight(1f), onOpenProfile = {})
+                                AppNavigationBar(AppTopLevelDestination.Games, {})
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        onNodeWithText("Play Last Light").assertIsDisplayed()
+        val outputDir = System.getenv("PARLOR_UI_SCREENSHOT_DIR") ?: "build/reports/tests/public-ux"
+        val output = File(outputDir, "compose-home-en-dark-390.png")
+        check(output.parentFile.mkdirs() || output.parentFile.isDirectory)
+        capturePublicScreen(output)
+    }
+
+    private fun catalogBindings() = listOf(
+        WhodunitGameShellBinding(WhodunitDefinition(Json.Default)),
+        MafiaGameShellBinding(MafiaDefinition(Json.Default)),
+        LastLightGameShellBinding(LastLightDefinition()),
+        DominoGameShellBinding(DominoDefinition()),
+        GhamzaGameShellBinding(GhamzaDefinition()),
+        WordImpostorGameShellBinding(WordImpostorDefinition()),
+    )
+
+    @Test
+    fun featured_picker_changes_the_game_opened_by_play() = runComposeUiTest {
+        val games = listOf(WhodunitGameShellBinding(WhodunitDefinition(Json.Default)), MafiaGameShellBinding(MafiaDefinition(Json.Default)))
+        var opened: GameId? = null
+        setContent {
+            ProvideAppLanguage(AppLanguage.English) {
+                ParlorTheme(themeMode = ThemeMode.Dark, reducedMotion = true) {
+                    Box(Modifier.size(390.dp, 740.dp)) {
+                        FeaturedGames(games) { opened = it }
+                    }
+                }
+            }
+        }
+        onNodeWithContentDescription("Next featured game").performClick()
+        onNodeWithText("Play Mafia").performClick()
+        assertEquals(games[1].definition.id, opened)
+        onNodeWithContentDescription("Feature Whodunit").performClick()
+        onNodeWithText("Play Whodunit").performClick()
+        assertEquals(games[0].definition.id, opened)
+    }
+
     @Test
     fun phone_screens_render_in_both_languages_and_themes_at_normal_and_enlarged_text() {
         for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
@@ -120,14 +181,7 @@ class HomeCatalogVisualEvidenceTest {
         language: AppLanguage, theme: ThemeMode, fontScale: Float, catalog: Boolean, width: Int = 390,
         setupGameIndex: Int? = null, recovery: Boolean = false,
     ) = runComposeUiTest {
-        val games = listOf(
-            WhodunitGameShellBinding(WhodunitDefinition(Json.Default)),
-            MafiaGameShellBinding(MafiaDefinition(Json.Default)),
-            LastLightGameShellBinding(LastLightDefinition()),
-            DominoGameShellBinding(DominoDefinition()),
-            GhamzaGameShellBinding(GhamzaDefinition()),
-            WordImpostorGameShellBinding(WordImpostorDefinition()),
-        )
+        val games = catalogBindings()
         val setupGame = games[setupGameIndex ?: 0]
         lateinit var selectedTitle: String
         setContent {

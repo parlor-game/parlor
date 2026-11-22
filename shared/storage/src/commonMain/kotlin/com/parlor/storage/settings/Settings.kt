@@ -19,6 +19,7 @@ class SettingsPersistenceException(
 interface SettingsStore {
     val reducedMotion: Flow<Boolean>
     val languageOverride: Flow<String?>
+    val preferredDisplayName: Flow<String?>
 
     /**
      * Theme appearance tag — `"system"`, `"light"`, or `"dark"`. Stored as a
@@ -30,4 +31,5 @@ interface SettingsStore {
     suspend fun setReducedMotion(enabled: Boolean)
     suspend fun setLanguageOverride(language: String?)
     suspend fun setThemeMode(tag: String)
+    suspend fun setPreferredDisplayName(name: String?)
 }
