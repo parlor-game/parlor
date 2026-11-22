@@ -48,7 +48,7 @@ boot_android_group() {
   local image='system-images;android-35;google_apis;x86_64'
   local sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
   local emulator="$ANDROID_HOME/emulator/emulator"
-  local index port serial major minor
+  local index port serial major minor guest_pid
   export ANDROID_AVD_HOME="$work/parlor-avds"
   mkdir -p "$ANDROID_AVD_HOME"
   export PATH="$ANDROID_HOME/platform-tools:$PATH"
@@ -60,7 +60,7 @@ boot_android_group() {
   IFS=. read -r major minor _ < <(sed -n 's/^Pkg.Revision *= *//p' "$ANDROID_HOME/emulator/source.properties")
   (( major > 36 || (major == 36 && minor >= 5) ))
   local memory_mib=2048 cpu_cores=2
-  if (( DEVICE_COUNT > 3 )); then memory_mib=1536; cpu_cores=1; fi
+  if (( DEVICE_COUNT > 3 )); then memory_mib=1536; fi
   awk -v count="$DEVICE_COUNT" -v memory="$memory_mib" '
     /^MemAvailable:/ {
       print "available_kib=" $2
@@ -77,12 +77,19 @@ boot_android_group() {
     "$emulator" -avd "parlor-$index" -port "$port" -no-window -no-audio -no-snapshot \
       -no-boot-anim -memory "$memory_mib" -cores "$cpu_cores" -gpu swiftshader_indirect \
       > "$work/parlor-emulator-$port.log" 2>&1 &
-    printf '%s\n' "$!" >> "$work/parlor-emulator-pids"
+    guest_pid=$!
+    printf '%s\n' "$guest_pid" >> "$work/parlor-emulator-pids"
     printf '%s\n' "$serial" >> "$devices"
+    printf 'Waiting for %s to boot\n' "$serial"
+    timeout 165 bash -c '
+      until [[ "$(adb -s "$1" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do
+        kill -0 "$2" || exit 1
+        sleep 2
+      done
+    ' bash "$serial" "$guest_pid"
+    adb -s "$serial" shell getprop sys.boot_completed | tr -d '\r' > "$proof/$serial-boot.txt"
+    printf '%s completed boot\n' "$serial"
   done
-  while IFS= read -r serial <&3; do
-    timeout 360 bash -c 'until [[ "$(adb -s "$1" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do sleep 2; done' bash "$serial"
-  done 3< "$devices"
 }
 
 boot_ios_group() {
@@ -127,11 +134,17 @@ install_android() {
   while IFS= read -r serial <&3; do
     local record="$proof/$serial"
     mkdir -p "$record"
-    adb -s "$serial" shell svc data disable
+    if [[ "$PAIRING_NAME" == android ]]; then
+      timeout 45 bash -c '
+        until adb -s "$1" shell svc wifi enable && adb -s "$1" shell svc data disable; do sleep 2; done
+      ' bash "$serial"
+    else
+      adb -s "$serial" shell svc data disable
+    fi
     adb -s "$serial" shell input keyevent KEYCODE_WAKEUP
     adb -s "$serial" shell wm dismiss-keyguard
     adb -s "$serial" shell svc power stayon true
-    adb -s "$serial" install "$package/parlor.apk"
+    timeout 90 adb -s "$serial" install "$package/parlor.apk" </dev/null
     base=$(adb -s "$serial" shell pm path "$apk_id" | tr -d '\r' | sed -n 's/^package:\(.*\/base\.apk\)$/\1/p')
     [[ -n "$base" ]]
     adb -s "$serial" pull "$base" "$work/$serial.apk" >/dev/null
