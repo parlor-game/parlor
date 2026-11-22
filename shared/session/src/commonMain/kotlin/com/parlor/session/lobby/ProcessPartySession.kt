@@ -1,5 +1,6 @@
 package com.parlor.session.lobby
 
+import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
@@ -137,10 +138,12 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         private val owner = PartyHostRoomBinding(physical, initial, games.protocols(), scope, roomName = roomName)
         private val transition = Mutex()
         private val playing = MutableStateFlow<ProcessMultiplayerSession?>(null)
+        private val completedGame = MutableStateFlow<GameId?>(null)
         override val lobby = owner.state.map(PartyLobby::publicLobby)
             .stateIn(scope, SharingStarted.WhileSubscribed(0), owner.state.value.publicLobby())
         override val match = playing.asStateFlow()
         val approvals = owner.pending
+        val lastCompletedGame = completedGame.asStateFlow()
 
         suspend fun createInvitation(): String? = physical.createJoinLink()
         suspend fun approve(player: PlayerId): Result<Unit, NetError> = owner.approve(player)
@@ -178,6 +181,7 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
                 session.runtime.value?.terminate(reason)
                 owner.returnToLobby(id).toUnit().also {
                     if (it is Result.Success) {
+                        if (reason == SessionEndReason.Completed) completedGame.value = session.route.gameId
                         session.closeRuntimeAndScope()
                         playing.value = null
                     }

@@ -162,7 +162,8 @@ private fun HostPartyControls(
     val playerCount = lobby.members.count { it.connected }
     val needsReady = lobby.members.any { it.playerId != info.hostPlayerId && it.connected && !it.ready }
     val supportsCount = selected?.playerCounts?.contains(playerCount) == true
-    val start = if (lobby.matchOrdinal > 0) Res.string.party_play_again else Res.string.party_start
+    val completedGame by host.lastCompletedGame.collectAsState()
+    val start = if (lobby.selectedGame.gameId == completedGame) Res.string.party_play_again else Res.string.party_start
     PartyButton(start, enabled = enabled && pending.isEmpty() && supportsCount && !needsReady, onClick = commands.start)
     if (selected != null && !supportsCount) {
         PartyDetail(stringResource(
