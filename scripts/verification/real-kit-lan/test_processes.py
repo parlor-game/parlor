@@ -64,7 +64,8 @@ class ProcessPreconditionTest(unittest.TestCase):
             command = probe.endpoint_command('peer', '0' * 32, 'classpath', scenario)
             expected = ['java', '-Xmx512m', '-cp', 'classpath',
                         'com.parlor.transport.p2p.' + endpoint, 'peer', '0' * 32]
-            mode = {'party-resume': 'party', 'invite-resume': 'invite'}.get(scenario)
+            mode = {'party-resume': 'party', 'invite-resume': 'invite',
+                    'party-invite-resume': 'party-invite'}.get(scenario)
             self.assertEqual(command, expected if mode is None else expected + [mode])
         with self.assertRaisesRegex(RuntimeError, 'Unsupported'):
             probe.endpoint_command('peer', '0' * 32, 'classpath', 'untrusted-class')
