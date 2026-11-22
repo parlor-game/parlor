@@ -2,20 +2,18 @@ package com.parlor.games.whodunit.ui.screens.vote
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -23,14 +21,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.pressableSurface
 import com.parlor.designsystem.components.parlorSafeContentPadding
@@ -113,22 +113,45 @@ fun VoteBallotScreen(
 @Composable
 private fun CandidateRow(name: String, onClick: () -> Unit) {
     val colors = ParlorTheme.colors
-    Box(
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
+    val shape = RoundedCornerShape(ParlorTheme.radii.card)
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .pressableSurface(onClick = onClick, cornerRadius = ParlorTheme.radii.card)
+            .background(colors.surfaceElevated, shape)
             .border(
                 width = ParlorTheme.borders.hairline,
                 color = colors.borderElevated,
-                shape = RoundedCornerShape(ParlorTheme.radii.card),
+                shape = shape,
             )
             .padding(ParlorTheme.spacing.l),
-        contentAlignment = Alignment.CenterStart,
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!compactTypography) {
+            val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+            Box(
+                modifier = Modifier
+                    .size(ParlorTheme.spacing.xl + ParlorTheme.spacing.s)
+                    .clip(CircleShape)
+                    .background(colors.surfaceHigher)
+                    .border(ParlorTheme.borders.hairline, colors.accentBrass, CircleShape)
+                    .clearAndSetSemantics { },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initial,
+                    style = ParlorTheme.typography.labelMedium,
+                    color = colors.accentEmber,
+                )
+            }
+        }
         Text(
             text = name,
             style = ParlorTheme.typography.displayMedium,
             color = colors.textPrimary,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -162,19 +185,29 @@ fun TiedRevoteScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EyebrowLabel(text = stringResource(Res.string.vote_tied_eyebrow))
-            Text(
-                text = tiedNames.joinToString(separator = stringResource(Res.string.whodunit_list_separator)),
-                style = ParlorTheme.typography.displayLarge,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.vote_tied_body),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    EyebrowLabel(text = stringResource(Res.string.vote_tied_eyebrow))
+                    Text(
+                        text = tiedNames.joinToString(
+                            separator = stringResource(Res.string.whodunit_list_separator),
+                        ),
+                        style = ParlorTheme.typography.displayLarge,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(Res.string.vote_tied_body),
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             Spacer(Modifier.height(ParlorTheme.spacing.l))
             ParlorButton(
                 label = stringResource(Res.string.vote_tied_begin_revote),
@@ -185,3 +218,5 @@ fun TiedRevoteScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

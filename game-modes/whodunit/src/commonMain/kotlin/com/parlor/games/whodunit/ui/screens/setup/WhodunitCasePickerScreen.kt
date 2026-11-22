@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.content.repository.CaseRepository
@@ -33,11 +34,13 @@ import com.parlor.core.result.DataError
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.CandleFlame
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EmptyState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ScreenHeader
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.resources.Res
@@ -250,12 +253,13 @@ private fun CaseRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     val languageName = when (caseLanguageLabel(summary.language)) {
         CaseLanguageLabel.English -> stringResource(Res.string.case_picker_language_english)
         CaseLanguageLabel.Arabic -> stringResource(Res.string.case_picker_language_arabic)
         CaseLanguageLabel.Other -> summary.language
     }
-    val shape = RoundedCornerShape(ParlorTheme.radii.card)
+    val pillShape = RoundedCornerShape(ParlorTheme.radii.pill)
     ParlorCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -274,23 +278,39 @@ private fun CaseRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(Res.string.case_picker_language_format, languageName),
-                    modifier = Modifier
-                        .clip(shape)
-                        .background(ParlorTheme.colors.surfaceHigher)
-                        .padding(
-                            horizontal = ParlorTheme.spacing.s,
-                            vertical = ParlorTheme.spacing.xs,
-                        ),
-                    style = ParlorTheme.typography.labelSmall,
-                    color = ParlorTheme.colors.textSecondary,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.CaseFile,
+                            modifier = Modifier.size(ParlorTheme.iconSize.l),
+                        )
+                    }
+                    Text(
+                        text = stringResource(Res.string.case_picker_language_format, languageName),
+                        modifier = Modifier
+                            .clip(pillShape)
+                            .background(ParlorTheme.colors.surfaceHigher)
+                            .border(
+                                ParlorTheme.borders.hairline,
+                                if (selected) ParlorTheme.colors.accentEmber else ParlorTheme.colors.borderSubtle,
+                                pillShape,
+                            )
+                            .padding(
+                                horizontal = ParlorTheme.spacing.s,
+                                vertical = ParlorTheme.spacing.xs,
+                            ),
+                        style = ParlorTheme.typography.labelSmall,
+                        color = ParlorTheme.colors.textSecondary,
+                    )
+                }
                 if (selected) {
                     Box(
                         modifier = Modifier
                             .size(ParlorTheme.iconSize.xs)
-                            .clip(RoundedCornerShape(ParlorTheme.radii.pill))
+                            .clip(pillShape)
                             .background(ParlorTheme.colors.accentEmber),
                     )
                 }
@@ -375,3 +395,5 @@ private fun localizedModeNames(modeIds: List<String>): String {
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

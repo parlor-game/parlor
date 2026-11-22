@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
@@ -18,13 +17,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.whodunit.resources.Res
 import com.parlor.games.whodunit.resources.setup_briefing_begin
@@ -62,6 +63,7 @@ fun RulesBriefingScreen(
     } else {
         stringResource(Res.string.setup_briefing_continue_description)
     }
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
 
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
@@ -72,6 +74,12 @@ fun RulesBriefingScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (!compactTypography) {
+                CatalogArtworkBadge(
+                    artwork = ParlorArtwork.CaseFile,
+                    modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                )
+            }
             EyebrowLabel(
                 text = stringResource(Res.string.setup_briefing_eyebrow),
                 accent = false,
@@ -81,6 +89,7 @@ fun RulesBriefingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 cornerRadius = ParlorTheme.radii.elevated,
                 contentPadding = ParlorTheme.spacing.xxl,
+                hero = true,
             ) {
                 Text(
                     text = cards[safeIndex],
@@ -119,3 +128,5 @@ fun RulesBriefingScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f
