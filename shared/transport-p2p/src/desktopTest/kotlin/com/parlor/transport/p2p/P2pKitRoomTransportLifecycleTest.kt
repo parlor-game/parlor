@@ -11,6 +11,7 @@ import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isTrue
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.SessionId
@@ -22,6 +23,8 @@ import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.RoomMessage
@@ -711,6 +714,87 @@ class P2pKitRoomTransportLifecycleTest {
             .containsExactly(PlayerId("alice-pid"))
         assertThat(bob.admissionRejections()).containsExactly(AdmissionRejection.SessionStarted)
         assertThat(room.pendingAdmissions.value).isEmpty()
+    }
+
+    @Test
+    fun party_controls_require_the_exact_party_and_use_the_authenticated_actor() = runBlocking {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val partyId = PartyId("a".repeat(32))
+        val room = HostP2pRoom(
+            kit = kit,
+            roomCode = "ABCDEF",
+            hostDisplayName = "Host",
+            hostPlayerId = PlayerId("host-pid"),
+            maxRemotePlayers = 3,
+            scope = testScope,
+            codec = codec,
+            partyId = partyId,
+        )
+        try {
+            val alice = FakeP2pSession(peer("alice-pid", "Alice"))
+            admit(room, kit, alice)
+            val received = testScope.async(start = CoroutineStart.UNDISPATCHED) { room.incoming.first() }
+            val frame = PeerMessage.PartySetReady(
+                header = PartyProtocolHeader(PARTY_WIRE_VERSION, partyId, "peer-message-00001", 0),
+                actor = PlayerId("forged-player"),
+                clientSequence = 1,
+                expectedRevision = 1,
+                ready = true,
+            )
+            val wrong = frame.copy(header = frame.header.copy(partyId = PartyId("b".repeat(32))))
+            alice.incomingFlow.emit(P2pMessage.Binary(codec.encode(wrong)))
+            alice.incomingFlow.emit(P2pMessage.Binary(codec.encode(frame)))
+            val accepted = withTimeout(2_000) { received.await() }
+            assertThat(accepted).isEqualTo(frame.copy(actor = PlayerId("alice-pid")))
+        } finally {
+            room.leave()
+        }
+    }
+
+    @Test
+    fun party_match_can_reopen_without_revoking_an_excluded_seat_or_reusing_a_match_lease() = runBlocking {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val party = HostP2pRoom(
+            kit = kit,
+            roomCode = "ABCDEF",
+            hostDisplayName = "Host",
+            hostPlayerId = PlayerId("host-pid"),
+            maxRemotePlayers = 3,
+            scope = testScope,
+            codec = codec,
+            partyId = PartyId("a".repeat(32)),
+        )
+        try {
+            val alice = FakeP2pSession(peer("alice-pid", "Alice"))
+            val bob = FakeP2pSession(peer("bob-pid", "Bob"))
+            val aliceId = PlayerId("alice-pid")
+            val bobId = PlayerId("bob-pid")
+            val credential = admit(party, kit, alice)
+            admit(party, kit, bob)
+            alice.stateFlow.value = ConnectionState.Closed
+            awaitCondition { party.members.value.single { it.playerId == aliceId }.connected.not() }
+
+            val first = SessionId("party-test-match-1")
+            val second = SessionId("party-test-match-2")
+            assertThat(party.freezePartyMatch(first, setOf(aliceId, bobId))).isEqualTo(Result.Failure(NetError.NotConnected))
+            val frozen = party.freezePartyMatch(first, setOf(bobId)) as Result.Success
+            assertThat(frozen.data.map(RoomMember::playerId)).containsExactly(bobId)
+            assertThat(party.members.value).hasSize(2)
+            assertThat(party.freezePartyMatch(second, setOf(bobId))).isEqualTo(Result.Failure(NetError.CommandInFlight))
+            assertThat(party.reopenAfterPartyMatch(first)).isEqualTo(Result.Success(Unit))
+            assertThat(party.reopenAfterPartyMatch(first)).isEqualTo(Result.Success(Unit))
+            assertThat(party.freezePartyMatch(first, setOf(bobId))).isEqualTo(Result.Failure(NetError.CommandInFlight))
+
+            val returning = FakeP2pSession(peer("alice-pid", "Alice"))
+            resume(party, kit, returning, credential)
+            assertThat(party.members.value.map(RoomMember::playerId)).containsExactlyInAnyOrder(aliceId, bobId)
+            val rematch = party.freezePartyMatch(second, setOf(aliceId, bobId)) as Result.Success
+            assertThat(rematch.data.map(RoomMember::playerId)).containsExactlyInAnyOrder(aliceId, bobId)
+            assertThat(party.reopenAfterPartyMatch(first)).isEqualTo(Result.Failure(NetError.CommandInFlight))
+            assertThat(party.reopenAfterPartyMatch(second)).isEqualTo(Result.Success(Unit))
+        } finally {
+            party.leave()
+        }
     }
 
     @Test

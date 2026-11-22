@@ -1,8 +1,10 @@
 package com.parlor.transport.p2p
 
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.RoomId
+import com.parlor.core.ids.SessionId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
@@ -13,6 +15,7 @@ import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.ResumableCredentialOffer
@@ -24,6 +27,7 @@ import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.ForegroundConnectionValidator
 import com.parlor.networking.room.NetError
+import com.parlor.networking.room.PartyMatchAdmission
 import com.parlor.networking.room.PendingAdmission
 import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomInfo
@@ -1824,10 +1828,9 @@ private fun P2pDiagnostics.recordCommandResult(
     event(eventName, role, result, status.toDiagnosticReason())
 }
 
-private fun PeerMessage.hasValidPeerPayloadBounds(): Boolean = when (this) {
+private fun PeerMessage.hasValidPeerPayloadBounds(partyId: PartyId?): Boolean = when (this) {
     is PeerMessage.ClientCommand -> payload.size <= MAX_COMMAND_PAYLOAD_BYTES
-    // A standalone game room has no party authority.
-    is PeerMessage.PartySetReady -> false
+    is PeerMessage.PartySetReady -> header.partyId == partyId && header.protocol == PARTY_WIRE_VERSION
     else -> true
 }
 
@@ -1961,6 +1964,7 @@ internal class HostP2pRoom(
     private val admissionTimeSource: TimeSource = TimeSource.Monotonic,
     private val roomId: RoomId = RoomId(SecureIds.id128()),
     roomTag: String? = null,
+    private val partyId: PartyId? = null,
 ) : LocalRoom, AppLifecycleAwareRoom {
 
     init {
@@ -1990,6 +1994,17 @@ internal class HostP2pRoom(
     override val info = _info.asStateFlow()
     override val members = _members.asStateFlow()
     override val isHost: Boolean = true
+
+    internal val partyMatches: PartyMatchAdmission? = partyId?.let { identity ->
+        object : PartyMatchAdmission {
+            override val partyId: PartyId = identity
+
+            override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>) =
+                freezePartyMatch(id, expectedPeers)
+
+            override suspend fun reopenMatch(id: SessionId) = reopenAfterPartyMatch(id)
+        }
+    }
 
     override suspend fun createJoinLink(): String? = stateMutex.withLock {
         if (left || admissionsClosed || _lifecycle.value != RoomLifecycleState.Active) return@withLock null
@@ -2080,6 +2095,10 @@ internal class HostP2pRoom(
     private val resumeReadyByPlayer: MutableMap<PlayerId, ResumeReadyBarrier> = mutableMapOf()
     private val admissionReadyByPlayer: MutableMap<PlayerId, AdmissionReadyBarrier> = mutableMapOf()
     private var admissionsClosed: Boolean = false
+    private var matchAdmission: FrozenPartyMatch? = null
+    private var lastReopenedMatch: SessionId? = null
+
+    private data class FrozenPartyMatch(val id: SessionId, val members: List<RoomMember>)
     // Tracks every PlayerId we have ever accepted a session from in this
     // room's lifetime. A peer that fully disconnects (PeerLeft fired) and
     // then reconnects with the same PlayerId is a *reconnect*, not a new
@@ -2226,7 +2245,7 @@ internal class HostP2pRoom(
                     )
                     return@collect
                 }
-                if (rawDecoded !is PeerMessage || !rawDecoded.hasValidPeerPayloadBounds()) {
+                if (rawDecoded !is PeerMessage || !rawDecoded.hasValidPeerPayloadBounds(partyId)) {
                     enforceTrafficDecision(
                         trafficGuard.malformedFrame(nowMillis()),
                         session,
@@ -2248,6 +2267,7 @@ internal class HostP2pRoom(
                     is PeerMessage.ResumeConfirmed -> rawDecoded.copy(actor = playerId)
                     is PeerMessage.ResumeCommitAck -> rawDecoded.copy(actor = playerId)
                     is PeerMessage.ResumeReady -> rawDecoded.copy(actor = playerId)
+                    is PeerMessage.PartySetReady -> rawDecoded.copy(actor = playerId)
                     is PeerMessage.ClientCommand -> rawDecoded.copy(actor = playerId)
                     is PeerMessage.SnapshotRequest -> rawDecoded.copy(actor = playerId)
                     is PeerMessage.SessionHeartbeat -> rawDecoded.copy(actor = playerId)
@@ -3037,7 +3057,63 @@ internal class HostP2pRoom(
         return Result.Success(Unit)
     }
 
+    /**
+     * Freeze this match's exact connected roster while keeping party membership
+     * and rejoin credentials intact. The caller uses the roster from the
+     * authority's current start attempt and aborts it if presence races Start.
+     */
+    internal suspend fun freezePartyMatch(
+        id: SessionId,
+        expectedRemotePlayers: Set<PlayerId>,
+    ): Result<List<RoomMember>, NetError> {
+        if (partyId == null) return Result.Failure(NetError.Unauthorized)
+        val (members, pending) = stateMutex.withLock {
+            if (left || !acceptsLocalGameCommands) return Result.Failure(NetError.SessionSuspended)
+            if (lastReopenedMatch == id) return Result.Failure(NetError.CommandInFlight)
+            matchAdmission?.let { active ->
+                return if (active.id == id && active.members.map(RoomMember::playerId).toSet() == expectedRemotePlayers) {
+                    Result.Success(active.members)
+                } else {
+                    Result.Failure(NetError.CommandInFlight)
+                }
+            }
+            if (admissionReservations.isNotEmpty() || admissionReadyByPlayer.isNotEmpty() ||
+                resumeReadyByPlayer.isNotEmpty()
+            ) {
+                return Result.Failure(NetError.CommandInFlight)
+            }
+            val connected = membersByPlayer.values.filter(RoomMember::connected)
+            if (connected.map(RoomMember::playerId).toSet() != expectedRemotePlayers) {
+                return Result.Failure(NetError.NotConnected)
+            }
+            matchAdmission = FrozenPartyMatch(id, connected)
+            admissionsClosed = true
+            val pending = pendingByPlayer.values.toList()
+            pendingByPlayer.clear()
+            publishPendingAdmissions()
+            connected to pending
+        }
+        pending.forEach { rejectSession(it.session, AdmissionRejection.SessionStarted) }
+        return Result.Success(members)
+    }
+
+    internal suspend fun reopenAfterPartyMatch(id: SessionId): Result<Unit, NetError> = stateMutex.withLock {
+        if (partyId == null) return@withLock Result.Failure(NetError.Unauthorized)
+        if (left || !acceptsLocalGameCommands) return@withLock Result.Failure(NetError.SessionSuspended)
+        when (matchAdmission?.id) {
+            id -> {
+                matchAdmission = null
+                lastReopenedMatch = id
+                admissionsClosed = false
+                Result.Success(Unit)
+            }
+            null -> if (lastReopenedMatch == id) Result.Success(Unit) else Result.Failure(NetError.CommandInFlight)
+            else -> Result.Failure(NetError.CommandInFlight)
+        }
+    }
+
     override suspend fun closeAdmissions(): Result<List<RoomMember>, NetError> {
+        if (partyId != null) return Result.Failure(NetError.Unauthorized)
         if (!acceptsLocalGameCommands) return Result.Failure(NetError.SessionSuspended)
         data class FrozenRoster(
             val members: List<RoomMember>,
@@ -3854,6 +3930,14 @@ internal class HostP2pRoom(
     }
 
     override suspend fun send(target: SendTarget, message: HostMessage): Result<Unit, NetError> {
+        val partyHeader = when (message) {
+            is HostMessage.PartySnapshot -> message.header
+            is HostMessage.PartyCommandResult -> message.header
+            else -> null
+        }
+        if (partyHeader != null && (partyHeader.partyId != partyId || partyHeader.protocol != PARTY_WIRE_VERSION)) {
+            return Result.Failure(NetError.Unauthorized)
+        }
         val bytes = try {
             codec.encode(message)
         } catch (_: IllegalArgumentException) {

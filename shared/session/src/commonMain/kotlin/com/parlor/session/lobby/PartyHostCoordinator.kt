@@ -12,6 +12,10 @@ import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.PublicPartyLobby
 import com.parlor.networking.protocol.PublicPartySeat
+import com.parlor.networking.room.NetError
+import com.parlor.networking.room.PartyMatchAdmission
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -31,7 +35,12 @@ internal data class PartyReadyReceipt(
 )
 
 /** Serializes the host's party operations. Peer readiness never mutates another member. */
-internal class PartyHostCoordinator(initial: PartyLobby) {
+internal class PartyHostCoordinator(
+    initial: PartyLobby,
+    private val matchAdmission: PartyMatchAdmission? = null,
+) {
+    init { require(matchAdmission == null || matchAdmission.partyId == initial.id) }
+
     private val mutations = Mutex()
     private val lobby = MutableStateFlow(initial)
     private val nextByPlayer = mutableMapOf<PlayerId, Long>()
@@ -40,9 +49,31 @@ internal class PartyHostCoordinator(initial: PartyLobby) {
     suspend fun admit(seat: PartySeat) = mutate { it.admit(seat) }
     suspend fun selectGame(game: PartyGame) = mutate { it.selectGame(game) }
     suspend fun presence(player: PlayerId, connected: Boolean) = mutate { it.updatePresence(player, connected) }
-    suspend fun prepareMatch() = mutate { it.prepareMatch() }
+    suspend fun prepareMatch(): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val previous = lobby.value
+        val start = previous.prepareMatch()
+        if (start !is Result.Success || matchAdmission == null) return@withLock apply(start)
+        val match = (start.data.phase as PartyPhase.Starting).match
+        // Publish the host attempt before acquiring its room lease. If the
+        // freeze fails, roll back through a new revision so its ID cannot be reused.
+        lobby.value = start.data
+        val frozen = withContext(NonCancellable) { matchAdmission.freezeMatch(match.id, match.roster - previous.host) }
+        if (frozen is Result.Failure) {
+            apply(start.data.returnToLobby(match.id))
+            return@withLock Result.Failure(frozen.error.toPartyRejection())
+        }
+        start
+    }
+
     suspend fun commitMatch(match: SessionId) = mutate { it.commitMatch(match) }
-    suspend fun returnToLobby(match: SessionId) = mutate { it.returnToLobby(match) }
+
+    suspend fun returnToLobby(match: SessionId): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val returned = lobby.value.returnToLobby(match)
+        if (returned !is Result.Success || matchAdmission == null) return@withLock apply(returned)
+        val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match) }
+        if (reopened is Result.Failure) return@withLock Result.Failure(reopened.error.toPartyRejection())
+        apply(returned)
+    }
 
     suspend fun removeSeat(player: PlayerId): Result<PartyLobby, PartyRejection> = mutations.withLock {
         apply(lobby.value.removeSeat(player)).also { result ->
@@ -157,4 +188,10 @@ private fun PartyLobby.publicLobby(): PublicPartyLobby {
         activeMatchId = match?.id,
         matchOrdinal = matchOrdinal,
     )
+}
+
+private fun NetError.toPartyRejection(): PartyRejection = when (this) {
+    NetError.NotConnected -> PartyRejection.IneligibleCount
+    NetError.CommandInFlight -> PartyRejection.WaitingForReadiness
+    else -> PartyRejection.InvalidPhase
 }

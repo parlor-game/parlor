@@ -3,6 +3,7 @@ package com.parlor.session.lobby
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
@@ -12,6 +13,8 @@ import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.RoomMessageCodec
+import com.parlor.networking.room.NetError
+import com.parlor.networking.room.PartyMatchAdmission
 import com.parlor.networking.room.RoomMember
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -157,6 +160,52 @@ class PartyLobbyTest {
         assertEquals(2L, snapshot.nextExpectedClientSequence)
         assertEquals(2, snapshot.lobby.members.size)
         assertFalse(wire.decodeToString().contains("capabilities"))
+    }
+
+    @Test
+    fun the_host_retires_a_failed_start_and_reopens_only_its_own_match_lease() = runTest {
+        val party = partyWithPeer()
+        val ready = party.setReady(peer, true, party.revision).value()
+        val transport = MatchAdmissionFixture(party.id)
+        val authority = PartyHostCoordinator(ready, transport)
+        assertEquals(Result.Failure(PartyRejection.IneligibleCount), authority.prepareMatch())
+        assertEquals(PartyPhase.Lobby, authority.state.value.phase)
+        assertEquals(setOf(peer), transport.expectedPeers)
+        assertEquals(party.seats.keys, authority.state.value.seats.keys)
+        val first = assertNotNull(transport.attempts.singleOrNull())
+
+        val retryState = authority.state.value
+        authority.ready(peer, PartyReadyCommand(party.id, 1, retryState.revision, true))
+        val started = authority.prepareMatch().value()
+        val match = assertIs<PartyPhase.Starting>(started.phase).match.id
+        assertNotEquals(first, match)
+        authority.commitMatch(match).value()
+        assertEquals(Result.Failure(PartyRejection.StaleMatch), authority.returnToLobby(first))
+        assertEquals(emptyList(), transport.reopened)
+        authority.returnToLobby(match).value()
+        assertEquals(listOf(match), transport.reopened)
+        assertEquals(party.seats.keys, authority.state.value.seats.keys)
+    }
+
+    private class MatchAdmissionFixture(override val partyId: PartyId) : PartyMatchAdmission {
+        val attempts = mutableListOf<SessionId>()
+        val reopened = mutableListOf<SessionId>()
+        var expectedPeers = emptySet<PlayerId>()
+
+        override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>): Result<List<RoomMember>, NetError> {
+            attempts += id
+            this.expectedPeers = expectedPeers
+            return if (attempts.size == 1) {
+                Result.Failure(NetError.NotConnected)
+            } else {
+                Result.Success(expectedPeers.map { RoomMember(it, it.raw, connected = true) })
+            }
+        }
+
+        override suspend fun reopenMatch(id: SessionId): Result<Unit, NetError> {
+            reopened += id
+            return Result.Success(Unit)
+        }
     }
 
     private fun partyWithPeer(capabilities: Set<GameProtocolRef> = games): PartyLobby =
