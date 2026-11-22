@@ -154,8 +154,9 @@ install_ios_controller() {
 }
 
 install_android() {
-  local serial base
+  local serial base expected installed attempt
   (cd "$package" && sha256sum -c SHA256SUMS)
+  read -r expected _ < "$package/SHA256SUMS"
   while IFS= read -r serial <&3; do
     local record="$proof/$serial"
     mkdir -p "$record"
@@ -176,9 +177,23 @@ install_android() {
     timeout 90 adb -s "$serial" install "$package/parlor.apk" </dev/null
     base=$(adb -s "$serial" shell pm path "$apk_id" | tr -d '\r' | sed -n 's/^package:\(.*\/base\.apk\)$/\1/p')
     [[ -n "$base" ]]
-    adb -s "$serial" pull "$base" "$work/$serial.apk" >/dev/null
-    cmp "$package/parlor.apk" "$work/$serial.apk"
-    sha256sum < "$work/$serial.apk" > "$record/installed-apk-sha256.txt"
+    # Verify the bytes in Android's installed APK in place. Pulling every
+    # copy through ADB failed mid-transfer on a five-emulator runner.
+    installed=""
+    for ((attempt=1; attempt<=3; attempt++)); do
+      if installed=$(timeout 30 adb -s "$serial" shell sha256sum "$base" | tr -d '\r') &&
+          [[ "$installed" =~ ^([0-9a-f]{64})[[:space:]] ]]; then
+        installed=${BASH_REMATCH[1]}
+        break
+      fi
+      installed=""
+      sleep 2
+    done
+    if [[ "$installed" != "$expected" ]]; then
+      printf '%s installed APK checksum missing or different after verification\n' "$serial" >&2
+      return 1
+    fi
+    printf '%s\n' "$installed" > "$record/installed-apk-sha256.txt"
     adb -s "$serial" shell getprop ro.build.fingerprint > "$record/android-build.txt"
     adb -s "$serial" shell ip -4 addr show wlan0 > "$record/wlan0.txt"
     adb -s "$serial" shell am start -W -n "$apk_id/$activity" > "$record/launch.txt"
