@@ -226,4 +226,12 @@
     <string name="resume_delete_cancel">الاحتفاظ بالجلسة</string>
     <string name="resume_delete_failed">تعذّر حذف الجلسة. ربما تغيّرت أو تعذّر الوصول إلى التخزين. احتفظ بها وحدّث القائمة قبل المحاولة مجددًا.</string>
     <string name="resume_delete_busy">جارٍ حذف الجلسة المحفوظة…</string>
+    <string name="featured_top">ألعاب</string>
+    <string name="featured_accent">مختارة</string>
+    <string name="featured_previous">اللعبة المختارة السابقة</string>
+    <string name="featured_next">اللعبة المختارة التالية</string>
+    <string name="featured_select">اعرض %1$s ضمن الألعاب المختارة</string>
+    <string name="featured_play">العب %1$s</string>
+    <string name="home_guest_greeting">أهلًا يا ضيف</string>
+    <string name="home_party_subtitle">واي فاي محلي · لعب جماعي</string>
 </resources>

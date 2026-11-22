@@ -218,4 +218,12 @@
     <string name="resume_delete_cancel">Keep session</string>
     <string name="resume_delete_failed">Could not remove this session. It may have changed or storage may be unavailable. Keep it and refresh the list before trying again.</string>
     <string name="resume_delete_busy">Removing saved session…</string>
+    <string name="featured_top">Featured</string>
+    <string name="featured_accent">Games</string>
+    <string name="featured_previous">Previous featured game</string>
+    <string name="featured_next">Next featured game</string>
+    <string name="featured_select">Feature %1$s</string>
+    <string name="featured_play">Play %1$s</string>
+    <string name="home_guest_greeting">Hello, Guest</string>
+    <string name="home_party_subtitle">Local Wi-Fi · Party play</string>
 </resources>

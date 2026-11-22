@@ -1,6 +1,5 @@
 package com.parlor.app.shell.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,11 +7,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -57,6 +54,8 @@ import com.parlor.app.resources.catalog_empty_body
 import com.parlor.app.resources.catalog_empty_title
 import com.parlor.app.resources.catalog_nearby_only_meta
 import com.parlor.app.resources.home_continue_label
+import com.parlor.app.resources.home_guest_greeting
+import com.parlor.app.resources.home_party_subtitle
 import com.parlor.app.resources.home_games_count
 import com.parlor.app.resources.home_local_lan_meta
 import com.parlor.app.resources.home_local_meta
@@ -127,10 +126,10 @@ internal fun HomeScreen(
     }
     LibrarySurface(modifier.fillMaxSize()) {
         val padding = parlorSafeContentPaddingValues(
-            horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.l, bottom = ParlorTheme.spacing.xxl,
+            horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.m, bottom = ParlorTheme.spacing.xxl,
         )
         val columns = libraryColumns(maxWidth, padding)
-        val featuredGame = if (LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE) filteredGames.firstOrNull() else null
+        val showFeatured = LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             state = catalogScrollState.listState,
@@ -141,7 +140,7 @@ internal fun HomeScreen(
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
-                Spacer(Modifier.fillMaxWidth().height(ParlorTheme.borders.hairline).background(ParlorTheme.colors.borderSubtle))
+                if (showFeatured && games.isNotEmpty()) FeaturedGames(games, onGameSelected)
             }
 
             when {
@@ -196,7 +195,7 @@ internal fun HomeScreen(
                         library = true,
                         detail = catalogGameCount(filteredGames.size),
                     )
-                    CatalogFilters(selectedFilter) {
+                    CatalogFilters(selectedFilter, games) {
                         catalogScrollState.cancelPendingRestoration()
                         selectedFilter = it
                     }
@@ -213,13 +212,11 @@ internal fun HomeScreen(
             items(
                 items = filteredGames,
                 key = { game -> "game:${game.definition.id.raw}" },
-                span = { game -> GridItemSpan(if (game == featuredGame) maxLineSpan else 1) },
             ) { game ->
                 val presentation = game.catalogPresentation()
                 GameHeroCard(
                     presentation = presentation,
-                    compact = columns == 1 && game != featuredGame,
-                    featured = game == featuredGame,
+                    compact = columns == 1,
                     restoreFocus = returnFocusKey == game.definition.id.raw,
                     onFocusRestored = { returnFocusKey = null },
                     supportedPlayerCounts = game.multiplayerContract
@@ -257,19 +254,25 @@ private fun catalogGameCount(count: Int): String = pluralStringResource(Res.plur
 private fun HomeTopBar() {
     Row(
         modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
+        Column(Modifier.weight(1f)) {
             LibraryText(
-                text = stringResource(Res.string.app_name),
+                text = stringResource(Res.string.home_guest_greeting),
                 style = ParlorTheme.typography.headingMedium,
                 color = ParlorTheme.colors.textPrimary,
                 modifier = Modifier.testTag(HOME_BRAND_TEST_TAG),
             )
+            LibraryText(
+                text = stringResource(Res.string.home_party_subtitle),
+                style = ParlorTheme.typography.bodySmall,
+                color = ParlorTheme.colors.textSecondary,
+            )
+        }
+        val brand = stringResource(Res.string.app_name)
+        Box(Modifier.semantics { contentDescription = brand }) {
+            ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
         }
     }
 }
@@ -281,12 +284,20 @@ private fun SectionHeading(label: String, detail: String, library: Boolean = fal
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LibraryText(
-            text = label,
-            style = if (library) ParlorTheme.typography.displayMedium else ParlorTheme.typography.headingMedium,
-            color = ParlorTheme.colors.textPrimary,
-            modifier = Modifier.weight(1f).semantics { heading() },
-        )
+        Column(Modifier.weight(1f).semantics { heading() }) {
+            if (library) {
+                LibraryText(
+                    text = stringResource(Res.string.app_name),
+                    style = ParlorTheme.typography.labelLarge,
+                    color = ParlorTheme.colors.textPrimary,
+                )
+            }
+            LibraryText(
+                text = label,
+                style = ParlorTheme.typography.headingMedium,
+                color = if (library) ParlorTheme.colors.accentEmber else ParlorTheme.colors.textPrimary,
+            )
+        }
         LibraryText(
             text = detail,
             style = ParlorTheme.typography.bodySmall,
@@ -452,7 +463,6 @@ private fun GameHeroCard(
     supportsLan: Boolean,
     supportsLocal: Boolean,
     compact: Boolean,
-    featured: Boolean,
     restoreFocus: Boolean,
     onFocusRestored: () -> Unit,
     onOpen: (Boolean) -> Unit,
@@ -479,11 +489,13 @@ private fun GameHeroCard(
             .clickable(role = Role.Button) { onOpen(focused) },
         contentPadding = 0.dp,
     ) {
-        Column {
+        if (compact && LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE) {
+            CompactGameRow(presentation, players, modes)
+        } else Column {
             if (!compact) {
                 CatalogArtworkBadge(
                     presentation.artwork,
-                    Modifier.fillMaxWidth().aspectRatio(if (featured) FEATURED_COVER_ASPECT_RATIO else COVER_ASPECT_RATIO),
+                    Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO),
                 )
             }
             Column(
@@ -527,6 +539,24 @@ private fun GameHeroCard(
 }
 
 @Composable
+private fun CompactGameRow(presentation: GameCatalogPresentation, players: String, modes: String) {
+    val colors = ParlorTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(ParlorTheme.spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CatalogArtworkBadge(presentation.artwork, Modifier.size(56.dp).clip(RoundedCornerShape(ParlorTheme.radii.subtle)))
+        Column(Modifier.weight(1f)) {
+            LibraryText(presentation.title, ParlorTheme.typography.headingMedium, colors.textPrimary)
+            LibraryText(players, ParlorTheme.typography.labelMedium, colors.textSecondary)
+            LibraryText(modes, ParlorTheme.typography.labelMedium, colors.accentEmber)
+        }
+        Icon(ParlorIcons.Forward, contentDescription = null, tint = colors.textTertiary)
+    }
+}
+
+@Composable
 private fun CatalogGameTitle(title: String) {
     LibraryText(
         text = title,
@@ -564,6 +594,5 @@ private val ReadingWidth = 560.dp
 private val LibraryWidth = 960.dp
 private const val WIDE_LIBRARY_COLUMNS = 3
 private const val COVER_ASPECT_RATIO = 1.35f
-private const val FEATURED_COVER_ASPECT_RATIO = 2.4f
 private val RecoveryRowWidth = 304.dp
 private const val HOME_BRAND_TEST_TAG = "parlor-home-brand"

@@ -2,6 +2,8 @@ package com.parlor.app.shell.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +18,7 @@ import com.parlor.app.resources.catalog_filter_local
 import com.parlor.app.resources.catalog_filter_nearby
 import com.parlor.app.shell.game.GameEntryMode
 import com.parlor.app.shell.game.GameShellCapabilities
+import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.theme.ParlorTheme
 import org.jetbrains.compose.resources.stringResource
@@ -35,7 +38,7 @@ internal fun HomeCatalogFilter.accepts(capabilities: GameShellCapabilities): Boo
 }
 
 @Composable
-internal fun CatalogFilters(selected: HomeCatalogFilter, onSelected: (HomeCatalogFilter) -> Unit) {
+internal fun CatalogFilters(selected: HomeCatalogFilter, games: List<GameShellBinding>, onSelected: (HomeCatalogFilter) -> Unit) {
     FlowRow(
         modifier = Modifier.selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
@@ -60,15 +63,26 @@ internal fun CatalogFilters(selected: HomeCatalogFilter, onSelected: (HomeCatalo
                     selectedBorderColor = ParlorTheme.colors.accentEmber,
                 ),
                 label = {
-                    LibraryText(
-                        text = stringResource(when (filter) {
-                            HomeCatalogFilter.All -> Res.string.catalog_filter_all
-                            HomeCatalogFilter.Local -> Res.string.catalog_filter_local
-                            HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
-                        }),
-                        style = ParlorTheme.typography.bodyMedium,
-                        color = if (selected == filter) ParlorTheme.colors.textOnAccent else ParlorTheme.colors.textSecondary,
-                    )
+                    val labelColor = if (selected == filter) ParlorTheme.colors.textOnAccent else ParlorTheme.colors.textSecondary
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LibraryText(
+                            text = stringResource(when (filter) {
+                                HomeCatalogFilter.All -> Res.string.catalog_filter_all
+                                HomeCatalogFilter.Local -> Res.string.catalog_filter_local
+                                HomeCatalogFilter.Nearby -> Res.string.catalog_filter_nearby
+                            }),
+                            style = ParlorTheme.typography.bodyMedium,
+                            color = labelColor,
+                        )
+                        LibraryText(
+                            text = games.count { filter.accepts(it.capabilities) }.toString(),
+                            style = ParlorTheme.typography.labelSmall,
+                            color = labelColor,
+                        )
+                    }
                 },
             )
         }
