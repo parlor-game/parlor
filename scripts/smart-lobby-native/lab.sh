@@ -73,9 +73,9 @@ boot_android_group() {
     printf '%s\n' "$!" >> "$work/parlor-emulator-pids"
     printf '%s\n' "$serial" >> "$devices"
   done
-  while IFS= read -r serial; do
+  while IFS= read -r serial <&3; do
     timeout 360 bash -c 'until [[ "$(adb -s "$1" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do sleep 2; done' bash "$serial"
-  done < "$devices"
+  done 3< "$devices"
 }
 
 boot_ios_group() {
@@ -117,7 +117,7 @@ RUNTIME
 install_android() {
   local serial base
   (cd "$package" && sha256sum -c SHA256SUMS)
-  while IFS= read -r serial; do
+  while IFS= read -r serial <&3; do
     local record="$proof/$serial"
     mkdir -p "$record"
     adb -s "$serial" shell svc data disable
@@ -135,7 +135,7 @@ install_android() {
     adb -s "$serial" shell am start -W -n "$apk_id/$activity" > "$record/launch.txt"
     tr -d "\r" < "$record/launch.txt" | grep -Fx 'Status: ok' > /dev/null
     adb -s "$serial" shell pidof "$apk_id" > "$record/app-pid.txt"
-  done < "$devices"
+  done 3< "$devices"
 }
 
 install_ios() {
@@ -145,7 +145,7 @@ install_ios() {
   local apps=("$work"/parlor-extracted/*.app)
   [[ ${#apps[@]} == 1 && -d "${apps[0]}" ]]
   app="${apps[0]}"
-  while IFS= read -r device; do
+  while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
     xcrun simctl install "$device" "$app"
@@ -157,7 +157,7 @@ install_ios() {
       open -a Simulator --args -CurrentDeviceUDID "$device"
     fi
     xcrun simctl launch "$device" "$bundle" > "$record/app-launch.txt"
-  done < "$devices"
+  done 3< "$devices"
 }
 
 install() {
@@ -200,13 +200,13 @@ cleanup() {
   if [[ "$LAB_PAIRING" == mixed ]]; then
     (cd "$LAN_UI_DIR" && bash verification/mobile-lan/trial.sh cleanup "$TARGET")
   elif [[ -f "$devices" ]]; then
-    while IFS= read -r device; do
+    while IFS= read -r device <&3; do
       if [[ "$TARGET" == android ]]; then
         adb -s "$device" emu kill || true
       else
         xcrun simctl delete "$device" || true
       fi
-    done < "$devices"
+    done 3< "$devices"
   fi
 }
 
