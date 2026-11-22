@@ -161,10 +161,12 @@ private fun ActiveParty(
             confirm = null
         } else if (lobbyPage != null) {
             lobbyPage = null
-        } else if (showingMatch && protocol != null && host != null) {
-            confirm = PartyConfirmation.EndMatch(protocol.sessionId, SessionEndReason.Cancelled)
         } else if (showingMatch && protocol != null) {
-            hiddenForMatch = protocol.sessionId
+            if (host == null) {
+                hiddenForMatch = protocol.sessionId
+            } else {
+                confirm = PartyConfirmation.EndMatch(protocol.sessionId, SessionEndReason.Cancelled)
+            }
         } else {
             confirm = PartyConfirmation.Leave
         }
@@ -174,6 +176,7 @@ private fun ActiveParty(
 
     val confirmation = confirm
     val selected = titles.keys.firstOrNull { it.protocol == lobby?.selectedGame }
+    val visiblePage = lobbyPage.takeIf { lobby?.phase == PartyLobbyPhase.Lobby }
     if (privateContentCovered) {
         PartyPrivacyCover()
     } else if (confirmation != null) {
@@ -187,12 +190,12 @@ private fun ActiveParty(
                 }
             }
         }
-    } else if (lobbyPage == PartyLobbyPage.Rules && selected != null && lobby?.phase == PartyLobbyPhase.Lobby) {
+    } else if (visiblePage == PartyLobbyPage.Rules && selected != null) {
         PartyRulesContent(titles.getValue(selected), onBack = { lobbyPage = null }) {
             val binding = registry.byId(selected.protocol.gameId) as? PartyGameShell
-            binding?.PartyRules(lobby.members.count { it.connected })
+            binding?.PartyRules(lobby?.members.orEmpty().count { it.connected })
         }
-    } else if (lobbyPage == PartyLobbyPage.Invite && host != null && lobby?.phase == PartyLobbyPhase.Lobby) {
+    } else if (visiblePage == PartyLobbyPage.Invite && host != null) {
         PartyInvitationContent(host, onBack = { lobbyPage = null })
     } else if (showingMatch && activeMatch != null && protocol != null && matchUi != null) {
         matchUi.PartyMatch(
