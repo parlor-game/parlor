@@ -73,6 +73,16 @@ data class GameProtocolRef(val gameId: GameId, val gameVersion: Int) {
     fun isValid(): Boolean = GameId.isCanonical(gameId.raw) && gameVersion > 0
 }
 
+/** Stable room identity and public lobby information, only sent after code validation. */
+@Serializable
+data class AdmissionLobbyInfo(
+    val roomId: RoomId,
+    val game: GameProtocolRef,
+    val hostDisplayName: String,
+    val seatsTaken: Int,
+    val seatLimit: Int,
+)
+
 @Serializable
 enum class AdmissionRejection {
     WrongCode,
@@ -159,7 +169,15 @@ sealed interface HostMessage : RoomMessage {
 
     /** Valid room request is waiting for an explicit host decision. */
     @Serializable
-    data class AdmissionPending(val playerId: PlayerId) : HostMessage
+    data class AdmissionPending(
+        val playerId: PlayerId,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val lobby: AdmissionLobbyInfo? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val approvalWindowMillis: Long? = null,
+    ) : HostMessage
 
     /** Initial admission is authoritative and the staged credential may be promoted. */
     @Serializable

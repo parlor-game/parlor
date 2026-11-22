@@ -1,10 +1,13 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.networking.invitation.JoinLinkCodec
+import com.parlor.networking.protocol.AdmissionLobbyInfo
 import com.parlor.networking.protocol.AdmissionRejection
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessageCodec
@@ -170,6 +173,33 @@ class ScopedLobbyDiscoveryTest {
         } finally {
             room.leave()
         }
+    }
+
+    @Test
+    fun peer_rejects_a_different_game_in_the_encrypted_approval_preview() = runTest {
+        val kit = FakeP2pKit(PeerId("peer"))
+        val advertised = room("host", "K7QX", mafia)
+        kit.peersFlow.value = listOf(advertised)
+        val session = FakeP2pSession(advertised)
+        kit.connectHandler = { session }
+        val codec = RoomMessageCodec()
+        session.sendHandler = { frame ->
+            assertIs<PeerMessage.AdmissionRequest>(codec.decode(assertIs<P2pMessage.Binary>(frame).bytes))
+            val preview = AdmissionLobbyInfo(
+                roomId = RoomId("f".repeat(32)),
+                game = GameProtocolRef(dominoes.gameId, dominoes.gameVersion),
+                hostDisplayName = "Host",
+                seatsTaken = 1,
+                seatLimit = 5,
+            )
+            val pending = HostMessage.AdmissionPending(PlayerId(kit.localPeerId.value), preview, 60_000)
+            session.incomingFlow.emit(P2pMessage.Binary(codec.encode(pending)))
+        }
+
+        val result = transport { kit }.join(JoinConfig("ABCDEF", "Guest", expectedGameProtocol = mafia))
+        assertEquals(Result.Failure(NetError.WrongGame), result)
+        assertEquals(1, session.sent.size)
+        assertEquals(1, session.closeCalls)
     }
 
     private fun TestScope.transport(kit: () -> P2pKit) = P2pKitRoomTransport(
