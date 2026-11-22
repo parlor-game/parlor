@@ -2986,13 +2986,12 @@ internal class HostP2pRoom(
         val commit = stateMutex.withLock {
             val pending = pendingByPlayer[playerId]
             val previousCredential = credentialsByPlayer[playerId]
-            val previousMember = membersByPlayer[playerId]
+            val previousMember = membersByPlayer[playerId] ?: return@withLock null
             if (
                 playerId !in admissionReservations ||
                 pending?.session !== session ||
                 pending.transaction !== transaction ||
                 previousCredential == null ||
-                previousMember == null ||
                 session.state.value != ConnectionState.Connected
             ) {
                 null

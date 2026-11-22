@@ -15,10 +15,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Owns the host party until an explicit party-level leave. Match rooms can come and go independently. */
 internal class PartyHostRoomBinding(
@@ -115,15 +117,33 @@ internal class PartyHostRoomBinding(
         }
     }
 
-    suspend fun leave(): Result<Unit, NetError> = transactions.withLock {
-        withContext(NonCancellable) {
-            room.finalLeave().also { result ->
-                if (result is Result.Success) {
+    suspend fun leave(): Result<Unit, NetError> = publishing.withLock {
+        transactions.withLock {
+            withContext(NonCancellable) {
+                if (state.value.phase != PartyPhase.Ended) {
                     host.close()
-                    active?.second?.leave()
-                    active = null
-                    inbox.close()
-                    scope.cancel()
+                    publishTerminal()
+                }
+                room.finalLeave().also { result ->
+                    if (result is Result.Success) {
+                        active?.second?.leave()
+                        active = null
+                        inbox.close()
+                        scope.cancel()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun publishTerminal() {
+        // A reachable peer can revoke its credential immediately. When delivery
+        // is impossible the transport's existing bounded rejoin expiry owns cleanup.
+        val changes = snapshotFrames()
+        withTimeoutOrNull(TERMINAL_DELIVERY_MS) {
+            coroutineScope {
+                changes.forEach { (recipient, message) ->
+                    launch { room.send(recipient, message) }
                 }
             }
         }
@@ -167,21 +187,28 @@ internal class PartyHostRoomBinding(
             if (room.acceptsRemoteGameCommands) host.handleReady(message.actor, message, messageId()) else null
         } ?: return
         room.send(SendTarget.Direct(message.actor), receipt)
+        // A rejected command can consume a client sequence without changing the lobby revision.
+        publishState(message.actor)
     }
 
     private suspend fun publishState(onePlayer: PlayerId? = null) = publishing.withLock {
-        val messages = transactions.withLock {
-            state.value.seats.values.mapNotNull { seat ->
-                val recipient = seat.member.playerId
-                if (recipient == hostId || !seat.member.connected || (onePlayer != null && onePlayer != recipient)) {
-                    null
-                } else {
-                    host.snapshotFor(recipient, messageId())?.let { SendTarget.Direct(recipient) to it }
-                }
-            }
-        }
+        val messages = transactions.withLock { snapshotFrames(onePlayer) }
         for ((recipient, message) in messages) {
             room.send(recipient, message)
         }
+    }
+
+    private suspend fun snapshotFrames(onePlayer: PlayerId? = null) =
+        state.value.seats.values.mapNotNull { seat ->
+            val recipient = seat.member.playerId
+            if (recipient == hostId || !seat.member.connected || (onePlayer != null && onePlayer != recipient)) {
+                null
+            } else {
+                host.snapshotFor(recipient, messageId())?.let { SendTarget.Direct(recipient) to it }
+            }
+        }
+
+    private companion object {
+        const val TERMINAL_DELIVERY_MS = 1_500L
     }
 }
