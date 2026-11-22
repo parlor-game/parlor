@@ -16,6 +16,8 @@ import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.ResumableCredentialOffer
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.RoomMessageCodec
+import com.parlor.networking.room.DiscoveredRoom
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.ForegroundConnectionValidator
@@ -41,12 +43,14 @@ import com.parlor.networking.security.SecureIds
 import com.parlor.storage.secure.SecureStorage
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
+import dev.p2pkit.core.NetworkPathStatus
 import dev.p2pkit.core.P2pKit
 import dev.p2pkit.core.P2pError
 import dev.p2pkit.core.P2pMessage
 import dev.p2pkit.core.P2pSession
 import dev.p2pkit.core.Peer
 import dev.p2pkit.core.PeerFingerprint
+import dev.p2pkit.core.PeerId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
@@ -67,6 +71,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.mapNotNull
@@ -265,6 +273,51 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         supportsManualEndpointConnection = false,
     )
 
+    override fun discoverRooms(game: HostedGameProtocol): Flow<Result<List<DiscoveredRoom>, NetError>> =
+        flow<Result<List<DiscoveredRoom>, NetError>> {
+            val startedAt = nowMillis()
+            val kit = kitFactory.createKit(appId = appId, deviceName = BROWSER_DEVICE_NAME)
+            try {
+                kit.start()
+                kit.startDiscovery()
+                var rows = emptyList<DiscoveredRoom>()
+                combine(kit.peers, kit.networkPathStatus) { peers, path ->
+                    rows = if (path is NetworkPathStatus.Unsatisfied) emptyList() else {
+                        scopedLobbyRows(kit, peers, startedAt, game, rows)
+                    }
+                    rows
+                }.distinctUntilChanged().collect { emit(Result.Success(it)) }
+            } finally {
+                kit.stopAfterFailure(diagnostics)
+            }
+        }.catch { failure ->
+            if (failure !is Exception) throw failure
+            failure.rethrowIfCancellation()
+            emit(Result.Failure(NetError.TransportFailure("Room discovery failed")))
+        }
+
+    private fun scopedLobbyRows(
+        kit: P2pKit,
+        peers: List<Peer>,
+        discoveryStartedAt: Long,
+        game: HostedGameProtocol,
+        previous: List<DiscoveredRoom>,
+    ): List<DiscoveredRoom> {
+        val current = LinkedHashMap<PeerId, DiscoveredRoom>()
+        for (peer in peers) {
+            val entry = peer.compatibleGameAdvertisement(game)
+            if (entry != null && peer.hasFreshAdvertisement(kit, discoveryStartedAt)) {
+                current.getOrPut(peer.id) {
+                    val selection = NearbyLobbySelection(this, game, peer.id, peer.endpointVersion())
+                    DiscoveredRoom("", entry.roomTag, roomTag = entry.roomTag, selection = selection)
+                }
+            }
+            if (current.size >= MAX_BROWSER_ROOMS) break
+        }
+        val retained = previous.mapNotNull { row -> current.remove((row.selection as NearbyLobbySelection).peerId) }
+        return retained + current.values
+    }
+
     override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> {
         val hostDisplayName = RoomInputPolicy.normalizeDisplayName(config.hostDisplayName)
         if (!RoomInputPolicy.isValidDisplayName(hostDisplayName)) {
@@ -364,6 +417,11 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         ) {
             return Result.Failure(NetError.InvalidInput)
         }
+        val selectedRoom = config.discoveredRoom?.let { token ->
+            (token as? NearbyLobbySelection)?.takeIf {
+                it.owner === this && it.game == config.expectedGameProtocol
+            } ?: return Result.Failure(NetError.StaleRoom)
+        }
         val effectiveConfig = config.copy(
             code = normalizedCode,
             displayName = normalizedName,
@@ -419,7 +477,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 val elapsedMs = startedAt.elapsedNow().inWholeMilliseconds
                 val visiblePeers = kit.peers.value.filter { peer ->
                     peer.hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis) &&
-                        peer.matchesJoinAdvertisement(effectiveConfig.expectedGameProtocol)
+                        peer.matchesJoinAdvertisement(effectiveConfig.expectedGameProtocol) &&
+                        (selectedRoom == null || selectedRoom.matches(peer))
                 }
                 if (lastVisibleCount != visiblePeers.size) {
                     lastVisibleCount = visiblePeers.size
@@ -1520,12 +1579,24 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis)
     }
 
+    private fun Peer.compatibleGameAdvertisement(game: HostedGameProtocol): LobbyAdvertisement.Entry.GameRoom? =
+        (LobbyAdvertisement.parse(name) as? LobbyAdvertisement.Entry.GameRoom)
+            ?.takeIf { it.game == game && it.protocol == ProtocolVersion() }
+
     private fun Peer.matchesJoinAdvertisement(game: HostedGameProtocol?): Boolean =
-        when (val entry = LobbyAdvertisement.parse(name)) {
-            is LobbyAdvertisement.Entry.GameRoom -> entry.game == game && entry.protocol == ProtocolVersion()
-            LobbyAdvertisement.Entry.Legacy -> game == null
-            else -> false
-        }
+        if (game == null) name.startsWith(LobbyAdvertisement.LEGACY_PREFIX) else compatibleGameAdvertisement(game) != null
+
+    private data class NearbyLobbySelection(
+        val owner: P2pKitRoomTransport,
+        val game: HostedGameProtocol,
+        val peerId: PeerId,
+        val endpoint: String,
+    ) : DiscoveredRoomSelection {
+        override fun toString(): String = "NearbyLobbySelection(redacted)"
+    }
+
+    private fun NearbyLobbySelection.matches(peer: Peer): Boolean =
+        peer.id == peerId && peer.endpointVersion() == endpoint
 
     private fun Peer.hasFreshAdvertisement(kit: P2pKit, discoveryStartedAtEpochMillis: Long): Boolean {
         // The caller always reads kit.peers, so native Lost still removes a
@@ -1567,6 +1638,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
 
     companion object {
         const val P2P_ROOM_PREFIX = LobbyAdvertisement.LEGACY_PREFIX
+        private const val MAX_BROWSER_ROOMS = 32
+        private const val BROWSER_DEVICE_NAME = "parlor-browser"
         /** Discovery, dial, secure handshake and first admission-state response budget. */
         internal const val DEFAULT_JOIN_TIMEOUT_MS: Long = 30_000L
         internal const val DIAL_AND_HANDSHAKE_TIMEOUT_MS: Long = 5_000L

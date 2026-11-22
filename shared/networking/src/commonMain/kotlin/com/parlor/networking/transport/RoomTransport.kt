@@ -4,6 +4,7 @@ import com.parlor.core.ids.GameId
 import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.networking.room.DiscoveredRoom
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import kotlinx.coroutines.flow.Flow
@@ -40,7 +41,7 @@ interface RoomTransport {
     suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError>
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-        if (config.expectedGameProtocol != null || config.expectedRoomId != null) {
+        if (config.expectedGameProtocol != null || config.expectedRoomId != null || config.discoveredRoom != null) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
             join(config.code, config.displayName)
@@ -106,6 +107,10 @@ interface RoomTransport {
      * transports that actually expose discovery override this.
      */
     fun discoverRooms(): Flow<List<DiscoveredRoom>> = flowOf(emptyList())
+
+    /** Browse only the selected game's compatible advertisements. */
+    fun discoverRooms(game: HostedGameProtocol): Flow<Result<List<DiscoveredRoom>, NetError>> =
+        flowOf(Result.Success(emptyList()))
 
     /** Ordered app lifecycle inputs. Implementations must be idempotent. */
     fun notifyAppBackgrounded() = Unit
@@ -190,6 +195,7 @@ data class JoinConfig(
      */
     val expectedGameProtocol: HostedGameProtocol? = null,
     val expectedRoomId: RoomId? = null,
+    val discoveredRoom: DiscoveredRoomSelection? = null,
 )
 
 data class ResumableSessionInfo(
