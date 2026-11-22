@@ -39,6 +39,8 @@ import com.parlor.app.resources.party_play_again
 import com.parlor.app.resources.party_player_line
 import com.parlor.app.resources.party_ready
 import com.parlor.app.resources.party_roster
+import com.parlor.app.resources.party_rules_back
+import com.parlor.app.resources.party_rules_view
 import com.parlor.app.resources.party_start
 import com.parlor.app.resources.party_view_match
 import com.parlor.app.resources.party_waiting
@@ -66,6 +68,8 @@ internal class PartyLobbyCommands(
     val approve: (PlayerId) -> Unit,
     val reject: (PlayerId) -> Unit,
     val setReady: (Boolean) -> Unit,
+    val viewRules: () -> Unit,
+    val invite: () -> Unit,
 )
 
 @Composable
@@ -109,8 +113,20 @@ internal fun PartyLobbyContent(
         } else if (!ended) {
             PartyDetail(stringResource(Res.string.party_waiting))
         }
+        if (!ended && selected != null && lobby?.phase == PartyLobbyPhase.Lobby) {
+            PartyButton(Res.string.party_rules_view, variant = ParlorButtonVariant.Secondary, onClick = commands.viewRules)
+        }
         error?.let { PartyError(it) }
         PartyButton(Res.string.party_leave, enabled = !waiting, variant = ParlorButtonVariant.Secondary, onClick = onLeave)
+    }
+}
+
+@Composable
+internal fun PartyRulesContent(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+    PartyScaffold {
+        PartyHeading(title)
+        content()
+        PartyButton(Res.string.party_rules_back, variant = ParlorButtonVariant.Secondary, onClick = onBack)
     }
 }
 
@@ -143,7 +159,7 @@ private fun HostPartyControls(
 ) {
     val info by host.roomInfo.collectAsState()
     val pending by host.approvals.collectAsState()
-    LobbyInvitation(info.code, info.hostDisplayName, info.roomTag, createLink = host::createInvitation)
+    LobbyInvitation(info.code, info.hostDisplayName, info.roomTag, onInvite = commands.invite)
     if (pending.isNotEmpty()) {
         PartyHeading(stringResource(Res.string.party_pending))
         pending.forEach { request ->

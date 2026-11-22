@@ -61,6 +61,7 @@ internal fun PartyEntry(
     val gate = rememberP2pPermissionGate(transport.localNetworkAccess)
     var job by remember { mutableStateOf<Job?>(null) }
     var waiting by remember { mutableStateOf(false) }
+    var showJoinFeedback by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<NetError?>(null) }
     var approval by remember { mutableStateOf<ApprovalWait?>(null) }
     var saved by remember { mutableStateOf<ResumablePartySessionInfo?>(null) }
@@ -73,8 +74,9 @@ internal fun PartyEntry(
     val displayName = RoomInputPolicy.normalizeDisplayName(name)
     val validName = RoomInputPolicy.isValidDisplayName(displayName)
     val leave = { job?.cancel(); onExit() }
-    val open: (suspend () -> Result<ProcessPartySession, NetError>) -> Unit = { operation ->
+    val open: (Boolean, suspend () -> Result<ProcessPartySession, NetError>) -> Unit = { joining, operation ->
         if (!waiting) {
+            showJoinFeedback = joining
             waiting = true
             problem = null
             job = scope.launch {
@@ -93,11 +95,18 @@ internal fun PartyEntry(
     }
     LaunchedEffect(backRequest) { if (backRequest > 0) leave() }
 
+    val feedback: @Composable () -> Unit = {
+        if (waiting) PartyJoinProgress(approval)
+        problem?.let { PartyError(roomGameError(it)) }
+        if (problem != null && gate.canOpenNetworkSettings && transport.localNetworkAccess.value.needsRecoveryGuidance) {
+            PartyButton(Res.string.party_network_settings, variant = ParlorButtonVariant.Secondary, onClick = gate::openAppSettings)
+        }
+    }
     PartyScaffold {
         PartyHeading(stringResource(if (invitation == null) Res.string.party_open else Res.string.party_invitation))
         PartyDetail(stringResource(Res.string.party_entry_detail))
         saved?.takeIf { invitation == null }?.let { pending ->
-            PartyButton(Res.string.party_resume, enabled = !waiting) { open { owner.resume(pending, catalog) } }
+            PartyButton(Res.string.party_resume, enabled = !waiting) { open(false) { owner.resume(pending, catalog) } }
         }
         ParlorTextField(name, { if (!waiting) name = RoomInputPolicy.sanitizeDisplayNameInput(it) },
             stringResource(Res.string.party_name))
@@ -106,8 +115,9 @@ internal fun PartyEntry(
             textStyle = ParlorTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
             autoCorrectEnabled = false)
         PartyButton(Res.string.party_join, enabled = !waiting && validName && RoomInputPolicy.isValidRoomCode(code)) {
-            open { owner.join(displayName, code, catalog, invitation, onApprovalPending = { approval = it }) }
+            open(true) { owner.join(displayName, code, catalog, invitation, onApprovalPending = { approval = it }) }
         }
+        if (showJoinFeedback) feedback()
         if (invitation == null) {
             ParlorTextField(roomName, { if (!waiting) roomName = RoomInputPolicy.sanitizeDisplayNameInput(it) },
                 stringResource(Res.string.party_room_name))
@@ -116,14 +126,10 @@ internal fun PartyEntry(
             PartyButton(Res.string.party_create, enabled = !waiting && validName && selected != null) {
                 val initial = checkNotNull(selected)
                 val label = RoomInputPolicy.normalizeDisplayName(roomName).ifBlank { null }
-                open { owner.host(displayName, catalog, initial, label) }
+                open(false) { owner.host(displayName, catalog, initial, label) }
             }
         }
-        if (waiting) PartyJoinProgress(approval)
-        problem?.let { PartyError(roomGameError(it)) }
-        if (problem != null && gate.canOpenNetworkSettings && transport.localNetworkAccess.value.needsRecoveryGuidance) {
-            PartyButton(Res.string.party_network_settings, variant = ParlorButtonVariant.Secondary, onClick = gate::openAppSettings)
-        }
+        if (!showJoinFeedback) feedback()
         PartyButton(Res.string.party_cancel, variant = ParlorButtonVariant.Secondary, modifier = Modifier.fillMaxWidth(), onClick = leave)
     }
 }

@@ -90,12 +90,7 @@ private fun InviteDialog(invite: String?, unavailable: String, onClose: () -> Un
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
             ) {
-                if (invite == null) {
-                    Text(unavailable)
-                } else {
-                    InvitationQr(invite)
-                    Text(stringResource(Res.string.lobby_invite_help))
-                }
+                InvitationDetails(invite, unavailable)
             }
         },
         dismissButton = {
@@ -108,6 +103,33 @@ private fun InviteDialog(invite: String?, unavailable: String, onClose: () -> Un
             }
         },
     )
+}
+
+/** Invitation card for hosts whose flow is presented inside the app window. */
+@Composable
+fun InvitationContent(invite: String?) {
+    val share = rememberInvitationSharer()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+    ) {
+        InvitationDetails(invite, stringResource(Res.string.lobby_invite_unavailable))
+        if (invite != null) {
+            val label = stringResource(Res.string.lobby_invite_share)
+            ParlorButton(label, { share(invite) }, label, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun InvitationDetails(invite: String?, unavailable: String) {
+    if (invite == null) {
+        Text(unavailable)
+    } else {
+        InvitationQr(invite)
+        Text(stringResource(Res.string.lobby_invite_help))
+    }
 }
 
 @Composable

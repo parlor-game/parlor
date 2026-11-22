@@ -255,6 +255,7 @@
     <string name="reveal_stage_continue_description">تأكيد الكشف والمتابعة إلى ما بعد اللعبة.</string>
 
     <!-- بعد اللعبة -->
+    <string name="postgame_party_exit">العودة إلى المجموعة</string>
     <string name="postgame_eyebrow">بعد اللعبة</string>
     <string name="postgame_question">ما التالي؟</string>
     <string name="postgame_replay">العب مجددًا — قاتل جديد</string>

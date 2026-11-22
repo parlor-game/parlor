@@ -178,6 +178,9 @@ internal interface GameShellBinding {
 
 internal interface PartyGameShell {
     @Composable
+    fun PartyRules(playerCount: Int)
+
+    @Composable
     fun PartyMatch(
         session: ProcessMultiplayerSession,
         onEndHostMatch: (SessionEndReason) -> Unit,

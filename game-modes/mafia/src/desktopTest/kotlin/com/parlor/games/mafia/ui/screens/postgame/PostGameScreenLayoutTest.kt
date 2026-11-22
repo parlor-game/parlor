@@ -13,6 +13,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runComposeUiTest
@@ -55,6 +56,21 @@ class PostGameScreenLayoutTest {
     @Test
     fun landscape_large_text_arabic_roles_remain_scrollable(): Unit =
         verifyRoles(AppLanguage.Arabic, fontScale = 2f, width = 640.dp, height = 320.dp)
+
+    @Test
+    fun party_results_name_the_actual_exit_destination(): Unit = runComposeUiTest {
+        var exited = false
+        setContent {
+            ProvideAppLanguage(AppLanguage.English) {
+                ParlorTheme(reducedMotion = true) {
+                    PostGameScreen(Team.Town, listOf("Guest" to Role.Civilian), { exited = true }, returnToParty = true)
+                }
+            }
+        }
+        onNodeWithText("Back to home").assertDoesNotExist()
+        onNodeWithText("Back to party").performScrollTo().assertIsDisplayed().performClick()
+        runOnIdle { assertTrue(exited) }
+    }
 
     private fun verifyRoles(
         language: AppLanguage,

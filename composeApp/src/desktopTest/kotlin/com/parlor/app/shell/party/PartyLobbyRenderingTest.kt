@@ -4,18 +4,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.parlor.app.shell.game.DefaultGameShellRegistry
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
@@ -68,19 +73,37 @@ class PartyLobbyRenderingTest {
                         ProvideAppLanguage(language) {
                             ParlorTheme(reducedMotion = true) {
                                 Box(Modifier.size(320.dp, 640.dp)) {
-                                    PartyLobbyContent(
-                                        session, current.value, mapOf(game to "Mafia"), false, null,
-                                        onLeave = {}, onViewMatch = {},
-                                        commands = PartyLobbyCommands({}, {}, {}, {}) { ready ->
-                                            tapped++
-                                            current.value = lobby(game, host, peer, ready)
-                                        },
-                                    )
+                                    val showRules = remember { mutableStateOf(false) }
+                                    if (showRules.value) {
+                                        PartyRulesContent("Mafia", onBack = { showRules.value = false }) {
+                                            PartyDetail("Selected game rules")
+                                        }
+                                    } else {
+                                        PartyLobbyContent(
+                                            session, current.value, mapOf(game to "Mafia"), false, null,
+                                            onLeave = {}, onViewMatch = {},
+                                            commands = PartyLobbyCommands(
+                                                {}, {}, {}, {}, setReady = { ready ->
+                                                    tapped++
+                                                    current.value = lobby(game, host, peer, ready)
+                                                },
+                                                viewRules = { showRules.value = true }, invite = {},
+                                            ),
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                val rules = if (ar) "عرض قواعد اللعبة" else "View game rules"
+                val back = if (ar) "العودة إلى المجموعة" else "Back to party"
+                onNodeWithText(rules).performScrollTo().assertIsEnabled().performClick()
+                onNodeWithText("Selected game rules").assertIsDisplayed()
+                onNodeWithText(if (ar) "جاهز" else "Ready").assertDoesNotExist()
+                onNodeWithText(back).assertIsDisplayed().performClick()
+                onNodeWithText("Selected game rules").assertDoesNotExist()
+
                 // One copy labels the player status and one labels the action.
                 val markReady = if (ar) "جاهز" else "Ready"
                 val markNotReady = if (ar) "غير جاهز" else "Not ready"
@@ -94,6 +117,58 @@ class PartyLobbyRenderingTest {
         }
     }
 
+    @Test
+    fun join_failure_appears_by_its_button_on_a_narrow_screen() = runTest {
+        val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
+        val transport = LobbyTransport(PlayerId("host"), PlayerId("player"), joinError = NetError.StaleRoom)
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        runComposeUiTest {
+            setContent {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        Box(Modifier.size(320.dp, 570.dp)) {
+                            PartyEntry(owner, transport, mapOf(game to "Mafia"), null, 0) {}
+                        }
+                    }
+                }
+            }
+            onNode(hasSetTextAction() and hasText("Your player name")).performTextInput("Guest")
+            onNode(hasSetTextAction() and hasText("Room code")).performTextInput("ABCDEF")
+            onNodeWithText("Request to join").assertIsDisplayed().assertIsEnabled().performClick()
+            onNodeWithText("This room has closed or been replaced. Ask the host for a new invitation.").assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun privacy_cover_temporarily_hides_the_in_window_leave_confirmation() = runTest {
+        val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
+        val transport = LobbyTransport(PlayerId("host"), PlayerId("player"))
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        assertIs<Result.Success<ProcessPartySession>>(owner.join("Guest", "ABCDEF", setOf(game)))
+        val registry = DefaultGameShellRegistry(emptyList())
+        val covered = mutableStateOf(false)
+        runComposeUiTest {
+            setContent {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        PartyScreen(owner, transport, registry, invitation = null, privateContentCovered = covered.value,
+                            backRequest = 0, onExit = {})
+                    }
+                }
+            }
+            onNodeWithText("Leave party").performScrollTo().performClick()
+            onNodeWithText("Leave this party?").assertIsDisplayed()
+            runOnIdle { covered.value = true }
+            onNodeWithText("Party hidden while Parlor is inactive").assertIsDisplayed()
+            onNodeWithText("Leave this party?").assertDoesNotExist()
+            onNodeWithText("Party room").assertDoesNotExist()
+            runOnIdle { covered.value = false }
+            onNodeWithText("Leave this party?").assertIsDisplayed()
+            onNodeWithText("Cancel").performClick()
+            onNodeWithText("Leave this party?").assertDoesNotExist()
+        }
+    }
+
     private fun lobby(game: PartyGame, host: PlayerId, peer: PlayerId, ready: Boolean) = PublicPartyLobby(
         PartyLobbyPhase.Lobby, game.protocol,
         listOf(
@@ -103,7 +178,11 @@ class PartyLobbyRenderingTest {
         game.playerCounts.last, null, 0,
     )
 
-    private class LobbyTransport(host: PlayerId, peer: PlayerId) : RoomTransport {
+    private class LobbyTransport(
+        host: PlayerId,
+        peer: PlayerId,
+        private val joinError: NetError? = null,
+    ) : RoomTransport {
         override val capability = TransportCapability(false, 0, 16_384)
         val foregroundReady = MutableStateFlow(true)
         private val room = object : LocalRoom {
@@ -123,6 +202,7 @@ class PartyLobbyRenderingTest {
         override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = Result.Failure(NetError.Unauthorized)
         override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
             Result.Failure(NetError.Unauthorized)
-        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> = Result.Success(room)
+        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
+            joinError?.let { Result.Failure(it) } ?: Result.Success(room)
     }
 }

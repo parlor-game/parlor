@@ -245,6 +245,11 @@
     <string name="party_settings_game">اختر اللعبة الأولى</string>
     <string name="party_game_selected">المختارة · %1$s</string>
     <string name="party_name">اسمك في اللعب</string>
+    <string name="party_rules_view">عرض قواعد اللعبة</string>
+    <string name="party_rules_back">العودة إلى المجموعة</string>
+    <string name="party_rules_last_light">خادع خصومك ليبقى نورك مضاءً. يفوز آخر لاعب يبقى نوره مضاءً.</string>
+    <string name="party_rules_mafia">المافيا الكلاسيكية بأدوار تناسب عدد اللاعبين المتصلين. يصوّت أهل المدينة نهارًا وتتحرك المافيا ليلًا.</string>
+    <string name="party_rules_whodunit">التصويت الكلاسيكي. يختار بارلور قضية للمجموعة. اجمعوا الأدلة وصوّتوا مرة واحدة في النهاية.</string>
     <string name="party_room_name">اسم الغرفة (اختياري)</string>
     <string name="party_code">رمز الغرفة</string>
     <string name="party_create">أنشئ غرفة</string>
@@ -258,6 +263,8 @@
     <string name="party_offline">جارٍ إعادة الاتصال</string>
     <string name="party_roster">اللاعبون</string>
     <string name="party_player_line">%1$s · %2$s</string>
+    <string name="party_invite_players">دعوة اللاعبين</string>
+    <string name="party_invite_loading">جاري تجهيز الدعوة…</string>
     <string name="party_invitation">انضم إلى الغرفة عبر الدعوة</string>
     <string name="party_pending">طلبات الانضمام</string>
     <string name="party_approve">قبول</string>

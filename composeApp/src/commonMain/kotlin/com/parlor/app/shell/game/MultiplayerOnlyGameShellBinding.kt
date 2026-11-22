@@ -19,6 +19,11 @@ internal abstract class MultiplayerOnlyGameShellBinding<S : GameState, A : GameA
         get() = GameShellMultiplayerContract(definition.id, version, definition.supportedPlayerCounts)
 
     @Composable
+    final override fun PartyRules(playerCount: Int) {
+        Settings(defaultCaseId, playerCount, enabled = false, onChange = {})
+    }
+
+    @Composable
     override fun PartyMatch(
         session: ProcessMultiplayerSession,
         onEndHostMatch: (SessionEndReason) -> Unit,

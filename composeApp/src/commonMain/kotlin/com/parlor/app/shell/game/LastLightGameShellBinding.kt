@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game
 
 import com.parlor.designsystem.icons.ParlorArtwork
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -16,6 +17,7 @@ import com.parlor.games.lastlight.ui.LastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightVisibilityReader
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_rules_last_light
 import com.parlor.app.resources.home_lastlight_open
 import com.parlor.app.resources.home_lastlight_open_description
 import com.parlor.app.resources.home_lastlight_kicker
@@ -28,6 +30,7 @@ import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.designsystem.theme.ParlorAccentScope
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.lastlight.LastLightDefinition
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostLobbyFlow
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostRoomBridge
@@ -71,6 +74,11 @@ internal class LastLightGameShellBinding(
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.Cards,
     )
+
+    @Composable
+    override fun PartyRules(playerCount: Int) {
+        Text(stringResource(Res.string.party_rules_last_light), color = ParlorTheme.colors.textPrimary)
+    }
 
     @Composable
     override fun PartyMatch(

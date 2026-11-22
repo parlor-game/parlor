@@ -1171,6 +1171,7 @@ fun WhodunitMultiplayerHostFlow(
                         exitToLibrary(reason)
                     },
                     modifier = Modifier.fillMaxSize(),
+                    returnToParty = onPartyEnd != null,
                 )
                 if (
                     state.phase is WhodunitPhase.Round &&
