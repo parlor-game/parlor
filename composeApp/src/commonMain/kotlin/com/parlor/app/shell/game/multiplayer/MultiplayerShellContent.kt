@@ -76,6 +76,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         ShellStep.HostName, ShellStep.JoinName -> {
             val nameStep = step
             NameInputScreen(
+                gameTitle = presentation.title,
                 isHost = nameStep == ShellStep.HostName, initial = name,
                 onConfirm = {
                     // A queued activation can retain this callback after the first
@@ -89,6 +90,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             )
         }
         ShellStep.JoinCode -> JoinPromptScreen(
+            gameTitle = presentation.title,
             onConfirm = {
                 // Once accepted, late editor/activation callbacks cannot select
                 // a different room or move an owned peer back into setup.

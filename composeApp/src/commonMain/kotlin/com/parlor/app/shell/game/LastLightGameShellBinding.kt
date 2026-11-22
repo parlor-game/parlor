@@ -217,6 +217,7 @@ private fun LastLightShellContent(
         )
 
         LastLightShellScreen.HostName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = true,
             initial = hostName,
             onConfirm = { name ->
@@ -251,6 +252,7 @@ private fun LastLightShellContent(
         )
 
         LastLightShellScreen.JoinName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = false,
             initial = peerName,
             onConfirm = { name ->
@@ -264,6 +266,7 @@ private fun LastLightShellContent(
         )
 
         LastLightShellScreen.JoinPrompt -> JoinPromptScreen(
+            gameTitle = presentation.title,
             onConfirm = { code ->
                 if (screen == LastLightShellScreen.JoinPrompt) {
                     pendingJoinCode = code

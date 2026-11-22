@@ -243,6 +243,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.HostName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = true,
             initial = hostName,
             onConfirm = { name ->
@@ -309,6 +310,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.JoinName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = false,
             initial = peerName,
             onConfirm = { name ->
@@ -322,6 +324,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.JoinPrompt -> JoinPromptScreen(
+            gameTitle = presentation.title,
             onConfirm = { code ->
                 if (screen == WhodunitShellScreen.JoinPrompt) {
                     pendingJoinCode = code

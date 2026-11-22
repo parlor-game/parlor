@@ -23,7 +23,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
-import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.join_cancel_description
 import com.parlor.app.resources.join_code_field
@@ -33,7 +32,7 @@ import com.parlor.app.resources.join_confirm_description
 import com.parlor.app.resources.join_steps_approval
 import com.parlor.app.resources.join_steps_network
 import com.parlor.app.resources.join_title
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorTextField
 import com.parlor.designsystem.components.ScreenHeader
@@ -43,8 +42,6 @@ import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.RoomInputPolicy
 import org.jetbrains.compose.resources.stringResource
-
-private val JoinFormMaxWidth = 560.dp
 
 /**
  * Room-code entry shared by the shipping game-specific peer session flows.
@@ -56,19 +53,20 @@ fun JoinPromptScreen(
     onConfirm: (code: String) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    gameTitle: String? = null,
 ) {
     var code by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize()) {
         StickyActionLayout(
             modifier = Modifier.fillMaxSize().parlorImePadding(),
             content = {
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .widthIn(max = JoinFormMaxWidth)
+                        .widthIn(max = RoomEntryMaxWidth)
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .parlorSafeContentPadding(ParlorTheme.spacing.m),
@@ -76,6 +74,7 @@ fun JoinPromptScreen(
                 ) {
                     ScreenHeader(
                         title = stringResource(Res.string.join_title),
+                        eyebrow = gameTitle,
                         subtitle = stringResource(Res.string.join_steps_network),
                         onBack = onCancel,
                         backContentDescription = stringResource(Res.string.join_cancel_description),
@@ -124,7 +123,7 @@ fun JoinPromptScreen(
                             val currentCode = code
                             if (RoomInputPolicy.isValidRoomCode(currentCode)) onConfirm(currentCode)
                         },
-                        modifier = Modifier.widthIn(max = JoinFormMaxWidth).fillMaxWidth(),
+                        modifier = Modifier.widthIn(max = RoomEntryMaxWidth).fillMaxWidth(),
                         enabled = RoomInputPolicy.isValidRoomCode(code),
                     )
                 }

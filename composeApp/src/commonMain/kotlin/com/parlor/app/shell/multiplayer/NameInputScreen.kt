@@ -1,9 +1,11 @@
 package com.parlor.app.shell.multiplayer
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
@@ -12,9 +14,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.name_back
 import com.parlor.app.resources.name_back_description
@@ -28,7 +32,7 @@ import com.parlor.app.resources.name_field
 import com.parlor.app.resources.name_help
 import com.parlor.app.resources.name_title_host
 import com.parlor.app.resources.name_title_peer
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorTextField
 import com.parlor.designsystem.components.ScreenHeader
@@ -38,6 +42,8 @@ import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.RoomInputPolicy
 import org.jetbrains.compose.resources.stringResource
+
+internal val RoomEntryMaxWidth = 560.dp
 
 /**
  * Asks the player to enter the name shown to the room. Reused by both
@@ -59,32 +65,32 @@ fun NameInputScreen(
     onConfirm: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    gameTitle: String? = null,
 ) {
     var name by remember { mutableStateOf(initial) }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val sanitized = normalizedMultiplayerDisplayName(name)
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize()) {
         StickyActionLayout(
             modifier = Modifier.fillMaxSize().parlorImePadding(),
             content = {
                 Column(
                     modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = RoomEntryMaxWidth)
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .parlorSafeContentPadding(
-                            horizontal = ParlorTheme.spacing.l,
-                            top = ParlorTheme.spacing.l,
-                            bottom = ParlorTheme.spacing.l,
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
+                        .parlorSafeContentPadding(ParlorTheme.spacing.m),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                 ) {
                     ScreenHeader(
                         title = if (isHost) stringResource(Res.string.name_title_host)
                         else stringResource(Res.string.name_title_peer),
-                        eyebrow = if (isHost) stringResource(Res.string.name_eyebrow_host)
-                        else stringResource(Res.string.name_eyebrow_peer),
+                        eyebrow = gameTitle ?: stringResource(
+                            if (isHost) Res.string.name_eyebrow_host else Res.string.name_eyebrow_peer,
+                        ),
                         subtitle = stringResource(Res.string.name_help),
                         onBack = onBack,
                         backContentDescription = stringResource(Res.string.name_back_description),
@@ -106,23 +112,24 @@ fun NameInputScreen(
                 }
             },
             actions = {
-                ParlorButton(
-                    label = if (isHost) stringResource(Res.string.name_confirm_host)
-                    else stringResource(Res.string.name_confirm_peer),
-                    contentDescription = if (isHost) {
-                        stringResource(Res.string.name_confirm_host_description)
-                    } else {
-                        stringResource(Res.string.name_confirm_peer_description)
-                    },
-                    onClick = {
-                        // Input can change before this retained button callback is recomposed.
-                        // Read and validate the current draft at the activation boundary.
-                        val currentName = normalizedMultiplayerDisplayName(name)
-                        if (RoomInputPolicy.isValidDisplayName(currentName)) onConfirm(currentName)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = RoomInputPolicy.isValidDisplayName(sanitized),
-                )
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    ParlorButton(
+                        label = if (isHost) stringResource(Res.string.name_confirm_host)
+                        else stringResource(Res.string.name_confirm_peer),
+                        contentDescription = if (isHost) {
+                            stringResource(Res.string.name_confirm_host_description)
+                        } else {
+                            stringResource(Res.string.name_confirm_peer_description)
+                        },
+                        onClick = {
+                            // A retained callback must validate the current draft at activation.
+                            val currentName = normalizedMultiplayerDisplayName(name)
+                            if (RoomInputPolicy.isValidDisplayName(currentName)) onConfirm(currentName)
+                        },
+                        modifier = Modifier.widthIn(max = RoomEntryMaxWidth).fillMaxWidth(),
+                        enabled = RoomInputPolicy.isValidDisplayName(sanitized),
+                    )
+                }
             },
         )
     }

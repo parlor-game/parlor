@@ -70,12 +70,26 @@ import kotlin.test.assertEquals
 class PublicSetupInputJourneyTest {
     @Test
     fun english_catalog_host_back_join_and_name_entry_use_the_registered_routes() {
-        verifyJourneys(AppLanguage.English, listOf("Open Egyptian Dominoes", "Open Ghamza", "Open Word Impostor"))
+        verifyJourneys(AppLanguage.English, mapOf(
+            "Open Whodunit and pick how you want to play." to "Whodunit",
+            "Open the Mafia game." to "Mafia",
+            "Open Last Light and choose local or nearby play" to "Last Light",
+            "Open Egyptian Dominoes" to "Egyptian Dominoes",
+            "Open Ghamza" to "Ghamza",
+            "Open Word Impostor" to "Word Impostor",
+        ))
     }
 
     @Test
     fun arabic_catalog_host_back_join_and_name_entry_use_the_registered_routes() {
-        verifyJourneys(AppLanguage.Arabic, listOf("افتح الدومنة المصرية", "افتح غمزة", "افتح لعبة الإمبوستر"))
+        verifyJourneys(AppLanguage.Arabic, mapOf(
+            "افتح من القاتل واختر طريقة اللعب." to "من القاتل",
+            "افتح لعبة حرامية وظباط." to "حرامية وظباط",
+            "افتح الضوء الأخير واختر اللعب على جهاز واحد أو مع الأجهزة القريبة" to "الضوء الأخير",
+            "افتح الدومنة المصرية" to "الدومنة المصرية",
+            "افتح غمزة" to "غمزة",
+            "افتح لعبة الإمبوستر" to "الإمبوستر",
+        ))
     }
 
     @Test
@@ -114,12 +128,12 @@ class PublicSetupInputJourneyTest {
         }
     }
 
-    private fun verifyJourneys(language: AppLanguage, games: List<String>) {
-        for (game in games) {
+    private fun verifyJourneys(language: AppLanguage, games: Map<String, String>) {
+        for ((game, title) in games) {
             PublicSetupFixture(language).use { fixture ->
                 runComposeUiTest {
                     installApp(fixture)
-                    verifyPublicJourney(game, language)
+                    verifyPublicJourney(game, title, language)
                     runOnIdle {
                         assertEquals(0, fixture.transport.lanCalls.get(), "Public setup must not start networking")
                         assertEquals(ProcessMultiplayerState.Idle, fixture.owner.state.value)
@@ -153,7 +167,7 @@ class PublicSetupInputJourneyTest {
         }
     }
 
-    private fun ComposeUiTest.verifyPublicJourney(game: String, language: AppLanguage) {
+    private fun ComposeUiTest.verifyPublicJourney(game: String, title: String, language: AppLanguage) {
         val arabic = language == AppLanguage.Arabic
         val host = if (arabic) "افتح غرفة وأظهر الرمز لأصدقائك للانضمام."
             else "Open a room and show a code your friends can join."
@@ -174,6 +188,7 @@ class PublicSetupInputJourneyTest {
         // Desktop correctly has no permission rationale; exercise the real
         // platform route, without overriding the gate or claiming iOS coverage.
         onNode(hasSetTextAction()).assertExists()
+        onNodeWithText(title.uppercase()).assertIsDisplayed()
         onNodeWithContentDescription(hostContinue).assertIsNotEnabled()
         tapPublicControl(back)
         onNode(hasSetTextAction()).assertDoesNotExist()
@@ -182,6 +197,7 @@ class PublicSetupInputJourneyTest {
 
         tapPublicControl(game)
         tapPublicControl(join)
+        onNodeWithText(title.uppercase()).assertIsDisplayed()
         val field = onNode(hasSetTextAction())
         assertDraft("")
         onNodeWithContentDescription(peerContinue).assertIsNotEnabled()
@@ -195,6 +211,7 @@ class PublicSetupInputJourneyTest {
         assertDraft(input)
         onNodeWithContentDescription(peerContinue).assertIsEnabled()
         tapPublicControl(peerContinue, scrollable = false)
+        onNodeWithText(title.uppercase()).assertIsDisplayed()
         assertDraft("")
         onNodeWithContentDescription(peerContinue).assertDoesNotExist()
         onNodeWithContentDescription(findRoom).assertExists().assertIsNotEnabled()
