@@ -19,7 +19,8 @@ baseline SHA above.
 
 ### Local implementation checkpoint
 
-Work is on `feat/smart-lobby-game-admission` for one consolidated PR.
+The game-room and party transport work is consolidated locally on
+`wip/smart-lobby-party-runtime` for one PR after the remaining app work.
 The protocol and user interface on protected `main` still follow the
 baseline above until the complete change is reviewed and integrated.
 
@@ -28,7 +29,7 @@ baseline above until the complete change is reviewed and integrated.
 | Admission | Exact game/version admission before approval, host-side approval expiry, a fresh room identity, v2 protected rejoin with room/game binding, and an authenticated game/room preview before the approval wait. The obsolete v1 slot is removed when read and cannot restore a room. | Live Android and iOS admission and reconnect; the host and peer countdown UI remains outstanding. |
 | Discovery | Game-scoped advertisements and dial selection, bounded nearby room rows, public room tags on both host and peer UI, and exact candidate selection in all six game flows. | Native discovery and removal; the legacy-version banner, network-change refresh and quarantine acceptance rows are still outstanding. |
 | Invitations | Local QR render, OS sharing, strict versioned link parsing, game/version routing, and fingerprint-pinned admission using the exact room identity. | Verify the system camera, share sheet, native deep linking and join/reject behavior on devices. |
-| Party and rematch | Game rooms keep their existing single-game game-start behavior. | Party-scoped membership, authoritative game changes, per-match transition and rematch, recovery and the physical-device matrix. |
+| Party and rematch | Explicit party admission and rejoin use a separate scope. Host readiness, game selection, capacity, and reversible match rosters are tested. The Linux two-process probe covers party resume and another roster freeze on the same physical room. | Connect the party lobby and the six game start/end flows, finish match-scoped frame dispatch, and run mobile acceptance. |
 
 ---
 
