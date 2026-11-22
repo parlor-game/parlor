@@ -77,6 +77,9 @@ boot_android_group() {
     memory_mib=1536
     display=(-skin 720x1280)
   fi
+  if (( DEVICE_COUNT == 6 )); then
+    cpu_cores=1
+  fi
   awk -v count="$DEVICE_COUNT" -v memory="$memory_mib" '
     /^MemAvailable:/ {
       print "available_kib=" $2
@@ -97,13 +100,16 @@ boot_android_group() {
     printf '%s\n' "$guest_pid" >> "$work/parlor-emulator-pids"
     printf '%s\n' "$serial" >> "$devices"
     printf 'Waiting for %s to boot\n' "$serial"
-    timeout 165 bash -c '
+    timeout 240 bash -c '
       until [[ "$(adb -s "$1" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do
         kill -0 "$2" || exit 1
         sleep 2
       done
     ' bash "$serial" "$guest_pid"
     adb -s "$serial" shell getprop sys.boot_completed | tr -d '\r' > "$proof/$serial-boot.txt"
+    adb -s "$serial" shell settings put global window_animation_scale 0
+    adb -s "$serial" shell settings put global transition_animation_scale 0
+    adb -s "$serial" shell settings put global animator_duration_scale 0
     printf '%s completed boot\n' "$serial"
   done
 }
