@@ -244,7 +244,9 @@ Rules:
 
 - `LobbyAdvertisement.encode()` produces ASCII only and must be ≤ 64 bytes.
   Host creation fails with `NetError.InvalidInput` if not (PK-4). The worst
-  case is `parlor-lobby|1|99.99|g|<32-byte id>|9999|XXXX` = 61 bytes.
+  case is `parlor-lobby|1|99.99|g|<32-byte id>|9999|XXXX` = 65 bytes. A syntactically valid ID can exceed the
+  64-byte advert budget with long version fields; check the full encoded
+  length and fail before starting the host.
 - `LobbyAdvertisement.parse()` is total and strict: exactly 7 fields, no
   empty fields, no whitespace, no extra separators, no lowercase in the tag.
   It returns a sealed result: `Joinable`, `IncompatibleProtocol`,
@@ -269,9 +271,12 @@ Every filter runs on `kit.peers`, which already reflects native Lost:
 3. In mode `g`, the game must be in this build's registry with a
    multiplayer contract. A version mismatch shows the entry as "Needs the same
    Parlor version". An unknown game is hidden.
-4. If the user started from a game card, the list is pre-filtered to that
-   `gameId` with a "Show all games" toggle. From the Home "Join nearby"
-   entry, every compatible game is shown.
+4. A game card opens a browser fixed to that game's canonical ID and
+   exact supported version. Other games and parties are excluded from its
+   visible rows and dial candidates. A Home discovery overview may list
+   compatible games by section, but selecting a group opens a separate
+   game-scoped browser before dialing. Protocol 5.0 can expose an explicit
+   Party browser for mode `p`; its rows are separate from every game browser.
 5. `Legacy42` entries are counted and shown as a single banner ("A nearby
    room uses an older Parlor. Update both devices"), never as joinable rows.
 
@@ -362,7 +367,7 @@ data class AdmissionRequest(
     val roomCode: String,
     val displayName: String,
     val rejoinToken: String? = null,          // still always rejected; retained for schema stability
-    val acceptedGames: List<GameProtocolRef>, // 1..8, distinct gameId, canonical; required in 4.3
+    val expectedGame: GameProtocolRef,        // exactly the chosen game and version; required in 4.3
     val expectedRoomId: String? = null,       // from QR/link/credential; null for typed or discovered entry
 ) : PeerMessage
 
@@ -398,9 +403,20 @@ data class ResumableCredentialOffer(
 data class ResumeRequested(/* existing fields … */ val roomId: String, val game: GameProtocolRef)
 ```
 
-All size bounds stay under `MAX_CONTROL_PAYLOAD_BYTES` (8 KiB): eight game
-refs are under 400 bytes, and `LobbyInfo` is under 300 bytes with a
+All size bounds stay under `MAX_CONTROL_PAYLOAD_BYTES` (8 KiB): the bound game
+ref is under 64 bytes, and `LobbyInfo` is under 300 bytes with a
 maximum-length display name.
+
+A game-scoped entry point binds `expectedGame` to the resolved game shell,
+and uses that one value for candidate selection, request construction,
+admission, credential verification, and snapshot routing. A device can support
+all six games and still request entry to exactly one. Changes to discovery or
+join selection cancel the previous operation and discard its late events.
+A 5.0 encrypted party capability declaration is a separate bounded
+`supportedGames` list. It can inform future transitions after membership has
+been authorized, but it satisfies no game-room admission predicate. General
+party invitations use an explicit party entry route and never appear in a
+game-scoped discovery list while the party can change games.
 
 ### 6.2 Host-side check order
 
@@ -412,10 +428,10 @@ it try the next host:
 |---|---|---|---|
 | 1 | Per-peer attempt rate limit | `RateLimited` | Definitive |
 | 2 | Exact protocol | `IncompatibleProtocol` | Candidate-local |
-| 3 | `acceptedGames` well-formed (1..8, canonical, distinct, versions > 0) | `InvalidRequest` | Definitive |
+| 3 | `expectedGame` is canonical and registered, with a positive game version | `InvalidRequest` | Definitive |
 | 4 | `expectedRoomId != null && != roomId` | `StaleRoom` | Definitive for pinned/selected targets; candidate-local in all-candidates mode |
 | 5 | Room code | `WrongCode` | Candidate-local (unchanged) |
-| 6 | Host game ∉ `acceptedGames` (`gameId` match + exact `gameVersion`) | `WrongGame(hostGame)` | Definitive; the shell may offer to re-join with `hostGame` (§10.2) |
+| 6 | Host game differs from `expectedGame` (`gameId` or exact `gameVersion`) | `WrongGame(hostGame)` | Definitive; the original attempt ends; the shell never retries or silently switches game |
 | 7 | `admissionsClosed` | `SessionStarted` | Definitive |
 | 8 | Rejoin token present | `InvalidCredential` | Definitive (unchanged) |
 | 9 | Display name rules / duplicate | `InvalidRequest` / `DisplayNameInUse` | Definitive (unchanged) |
@@ -514,7 +530,7 @@ Validation (`JoinLinkCodec`, pure Kotlin in `:shared:networking`):
    game is unknown or the version differs, it shows "This room needs a
    different Parlor version" and stops. Nothing touches the LAN.
 2. Name entry (prefilled from the last used name if decision D-9 allows).
-3. `join(JoinConfig(code, name, acceptedGames = [g@gv], target = JoinTarget.Pinned(fingerprint, roomId)))`.
+3. `join(JoinConfig(code, name, expectedGame = g@gv, target = JoinTarget.Pinned(fingerprint, roomId)))`.
 4. The transport discovers `parlor-lobby|` adverts whose protocol/game match,
    dials only peers whose TXT fingerprint matches. It doesn't trust TXT for
    this: `connect(peer, fingerprint)` enforces the pin cryptographically. The
@@ -611,7 +627,7 @@ Validation (`JoinLinkCodec`, pure Kotlin in `:shared:networking`):
 - Too few members for the selected game is allowed in the lobby; Start stays
   disabled with the existing start-requirement explanation (PR #349,
   `dc91ee19`).
-- Each member's `acceptedGames` from admission is kept on the host. Selecting a
+- In 5.0 the host tracks each party member's separate `supportedGames` capability list. Selecting a
   game that a member does not support (same protocol, different game version)
   is rejected and names the incompatible member to the host only.
 
@@ -785,7 +801,7 @@ Start(target: AllCandidates | Discovered(entryKey) | Pinned(fp, roomId))
  -> Offered -> Staged -> Confirmed -> Committed -> Ready -> Member
 Rejections:
   WrongCode/IncompatibleProtocol (all-candidates) -> next candidate
-  WrongGame(hostGame) -> Failed(WrongGame); shell offers "Join <title> instead"
+  WrongGame(hostGame) -> Failed(WrongGame); clear the attempt and return to the selected game
                          (a new attempt bound to hostGame; never automatic)
   StaleRoom / pin mismatch -> Failed(RoomClosed)
   ApprovalExpired / HostDeclined / RoomFull / SessionStarted / DisplayNameInUse -> Failed(reason)
@@ -876,13 +892,13 @@ shell resolves games only through `GameShellRegistry`.
 
 | File | Change | Phase |
 |---|---|---|
-| `protocol/Protocol.kt` | 4.3: `GameProtocolRef`, `AdmissionRequest.acceptedGames/expectedRoomId`, `AdmissionPending.lobby/approvalWindowMillis`, `LobbyInfo`, `AdmissionRejected.hostGame`, new rejections, required offer `gameId/gameVersion/roomId`, `ResumeRequested.roomId/game`. 5.0: party messages, header `partyId`, `StaleMatch`, `PartyClosed` | 2, 5 |
+| `protocol/Protocol.kt` | 4.3: `GameProtocolRef`, `AdmissionRequest.expectedGame/expectedRoomId`, `AdmissionPending.lobby/approvalWindowMillis`, `LobbyInfo`, `AdmissionRejected.hostGame`, new rejections, required offer `gameId/gameVersion/roomId`, `ResumeRequested.roomId/game`. 5.0: party messages, header `partyId`, `StaleMatch`, `PartyClosed` | 2, 5 |
 | `protocol/ProtocolValidation.kt` | Canonical game ID check; validators for new messages (bounds, distinctness, window range, hex IDs) | 1, 2, 5 |
 | new `lobby/LobbyAdvertisement.kt` | Pure encode/parse, size cap, sealed parse result | 3 |
 | new `lobby/JoinLink.kt` | Pure strict link codec, redacting `toString` | 4 |
 | `room/DiscoveredRoom.kt` | Defaulted fields (§5.3), `RoomCompatibility`, `RoomAvailability`, `LobbyMode` | 3 |
 | `room/LocalRoom.kt` | `PendingAdmission.expiresInMillis`; `NetError.ApprovalExpired`, `WrongGame(hostGame)`, `StaleRoom`; 5.0 `freezeMatchRoster`, `reopenAfterMatch`, `retireMember` | 2, 5 |
-| `transport/RoomTransport.kt` | `JoinConfig.acceptedGames`, `target: JoinTarget` (`AllCandidates`/`Discovered`/`Pinned`); `HostConfig.mode`; doc update for `discoverRooms()` | 2, 3, 4 |
+| `transport/RoomTransport.kt` | `JoinConfig.expectedGame`, `target: JoinTarget` (`AllCandidates`/`Discovered`/`Pinned`); `HostConfig.mode`; doc update for `discoverRooms()` | 2, 3, 4 |
 | `src/commonTest` | Codec round-trip and strict-reject tests for every new message; frame-size worst cases; advert and link fuzz tables | 2–5 |
 
 ### 12.3 `:shared:networking-testing`
@@ -899,7 +915,7 @@ shell resolves games only through `GameShellRegistry`.
 | `HostP2pRoom.handleAdmissionRequest` (`:2331-2424`) | §6.2 order; `LobbyInfo`; pending `expiresAt`; reaper | 2 |
 | `HostP2pRoom.admit` (`:2985-3045`) | Expiry re-check inside the same lock; offer includes `roomId`, required game | 2 |
 | `awaitAdmission` (`:974-1180`) | Handle `WrongGame`/`StaleRoom`/`ApprovalExpired`; window from `Pending`; verify offer against `LobbyInfo` | 2 |
-| `join()` (`:349-585`) | Filter by advert parse + `acceptedGames`; `JoinTarget.Discovered` dials one candidate; `Pinned` uses `connect(peer, fp)` | 3, 4 |
+| `join()` (`:349-585`) | Filter by advert parse + exact `expectedGame`; `JoinTarget.Discovered` dials one candidate; `Pinned` uses `connect(peer, fp)` | 3, 4 |
 | `isCurrentParlorHost` (`:1501-1520`), `P2P_ROOM_PREFIX` (`:1537`) | Replace with advert parser; keep legacy detection for the update banner | 3 |
 | new `LobbyDiscoveryCache.kt` | Pure, bounded (32), quarantine timers, path-change clear; unit-tested with a fake clock | 3 |
 | `discoverRooms()` override | Cold flow owning a kit; cancellation stops discovery/kit | 3 |
@@ -922,13 +938,13 @@ shell resolves games only through `GameShellRegistry`.
 
 | File | Change | Phase |
 |---|---|---|
-| `shell/game/GameShellRegistry.kt` | Canonical ID requirement; `multiplayerGames(): List<GameShellMultiplayerContract>` for `acceptedGames` | 1, 3 |
+| `shell/game/GameShellRegistry.kt` | Canonical ID requirement; resolved game binding for `expectedGame`; 5.0 exposes a separate capability list | 1, 3 |
 | `shell/multiplayer/JoinPromptScreen.kt` | Room list + code entry; tag shown; QR hint | 3 |
-| new `shell/multiplayer/NearbyRoomsScreen.kt` | Game-agnostic list from Home; registry lookup for titles/artwork | 3 |
+| new `shell/multiplayer/NearbyRoomsScreen.kt` | Game-scoped browser and Home overview; resolve a game contract before dialing | 3 |
 | new `shell/multiplayer/JoinLinkRouter.kt` | Link → registry → binding launch (`GameShellLaunch.JoinLink`) | 4 |
 | `shell/game/GameShellRegistry.kt` (`GameShellLaunch`) | New `JoinDiscovered`/`JoinLink` launches with redacting `toString` | 3, 4 |
 | `shell/game/multiplayer/HostedGameLobby.kt`, `RoomGameLobbyUi.kt`, `LobbyComponents.kt` | Show tag + QR; approval countdown; disable Approve when full | 2–4 |
-| `shell/game/multiplayer/PeerGameLobby.kt` | `acceptedGames`; `WrongGame` → "Join <title> instead" | 2 |
+| `shell/game/multiplayer/PeerGameLobby.kt` | exact `expectedGame`; `WrongGame` ends the attempt | 2 |
 | `AppNavigationHost.kt` / Home | "Join nearby" entry; deep-link entry | 3, 4 |
 | `src/androidMain/AndroidManifest.xml` + `MainActivity` | `parlor://join` intent filter; `onNewIntent` forwarding | 4 |
 | `build.gradle.kts` (`verifyGameShellDispatch`, `:735`) | No change expected; new shell files must pass it | 3, 4 |
@@ -940,7 +956,7 @@ shell resolves games only through `GameShellRegistry`.
 `MafiaHostLobbyFlow.kt:165-168`, `MafiaPeerLobbyFlow.kt:172-179`,
 `LastLightHostLobbyFlow.kt:163-166` and `LastLightPeerLobbyFlow.kt:158-165`
 call `transport.host/join/resumeLastSession` directly. Phase 2 passes
-`acceptedGames` and handles the new errors there, or (preferred, Phase 3)
+exact `expectedGame` and handles the new errors there, or (preferred, Phase 3)
 moves those three games onto the shared `HostedGameLobby`/`PeerGameLobby`
 path. Game reducers, codecs and content don't change for Phases 1–4. Phase 5
 needs each binding to expose a read-only `Settings` preview and a
@@ -980,7 +996,7 @@ P0 Decisions/ADR-0003
 |---|---|---|---|
 | **P0** | T0.1 Write ADR-0003 with D-1…D-10 resolved. T0.2 Product copy for every new error (EN/AR). T0.3 Threat-model review of advert/link/share. | — | ADR accepted; copy reviewed; this plan updated with the decisions |
 | **P1** | T1.1 `GameId` canonical API + tests. T1.2 Registry `require`. T1.3 Header validator uses the canonical grammar. T1.4 Audit test fixtures; strict constructor or recorded exception. | P0 | `:shared:core:desktopTest`, `:shared:networking:desktopTest`, `:composeApp:desktopTest` pass; a non-canonical ID fails registry init and header validation in tests; no wire bump |
-| **P2** | T2.1 4.3 schema + validators. T2.2 Host check order (§6.2) and `LobbyInfo`. T2.3 Host approval expiry + reaper. T2.4 Peer handling of new rejections. T2.5 Credential schema 2 + v1 obsolete discard. T2.6 In-memory transport parity. T2.7 Shell/game flows pass `acceptedGames`; `WrongGame` redirect UI. T2.8 Diagnostics names. | P1 | Regression tests: (a) cross-game code → `WrongGame` **before** any `PendingAdmission` is published; (b) expired approval cannot reserve a seat (virtual clock); (c) concurrent approvals never exceed `seatLimit`; (d) `StaleRoom` for a mismatched `expectedRoomId`; (e) v1 credential is discarded, not resumed; (f) 4.2↔4.3 pairs fail closed; (g) logs contain no code/tag/ID/name. `:shared:transport-p2p:desktopTest`, `:shared:session:desktopTest`, `productionDesktopCheck` pass |
+| **P2** | T2.1 4.3 schema + validators. T2.2 Host check order (§6.2) and `LobbyInfo`. T2.3 Host approval expiry + reaper. T2.4 Peer handling of new rejections. T2.5 Credential schema 2 + v1 obsolete discard. T2.6 In-memory transport parity. T2.7 Shell/game flows pass exact `expectedGame`; `WrongGame` ends the attempt. T2.8 Diagnostics names. | P1 | Regression tests: (a) cross-game code → `WrongGame` **before** any `PendingAdmission` is published; (b) expired approval cannot reserve a seat (virtual clock); (c) concurrent approvals never exceed `seatLimit`; (d) `StaleRoom` for a mismatched `expectedRoomId`; (e) v1 credential is discarded, not resumed; (f) 4.2↔4.3 pairs fail closed; (g) logs contain no code/tag/ID/name. `:shared:transport-p2p:desktopTest`, `:shared:session:desktopTest`, `productionDesktopCheck` pass |
 | **P3** | T3.1 Advert codec. T3.2 Host advert + `RoomTag`. T3.3 `LobbyDiscoveryCache`. T3.4 `discoverRooms()`. T3.5 Single-candidate join. T3.6 Room list UI (game card + Home entry) via registry. T3.7 Legacy banner. T3.8 `supportsDiscovery = true`. T3.9 P2pKit Hello review → peer device-name change. T3.10 Move Whodunit/Mafia/Last Light onto shared lobby or wire them individually. | P2 | Cache table (§5.4) covered by fake-clock tests; advert ≤ 64 B for every registered game; wrong-game rooms are never dialed in filtered mode (test counts `connect` calls); `verifyGameShellDispatch` passes; EN/AR a11y labels contain no names/codes; PHY rows in §16.4 recorded UNVERIFIED until executed |
 | **P4** | T4.1 Link codec + strict tests. T4.2 QR encoder (D-7). T4.3 Host QR with concealment. T4.4 Android intent filter + `onNewIntent`. T4.5 iOS URL type + `onOpenURL`. T4.6 Pinned join target. T4.7 Share action (D-8). | P3 | Malformed/unknown/duplicate/percent-encoded links rejected (table tests); pinned join never connects to a non-matching fingerprint (fake kit test); `simctl openurl` / `adb am start -d` launch tests open the correct binding or fail closed; no IP/port anywhere in the link grammar (contract test) |
 | **P5** | T5.1 5.0 schema. T5.2 Pure party reducer + tests. T5.3 Transport match-scoped freeze/reopen, `retireMember`. T5.4 Party router + `StaleMatch`. T5.5 Session owner party route; per-match runtimes. T5.6 Credential schema 3. T5.7 Party lobby UI, game switching, Play again. T5.8 Per-binding read-only settings preview + "back to party". | P3 (and P2) | Old-match command after a switch → `StaleMatch`, no reducer call; switching to an under-capacity game rejected; a peer disconnected at match start keeps party membership and returns to the lobby on resume; host Leave → every peer ends and deletes its credential; `PartySnapshot` serialization test proves no private/host-only fields; all six games complete two consecutive party matches in the desktop deterministic harness |
@@ -1047,6 +1063,15 @@ Additional rules:
 
 ### 16.1 Deterministic tests (CI, every phase)
 
+The user-specified [ui-test-actions project](https://github.com/ui-test-actions/ui-test-actions)
+can drive and capture an Android emulator or iOS simulator within a
+GitHub-hosted action session. Use its documented platform profiles for
+observable UI steps when the repository's Actions allowlist permits a pinned
+revision. This control channel does not bridge game LAN traffic between
+runners. Existing XCUITest, Compose UI and UIAutomator remain usable without
+changing the allowlist. Keep real discovery/transport acceptance on a
+demonstrated shared LAN.
+
 - Pure codecs and validators: advert, link, every 4.3/5.0 message (round trip,
   strict rejects, worst-case size), canonical IDs.
 - `LobbyDiscoveryCache` and approval reaper with a virtual clock.
@@ -1107,7 +1132,7 @@ driver**. Known limits for Smart Lobby:
 | ID | Scenario | PASS criterion |
 |---|---|---|
 | SL-01 | Two hosts with different games on one LAN; joiner opens the list from Home | Both rows appear with the correct game/tag within the recorded time; tapping dials only that host |
-| SL-02 | Joiner chose Mafia, types a Whodunit room's code | No host approval prompt appears; joiner sees "This room is playing Whodunit" with an explicit option |
+| SL-02 | Joiner chose Mafia, types a Whodunit room's code | No host approval prompt appears; joiner sees a wrong-game error and remains in Mafia; no automatic retry or cross-game routing |
 | SL-03 | Host leaves the approval pending 60 s | Host row and joiner both show expiry; a late Approve doesn't admit |
 | SL-04 | Room at capacity; host approves two pending simultaneously | Exactly one admitted; the other stays pending or is rejected `RoomFull`; seat count is never exceeded |
 | SL-05 | QR scanned with the system camera, then the host closes and reopens a room | First QR joins; reusing it after reopen shows "room has closed" |
