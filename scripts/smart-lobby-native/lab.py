@@ -154,6 +154,7 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_STARTUP_TIMEOUT": "90",
         "UI_TEST_TRANSPORT": "cloudflare-quick",
         "UI_TEST_APP_IDS": package,
+        "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": str((temp / "parlor-axe-path").read_text().strip())
         if target == "ios" and pairing != "mixed" else "",
