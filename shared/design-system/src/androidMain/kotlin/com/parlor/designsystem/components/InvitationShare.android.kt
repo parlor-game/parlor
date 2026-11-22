@@ -13,7 +13,9 @@ internal actual fun rememberInvitationSharer(): (String) -> Unit {
             val send = Intent(Intent.ACTION_SEND)
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, invite)
-            context.startActivity(Intent.createChooser(send, null))
+            // The localized Compose context has no activity task.
+            val chooser = Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
         }
     }
 }
