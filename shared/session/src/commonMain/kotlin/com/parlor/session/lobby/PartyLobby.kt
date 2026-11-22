@@ -7,7 +7,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.room.RoomMember
 
-internal data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) {
+data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) {
     init {
         require(protocol.isValid())
         require(!playerCounts.isEmpty() && playerCounts.first >= 2 && playerCounts.last <= MAX_MATCH_PLAYERS)
@@ -44,7 +44,7 @@ internal sealed interface PartyPhase {
     data object Ended : PartyPhase
 }
 
-internal enum class PartyRejection {
+enum class PartyRejection {
     InvalidPhase,
     UnknownPlayer,
     DuplicatePlayer,

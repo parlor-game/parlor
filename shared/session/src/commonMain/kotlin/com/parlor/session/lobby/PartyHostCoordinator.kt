@@ -175,7 +175,7 @@ internal class PartyHostCoordinator(
     }
 }
 
-private fun PartyLobby.publicLobby(): PublicPartyLobby {
+internal fun PartyLobby.publicLobby(): PublicPartyLobby {
     val (visiblePhase, match) = when (val status = phase) {
         PartyPhase.Lobby -> PartyLobbyPhase.Lobby to null
         is PartyPhase.Starting -> PartyLobbyPhase.MatchStarting to status.match

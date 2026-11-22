@@ -18,6 +18,9 @@ import com.parlor.networking.room.PartyMatchAdmission
 import com.parlor.networking.room.RoomInfo
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.room.SendTarget
+import com.parlor.networking.transport.HostConfig
+import com.parlor.networking.transport.RoomTransport
+import com.parlor.networking.transport.TransportCapability
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,13 +84,47 @@ class PartyHostRoomBindingTest {
         }
     }
 
+    @Test
+    fun process_owner_opens_exactly_one_party_and_only_the_current_owner_can_close_it() = runTest {
+        var openCalls = 0
+        var lastRoom: HostRoom? = null
+        val transport = object : RoomTransport {
+            override val capability = TransportCapability(false, 0, 16_384)
+            override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> {
+                openCalls++
+                val configured = requireNotNull(config.partyProtocol)
+                assertNull(config.gameProtocol)
+                assertEquals(mafia.protocol.gameId, configured.initialGame.gameId)
+                assertEquals(mafia.playerCounts.last, configured.initialSeatLimit)
+                return Result.Success(HostRoom(configured.id).also { lastRoom = it })
+            }
+
+            override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
+                Result.Failure(NetError.Unauthorized)
+        }
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        val catalog = setOf(mafia, word)
+        assertEquals(Result.Failure(NetError.InvalidInput), owner.host("Host", emptySet(), mafia))
+        assertEquals(0, openCalls)
+        val opened = assertIs<Result.Success<ProcessPartySession>>(owner.host("Host", catalog, mafia)).data
+        val host = assertIs<ProcessPartySession.Host>(opened)
+        assertEquals(host, owner.session.value)
+        assertEquals(Result.Failure(NetError.AlreadyConnected), owner.host("Host", catalog, mafia))
+        assertEquals(1, openCalls)
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), host.selectGame(word.copy(playerCounts = 2..3)))
+        assertEquals(Result.Success(Unit), owner.leave(host))
+        assertEquals(Result.Failure(NetError.StaleRoom), owner.leave(host))
+        assertEquals(1, requireNotNull(lastRoom).leaveCount)
+        assertNull(owner.session.value)
+    }
+
     private fun ready(sequence: Long, revision: Long) = PeerMessage.PartySetReady(
         PartyProtocolHeader(PARTY_WIRE_VERSION, party, "peer-message-000$sequence", 0),
         playerId, sequence, revision, ready = true,
     )
 
-    private inner class HostRoom : LocalRoom {
-        override val info = MutableStateFlow(RoomInfo("ABCDEF", "Host", hostId, RoomInfo.Status.Hosting, partyId = party))
+    private inner class HostRoom(private val identity: PartyId = party) : LocalRoom {
+        override val info = MutableStateFlow(RoomInfo("ABCDEF", "Host", hostId, RoomInfo.Status.Hosting, partyId = identity))
         override val members = MutableStateFlow<List<RoomMember>>(emptyList())
         override val selfPlayerId = hostId
         override val isHost = true
@@ -98,7 +135,7 @@ class PartyHostRoomBindingTest {
         var frozen: SessionId? = null
         var leaveCount = 0
         override val partyMatches: PartyMatchAdmission = object : PartyMatchAdmission {
-            override val partyId = party
+            override val partyId = identity
 
             override suspend fun selectGame(
                 expected: GameProtocolRef,

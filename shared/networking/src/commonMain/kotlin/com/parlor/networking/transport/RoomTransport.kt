@@ -45,9 +45,7 @@ interface RoomTransport {
     suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError>
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-        if (config.expectedGameProtocol != null || config.expectedRoomId != null ||
-            config.discoveredRoom != null || config.invitation != null || config.party != null
-        ) {
+        if (config.hasScopedTarget()) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
             join(config.code, config.displayName)
@@ -132,6 +130,13 @@ interface RoomTransport {
 
     fun notifyAppForegrounded() = Unit
 }
+
+private fun JoinConfig.hasScopedTarget(): Boolean = isPartyTarget() || isGameTarget()
+
+private fun JoinConfig.isPartyTarget(): Boolean = party != null || partyInvitation != null
+
+private fun JoinConfig.isGameTarget(): Boolean =
+    expectedGameProtocol != null || expectedRoomId != null || discoveredRoom != null || invitation != null
 
 /** Truthful, transport-observed local-network state; never a guessed OS grant. */
 sealed interface LocalNetworkAccess {

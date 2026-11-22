@@ -268,13 +268,14 @@ class ProcessMultiplayerSession internal constructor(
     val room: LocalRoom,
     val hostSeed: Long?,
     private val parentScope: CoroutineScope,
+    initialRoster: List<RoomMember>? = null,
 ) {
     private val sessionJob = SupervisorJob(parentScope.coroutineContext[Job])
     val scope: CoroutineScope = CoroutineScope(parentScope.coroutineContext + sessionJob)
 
     private val startMutex = Mutex()
     private var freezeAttempt: Deferred<Result<List<RoomMember>, NetError>>? = null
-    private val _frozenRoster = MutableStateFlow<List<RoomMember>?>(null)
+    private val _frozenRoster = MutableStateFlow(initialRoster?.toList())
     val frozenRoster: StateFlow<List<RoomMember>?> = _frozenRoster.asStateFlow()
 
     private val retainedMutex = Mutex()
