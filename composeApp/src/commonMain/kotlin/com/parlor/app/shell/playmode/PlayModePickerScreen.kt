@@ -171,9 +171,27 @@ private fun SelectedGameHeader(presentation: GameCatalogPresentation, players: I
                 caption()
             }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
-                CatalogArtworkBadge(presentation.artwork, Modifier.size(HeaderPrintSize).clip(coverShape))
-                caption()
+            ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+                ) {
+                    CatalogArtworkBadge(presentation.artwork, Modifier.size(HeaderPrintSize).clip(coverShape))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                    ) {
+                        caption()
+                        if (!largeText) {
+                            LibraryText(
+                                text = presentation.tagline,
+                                style = ParlorTheme.typography.bodySmall,
+                                color = ParlorTheme.colors.textSecondary,
+                                preferredLines = 2,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
