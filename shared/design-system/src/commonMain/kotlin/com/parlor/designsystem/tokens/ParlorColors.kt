@@ -75,18 +75,18 @@ data class ParlorColors(
 
 /** Dark mode — warm charcoal canvas, cream type, Whodunit amber by default. */
 val CozyNoirPalette = ParlorColors(
-    surfaceCanvas = Color(0xFF101114),
-    surfaceElevated = Color(0xFF1A1C21),
-    surfaceHigher = Color(0xFF22252B),
-    surfaceInset = Color(0xFF131519),
-    surfaceHero = Color(0xFF1D2025),
+    surfaceCanvas = Color(0xFF0A0A0C),
+    surfaceElevated = Color(0xFF141418),
+    surfaceHigher = Color(0xFF222127),
+    surfaceInset = Color(0xFF101013),
+    surfaceHero = Color(0xFF211811),
     surfacePaper = Color(0xFFF0E6D1),
     textOnPaper = Color(0xFF151310),
     textOnPaperSecondary = Color(0xFF5D5548),
 
-    accentEmber = Color(0xFFE7B45D),
-    accentEmberGlow = Color(0xFFF4D79E),
-    accentEmberDeep = Color(0xFF6E460D),
+    accentEmber = Color(0xFFFFA438),
+    accentEmberGlow = Color(0xFFFFCA83),
+    accentEmberDeep = Color(0xFF753408),
     accentBrass = Color(0xFFB7B5B0),
     accentParchment = Color(0xFFF0E6D1),
 
@@ -100,10 +100,10 @@ val CozyNoirPalette = ParlorColors(
     semanticDanger = Color(0xFFFF6961),
     semanticMuted = Color(0xFF454A54),
 
-    borderSubtle = Color(0xFF30343C),
+    borderSubtle = Color(0xFF343036),
     borderElevated = Color(0xFF454A54),
-    borderGlow = Color(0x33E7B45D),
-    borderAccent = Color(0xFFE7B45D),
+    borderGlow = Color(0x33FFA438),
+    borderAccent = Color(0xFFFFA438),
 
     transparent = Color(0x00000000),
     overlayScrim = Color(0xD9000000),
@@ -115,11 +115,11 @@ val CozyNoirPalette = ParlorColors(
 
 /** Light mode — warm paper canvas with an AA-safe deeper amber. */
 val LightCozyNoirPalette = ParlorColors(
-    surfaceCanvas = Color(0xFFF5F0E7),
+    surfaceCanvas = Color(0xFFFCF5EB),
     surfaceElevated = Color(0xFFFFFAF1),
     surfaceHigher = Color(0xFFE9E1D5),
     surfaceInset = Color(0xFFECE5DA),
-    surfaceHero = Color(0xFFFFF7E8),
+    surfaceHero = Color(0xFFFFF1DC),
     surfacePaper = Color(0xFFF0E6D1),
     textOnPaper = Color(0xFF151310),
     textOnPaperSecondary = Color(0xFF5D5548),

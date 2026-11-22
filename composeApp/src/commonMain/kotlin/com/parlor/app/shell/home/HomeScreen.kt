@@ -130,6 +130,7 @@ internal fun HomeScreen(
             horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.l, bottom = ParlorTheme.spacing.xxl,
         )
         val columns = libraryColumns(maxWidth, padding)
+        val featuredGame = if (LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE) filteredGames.firstOrNull() else null
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             state = catalogScrollState.listState,
@@ -212,11 +213,13 @@ internal fun HomeScreen(
             items(
                 items = filteredGames,
                 key = { game -> "game:${game.definition.id.raw}" },
+                span = { game -> GridItemSpan(if (game == featuredGame) maxLineSpan else 1) },
             ) { game ->
                 val presentation = game.catalogPresentation()
                 GameHeroCard(
                     presentation = presentation,
-                    compact = columns == 1,
+                    compact = columns == 1 && game != featuredGame,
+                    featured = game == featuredGame,
                     restoreFocus = returnFocusKey == game.definition.id.raw,
                     onFocusRestored = { returnFocusKey = null },
                     supportedPlayerCounts = game.multiplayerContract
@@ -449,6 +452,7 @@ private fun GameHeroCard(
     supportsLan: Boolean,
     supportsLocal: Boolean,
     compact: Boolean,
+    featured: Boolean,
     restoreFocus: Boolean,
     onFocusRestored: () -> Unit,
     onOpen: (Boolean) -> Unit,
@@ -477,7 +481,10 @@ private fun GameHeroCard(
     ) {
         Column {
             if (!compact) {
-                CatalogArtworkBadge(presentation.artwork, Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO))
+                CatalogArtworkBadge(
+                    presentation.artwork,
+                    Modifier.fillMaxWidth().aspectRatio(if (featured) FEATURED_COVER_ASPECT_RATIO else COVER_ASPECT_RATIO),
+                )
             }
             Column(
                 modifier = Modifier.padding(ParlorTheme.spacing.m),
@@ -488,7 +495,7 @@ private fun GameHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxl))
+                        CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxxl))
                         CatalogGameTitle(presentation.title)
                     }
                 } else {
@@ -551,11 +558,12 @@ internal fun playerRangeLabel(range: IntRange): String =
     }
 
 private const val HOME_COMPACT_INTRODUCTION_FONT_SCALE = 1.5f
-private val TwoCoverWidth = 336.dp
+private val TwoCoverWidth = 440.dp
 private val ThreeCoverWidth = 688.dp
 private val ReadingWidth = 560.dp
 private val LibraryWidth = 960.dp
 private const val WIDE_LIBRARY_COLUMNS = 3
 private const val COVER_ASPECT_RATIO = 1.35f
+private const val FEATURED_COVER_ASPECT_RATIO = 2.4f
 private val RecoveryRowWidth = 304.dp
 private const val HOME_BRAND_TEST_TAG = "parlor-home-brand"

@@ -1,15 +1,15 @@
 package com.parlor.designsystem.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -17,28 +17,22 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.theme.ParlorTheme
 
-/**
- * Bottom tab bar. Each tab pairs a reviewed vector icon with a localized
- * label and content description. The active tab uses
- * [com.parlor.designsystem.tokens.ParlorColors.accentEmber]; inactive tabs
- * use [com.parlor.designsystem.tokens.ParlorColors.textTertiary].
- *
- * No underline or chip; the icon-and-label treatment stays compact.
- * Adds a hairline rule across the top so the bar separates from the
- * content scroll above it.
- */
+/** A destination in the shell dock, with a localized label and accessible description. */
 data class ParlorBottomTab(
     val label: String,
     val contentDescription: String,
@@ -53,25 +47,23 @@ fun ParlorBottomTabBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = ParlorTheme.colors
-    Column(modifier = modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(ParlorTheme.borders.hairline)
-                .background(colors.borderSubtle),
-        )
+    val dockShape = RoundedCornerShape(ParlorTheme.radii.elevated)
+    val tabShape = RoundedCornerShape(ParlorTheme.radii.card)
+    Column(
+        modifier = modifier.fillMaxWidth().background(colors.surfaceCanvas)
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+            .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Row(
             modifier = Modifier
+                .widthIn(max = DockMaxWidth)
                 .fillMaxWidth()
-                .background(colors.surfaceCanvas)
+                .clip(dockShape)
+                .background(colors.surfaceElevated)
+                .border(ParlorTheme.borders.hairline, colors.borderSubtle, dockShape)
                 .selectableGroup()
-                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-                .padding(
-                    start = ParlorTheme.spacing.l,
-                    end = ParlorTheme.spacing.l,
-                    top = ParlorTheme.spacing.s,
-                    bottom = ParlorTheme.spacing.s,
-                ),
+                .padding(ParlorTheme.spacing.xs),
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         ) {
             tabs.forEachIndexed { index, tab ->
@@ -80,6 +72,8 @@ fun ParlorBottomTabBar(
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = ParlorTheme.spacing.xxl)
+                        .clip(tabShape)
+                        .background(if (selected) colors.surfaceHero else colors.transparent)
                         .selectable(
                             selected = selected,
                             role = Role.Tab,
@@ -100,7 +94,7 @@ fun ParlorBottomTabBar(
                         modifier = Modifier.size(ParlorTheme.iconSize.m),
                     )
                     Text(
-                        text = tab.label.uppercase(),
+                        text = tab.label,
                         style = ParlorTheme.typography.labelSmall,
                         color = contentColor,
                         textAlign = TextAlign.Center,
@@ -110,3 +104,5 @@ fun ParlorBottomTabBar(
         }
     }
 }
+
+private val DockMaxWidth = 480.dp
