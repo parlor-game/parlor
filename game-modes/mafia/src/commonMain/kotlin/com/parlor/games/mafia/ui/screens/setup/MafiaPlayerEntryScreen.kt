@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,16 +18,22 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.bringIntoViewOnFocus
 import com.parlor.designsystem.components.parlorImePadding
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.player_entry_continue
@@ -50,6 +57,7 @@ fun MafiaPlayerEntryScreen(
         mutableStateListOf<String>().apply { repeat(playerCount) { add("") } }
     }
     val normalizedNames = names.map(RoomInputPolicy::normalizeDisplayName)
+    val largeText = LocalDensity.current.fontScale >= 1.3f
 
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
@@ -61,20 +69,31 @@ fun MafiaPlayerEntryScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (!largeText) {
+                CatalogArtworkBadge(artwork = ParlorArtwork.Moon, modifier = Modifier.size(56.dp))
+            }
             EyebrowLabel(text = stringResource(Res.string.setup_eyebrow), accent = false)
             Text(
                 text = stringResource(Res.string.player_entry_headline),
                 style = ParlorTheme.typography.displayMedium,
                 color = ParlorTheme.colors.textPrimary,
+                textAlign = TextAlign.Center,
             )
 
-            names.forEachIndexed { index, current ->
-                NameField(
-                    index = index,
-                    value = current,
-                    onValueChange = { names[index] = it },
-                    isLast = index == names.lastIndex,
-                )
+            ParlorCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+                ) {
+                    names.forEachIndexed { index, current ->
+                        NameField(
+                            index = index,
+                            value = current,
+                            onValueChange = { names[index] = it },
+                            isLast = index == names.lastIndex,
+                        )
+                    }
+                }
             }
 
             ParlorButton(

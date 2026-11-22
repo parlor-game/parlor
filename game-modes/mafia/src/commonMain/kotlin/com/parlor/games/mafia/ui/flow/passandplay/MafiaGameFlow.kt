@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
@@ -29,6 +30,7 @@ import com.parlor.core.result.DataError
 import com.parlor.core.result.Result
 import com.parlor.core.time.Clock
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
@@ -39,6 +41,7 @@ import com.parlor.designsystem.components.SessionExitConfirmation
 import com.parlor.designsystem.components.SessionExitKind
 import com.parlor.designsystem.components.SessionExitOverlay
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.engine.reducer.DefaultReducerContext
 import com.parlor.engine.state.Player
@@ -360,6 +363,7 @@ private fun MafiaRecoveryErrorScreen(
     actionsEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -372,19 +376,36 @@ private fun MafiaRecoveryErrorScreen(
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EyebrowLabel(text = stringResource(Res.string.recovery_error_eyebrow))
-            Text(
-                text = stringResource(Res.string.recovery_error_title),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.recovery_error_body),
-                style = ParlorTheme.typography.bodyMedium,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.Moon,
+                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                        )
+                    }
+                    EyebrowLabel(
+                        text = stringResource(Res.string.recovery_error_eyebrow),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(Res.string.recovery_error_title),
+                        style = ParlorTheme.typography.displayMedium,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(Res.string.recovery_error_body),
+                        style = ParlorTheme.typography.bodyMedium,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             ParlorButton(
                 label = stringResource(Res.string.recovery_error_retry),
                 contentDescription = stringResource(Res.string.recovery_error_retry_description),
@@ -428,6 +449,7 @@ private fun MafiaPlayerCountScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -437,6 +459,12 @@ private fun MafiaPlayerCountScreen(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (!compactTypography) {
+                CatalogArtworkBadge(
+                    artwork = ParlorArtwork.Moon,
+                    modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                )
+            }
             EyebrowLabel(text = stringResource(Res.string.setup_eyebrow), textAlign = TextAlign.Center)
             Text(
                 text = stringResource(Res.string.setup_player_count_headline),
@@ -507,3 +535,5 @@ internal fun MafiaLoadingScreen(modifier: Modifier = Modifier) {
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

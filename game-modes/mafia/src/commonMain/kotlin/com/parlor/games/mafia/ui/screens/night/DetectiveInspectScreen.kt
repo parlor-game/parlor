@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -17,6 +16,7 @@ import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
@@ -75,6 +75,10 @@ fun DetectiveResultScreen(
         DetectiveSeesAs.Mafia -> stringResource(Res.string.night_detective_result_mafia_format, inspectedName)
         DetectiveSeesAs.Town -> stringResource(Res.string.night_detective_result_town_format, inspectedName)
     }
+    val verdictColor = when (seesAs) {
+        DetectiveSeesAs.Mafia -> ParlorTheme.colors.semanticDanger
+        DetectiveSeesAs.Town -> ParlorTheme.colors.semanticSuccess
+    }
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -89,22 +93,30 @@ fun DetectiveResultScreen(
                 detail = stringResource(Res.string.private_do_not_pass),
                 tone = ParlorContextTone.Private,
             )
-            EyebrowLabel(
-                text = stringResource(Res.string.night_detective_result_eyebrow_format, detectiveName),
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = verdict,
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(Res.string.night_detective_result_keep_private),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    EyebrowLabel(
+                        text = stringResource(Res.string.night_detective_result_eyebrow_format, detectiveName),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = verdict,
+                        style = ParlorTheme.typography.displayMedium,
+                        color = verdictColor,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(Res.string.night_detective_result_keep_private),
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             ParlorButton(
                 label = stringResource(Res.string.night_detective_result_ack),
                 contentDescription = stringResource(Res.string.night_detective_result_ack_description),

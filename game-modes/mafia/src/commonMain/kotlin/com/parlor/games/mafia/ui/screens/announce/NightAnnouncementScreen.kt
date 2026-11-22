@@ -4,21 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.domain.state.Role
@@ -52,6 +56,12 @@ fun NightAnnouncementScreen(
     waitingLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
+    val headlineColor = when {
+        killedPlayerName != null -> ParlorTheme.colors.semanticDanger
+        wasSaved -> ParlorTheme.colors.semanticSuccess
+        else -> ParlorTheme.colors.textPrimary
+    }
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -72,6 +82,12 @@ fun NightAnnouncementScreen(
                     verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    if (!compactTypography) {
+                        CatalogArtworkBadge(
+                            artwork = ParlorArtwork.Moon,
+                            modifier = Modifier.size(ParlorTheme.spacing.xxxl),
+                        )
+                    }
                     val headline = when {
                         killedPlayerName != null -> stringResource(
                             Res.string.night_announcement_killed_format,
@@ -83,7 +99,7 @@ fun NightAnnouncementScreen(
                     Text(
                         text = headline,
                         style = ParlorTheme.typography.displayMedium,
-                        color = ParlorTheme.colors.textPrimary,
+                        color = headlineColor,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.semantics { heading() },
                     )
@@ -120,3 +136,5 @@ fun NightAnnouncementScreen(
         }
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f

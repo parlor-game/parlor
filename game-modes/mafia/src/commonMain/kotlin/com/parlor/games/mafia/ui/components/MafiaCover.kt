@@ -2,6 +2,7 @@ package com.parlor.games.mafia.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -112,11 +113,17 @@ fun MafiaCandlelitCover(
 @Composable
 private fun PrivacyGlyph() {
     val colors = ParlorTheme.colors
+    val pillShape = RoundedCornerShape(ParlorTheme.radii.pill)
     Box(
         modifier = Modifier
             .size(ParlorTheme.spacing.xxxl + ParlorTheme.spacing.xxl)
-            .clip(RoundedCornerShape(ParlorTheme.radii.pill))
+            .clip(pillShape)
             .background(colors.accentEmber.copy(alpha = PRIVACY_GLYPH_BACKGROUND_ALPHA))
+            .border(
+                ParlorTheme.borders.hairline,
+                colors.accentEmber.copy(alpha = PRIVACY_GLYPH_BORDER_ALPHA),
+                pillShape,
+            )
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
@@ -182,4 +189,5 @@ fun MafiaHideScreen(
 }
 
 private const val PRIVACY_GLYPH_BACKGROUND_ALPHA = 0.12f
+private const val PRIVACY_GLYPH_BORDER_ALPHA = 0.38f
 private const val PRIVACY_GLYPH_STROKE_RATIO = 0.055f
