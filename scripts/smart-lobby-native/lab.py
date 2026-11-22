@@ -46,9 +46,9 @@ def plan():
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
-        reuse_android = (pairing == "android" and os.environ.get("GITHUB_EVENT_NAME") == "push"
-                         and json.loads(CONFIG.read_text()).get("reuse_android") is True)
-        print(f"reuse_android={str(reuse_android).lower()}", file=stream)
+        reuse_candidate = (os.environ.get("GITHUB_EVENT_NAME") == "push"
+                         and json.loads(CONFIG.read_text()).get("reuse_candidate") is True)
+        print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
 
 
 def manifest():
@@ -108,7 +108,7 @@ def stop(temp):
             (control / "stop").touch()
 
 
-def start_one(temp, index, device, digest, pairing):
+def start_one(temp, index, device, digest):
     target = os.environ["TARGET"]
     root = temp / "parlor-controllers" / f"device-{index}"
     root.mkdir(mode=0o700, parents=True)
@@ -127,7 +127,7 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_APP_IDS": package,
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": str((temp / "parlor-axe-path").read_text().strip())
-        if target == "ios" and pairing == "ios" else "",
+        if target == "ios" else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
     # Lifecycle startup can log control endpoints. Keep its output outside uploaded paths.
@@ -165,7 +165,7 @@ def start():
         raise ValueError("Independent device allocations do not match the operator roster")
     (temp / "parlor-connections").mkdir()
     with ThreadPoolExecutor(max_workers=len(devices)) as pool:
-        jobs = [pool.submit(start_one, temp, index, device, digest, pairing)
+        jobs = [pool.submit(start_one, temp, index, device, digest)
                 for index, (device, digest) in enumerate(zip(devices, digests), 1)]
         for job in jobs:
             job.result()

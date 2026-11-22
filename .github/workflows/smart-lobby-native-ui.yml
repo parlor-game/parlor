@@ -25,7 +25,7 @@ jobs:
     outputs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
-      reuse_android: ${{ steps.plan.outputs.reuse_android }}
+      reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -39,7 +39,7 @@ jobs:
 
   build:
     needs: plan
-    if: needs.plan.outputs.reuse_android != 'true'
+    if: needs.plan.outputs.reuse_candidate != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
-      CANDIDATE: 4b14a7c58482a5c566a44ce09c929015cf2dc886
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -86,7 +86,7 @@ jobs:
     if: >-
       ${{ always() && !cancelled() && needs.plan.result == 'success' &&
           (needs.build.result == 'success' ||
-            (needs.build.result == 'skipped' && needs.plan.outputs.reuse_android == 'true')) }}
+            (needs.build.result == 'skipped' && needs.plan.outputs.reuse_candidate == 'true')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -97,7 +97,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
-      CANDIDATE: 4b14a7c58482a5c566a44ce09c929015cf2dc886
+      CANDIDATE: 41aedd095eb8c837b27f2a83cca62b38686a72fa
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
@@ -119,15 +119,15 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_android == 'true'
+        if: needs.plan.outputs.reuse_candidate == 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
-          run-id: '45067803829'
-          name: candidate-android-1
+          run-id: ${{ matrix.target == 'android' && '45060464381' || '45066924242' }}
+          name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_android != 'true'
+        if: needs.plan.outputs.reuse_candidate != 'true'
         with:
           name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/parlor-package

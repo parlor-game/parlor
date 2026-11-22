@@ -123,6 +123,9 @@ RUNTIME
     xcrun simctl boot "$device"
     xcrun simctl bootstatus "$device" -b
   done
+}
+
+install_ios_controller() {
   local asset=AXe-macOS-v2.1.1-universal.tar.gz
   mkdir -p "$work/parlor-axe"
   curl -fsSL --retry 3 "https://github.com/cameroncooke/AXe/releases/download/v2.1.1/$asset" -o "$work/$asset"
@@ -209,6 +212,7 @@ install() {
     install_android
     if [[ "$PAIRING_NAME" == android ]]; then python3 "$verification" wifi; fi
   else
+    install_ios_controller
     install_ios
   fi
 }
