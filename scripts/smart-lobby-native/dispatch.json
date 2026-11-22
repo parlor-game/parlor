@@ -1,8 +1,7 @@
 {
   "pairing": "mixed",
   "token_digests": [
-    "4e40371ddfa3fe548c54435fc9bb5301f84c4807b2e876eba75385cbc55a7288",
-    "ec37336dc8cecbcf864dda4a2e6eff62b16fc30c60c43de0ba186dccdc21ecad"
-  ],
-  "reuse_candidate": true
+    "5496c331f54eb6439224bbefb1e39af559b9db4c08367632235ffb8d168c729d",
+    "3926906530b089011f23974cdf4f1cd6ecd5120343d2c10d3b51d1ef1c9f2924"
+  ]
 }

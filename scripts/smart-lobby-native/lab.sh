@@ -26,10 +26,18 @@ build() {
     [[ "$(uname -m)" == arm64 ]]
     xcodebuild -version | tee "$package/xcode.txt"
     grep -Fxq 'Build version 17C529' "$package/xcode.txt"
+    local identity="UITEST0001.$bundle" entitlements="$work/parlor-lab.entitlements"
+  python3 - "$identity" "$entitlements" <<'PYPLIST'
+import plistlib
+import sys
+with open(sys.argv[2], "wb") as output:
+    plistlib.dump({"application-identifier": sys.argv[1], "keychain-access-groups": [sys.argv[1]]}, output)
+PYPLIST
     xcodebuild -quiet -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
       -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
       -derivedDataPath "$work/parlor-xcode" \
-      ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
+      CODE_SIGN_STYLE=Manual CODE_SIGN_ENTITLEMENTS="$entitlements" build
     app="$work/parlor-xcode/Build/Products/Debug-iphonesimulator/Parlor.app"
     if [[ ! -d "$app" ]]; then
       apps=("$work"/parlor-xcode/Build/Products/Debug-iphonesimulator/*.app)
@@ -37,6 +45,10 @@ build() {
       app="${apps[0]}"
     fi
     [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" == "$bundle" ]]
+    codesign --verify --strict "$app"
+    codesign -d --entitlements :- "$app" > "$package/simulator-entitlements.plist"
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print application-identifier' "$package/simulator-entitlements.plist")" == "$identity" ]]
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print keychain-access-groups:0' "$package/simulator-entitlements.plist")" == "$identity" ]]
     python3 "$verification" manifest "$app" > "$package/app-manifest.json"
     ditto -c -k --sequesterRsrc --keepParent "$app" "$package/parlor-simulator.zip"
     (cd "$package" && shasum -a 256 parlor-simulator.zip > SHA256SUMS)
@@ -165,59 +177,24 @@ install_android() {
   done 3< "$devices"
 }
 
-sign_lab_simulator_app() {
-  local app="$1" executable entitlements identity
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")" == "$bundle" ]]
-  executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")
-  entitlements="$work/parlor-lab.entitlements"
-  identity="UITEST0001.$bundle"
-  python3 - "$identity" "$entitlements" <<'PYPLIST'
-import plistlib
-import sys
-with open(sys.argv[2], "wb") as output:
-    plistlib.dump({"application-identifier": sys.argv[1], "keychain-access-groups": [sys.argv[1]]}, output)
-PYPLIST
-  codesign --force --sign - --entitlements "$entitlements" "$app"
-  codesign --verify --strict "$app"
-  codesign -d --entitlements :- "$app" > "$proof/simulator-entitlements.plist"
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print application-identifier' "$proof/simulator-entitlements.plist")" == "$identity" ]]
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print keychain-access-groups:0' "$proof/simulator-entitlements.plist")" == "$identity" ]]
-  python3 "$verification" manifest "$app" > "$proof/simulator-signed-manifest.json"
-  python3 - "$package/app-manifest.json" "$proof/simulator-signed-manifest.json" "$executable" <<'PYDIFF'
-import json
-import sys
-
-with open(sys.argv[1]) as baseline:
-    before = json.load(baseline)
-with open(sys.argv[2]) as signed:
-    after = json.load(signed)
-executable = sys.argv[3]
-changes = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
-assert executable in changes
-assert all(path == executable or path.startswith("_CodeSignature/") for path in changes)
-print("Ad-hoc signing changed only the main executable signature and the bundle's signature records.")
-PYDIFF
-}
-
 install_ios() {
-  local device installed app expected_manifest
+  local device installed app
   (cd "$package" && shasum -a 256 -c SHA256SUMS)
   ditto -x -k "$package/parlor-simulator.zip" "$work/parlor-extracted"
   local apps=("$work"/parlor-extracted/*.app)
   [[ ${#apps[@]} == 1 && -d "${apps[0]}" ]]
   app="${apps[0]}"
-  expected_manifest="$package/app-manifest.json"
-  python3 "$verification" manifest "$app" > "$work/unsigned-simulator-manifest.json"
-  cmp "$expected_manifest" "$work/unsigned-simulator-manifest.json"
-  sign_lab_simulator_app "$app"
-  expected_manifest="$proof/simulator-signed-manifest.json"
+  codesign --verify --strict "$app"
+  codesign -d --entitlements :- "$app" > "$proof/simulator-entitlements.plist"
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print application-identifier' "$proof/simulator-entitlements.plist")" == "UITEST0001.$bundle" ]]
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print keychain-access-groups:0' "$proof/simulator-entitlements.plist")" == "UITEST0001.$bundle" ]]
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
     xcrun simctl install "$device" "$app"
     installed=$(xcrun simctl get_app_container "$device" "$bundle" app)
     python3 "$verification" manifest "$installed" > "$record/installed-app-manifest.json"
-    cmp "$expected_manifest" "$record/installed-app-manifest.json"
+    cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
     xcrun simctl spawn "$device" launchctl list > "$record/runtime-processes.txt"
     if [[ "$PAIRING_NAME" == mixed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"

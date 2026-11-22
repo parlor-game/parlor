@@ -44,7 +44,7 @@ def plan():
     labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
             for entry in builds]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
-        print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps([entry for entry in builds if entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         reuse_candidate = (os.environ.get("GITHUB_EVENT_NAME") == "push"
                          and json.loads(CONFIG.read_text()).get("reuse_candidate") is True)

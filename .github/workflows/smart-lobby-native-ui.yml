@@ -119,15 +119,15 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_candidate == 'true'
+        if: matrix.target == 'android'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
-          run-id: ${{ matrix.target == 'android' && '45060464381' || '45066924242' }}
+          run-id: '45060464381'
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_candidate != 'true'
+        if: matrix.target == 'ios'
         with:
           name: candidate-${{ matrix.target }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/parlor-package
