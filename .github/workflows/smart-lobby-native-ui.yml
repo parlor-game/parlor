@@ -49,6 +49,7 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
       CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -76,10 +77,7 @@ jobs:
         run: bash scripts/smart-lobby-native/lab.sh build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          github-token: ${{ github.token }}
-          repository: parlor-game/parlor
-          run-id: '45075164525'
-          name: candidate-android-1
+          name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
           if-no-files-found: error
           retention-days: 7
@@ -122,11 +120,17 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: matrix.target == 'android'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
           run-id: '45075164525'
           name: candidate-android-1
+          path: ${{ runner.temp }}/parlor-package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: matrix.target == 'ios'
+        with:
+          name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN
         if: matrix.pairing == 'mixed'
@@ -168,7 +172,10 @@ jobs:
           PY
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
+      - name: Measure guest clock offset before UI actions
+        run: python3 scripts/smart-lobby-native/diagnostics.py clock-before
       - name: Open independent UI controllers
+        id: controllers
         run: python3 scripts/smart-lobby-native/lab.py start
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -178,6 +185,9 @@ jobs:
           retention-days: 1
       - name: Keep all controllers available for visible UI actions
         run: python3 scripts/smart-lobby-native/lab.py hold
+      - name: Collect redacted diagnostics before tearing down guests
+        if: always() && steps.controllers.outcome == 'success'
+        run: python3 scripts/smart-lobby-native/diagnostics.py capture
       - name: Retire job-owned devices and sessions
         if: always()
         env:

@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlsplit
 
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
-DURATION = "50"
+DURATION = "55"
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 
 
@@ -46,7 +46,7 @@ def plan():
     labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
             for entry in builds]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
-        print(f"build={json.dumps([entry for entry in builds if entry['target'] == 'android'], separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps([entry for entry in builds if entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         reuse_candidate = (os.environ.get("GITHUB_EVENT_NAME") == "push"
                          and json.loads(CONFIG.read_text()).get("reuse_candidate") is True)

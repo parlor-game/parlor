@@ -1,11 +1,8 @@
 {
-  "pairing": "android",
+  "pairing": "mixed",
   "token_digests": [
-    "c5db57874a2c6110444ba322a660a7d282a35a0d4de0269039010ac741253a08",
-    "ccaead10445c5e001fd4dd1892e804cd7b32ed119f10297c50ac7f90e7d5d85d",
-    "4682184c054c4726e3f9a5252923a3008c2af022a1ae26e363d9755660a1be07",
-    "e2edc0d10b513c5e8712f04bfd8a676297d008f5d0cd8f24f51f36a93ad588ed",
-    "c0b57853a9acbb58834d870ae7d9864878b1863497d0638bd6f30c3562c981fe"
+    "c96c8df6bbdadcc371694b4e5c1c9bd9479438ad05f12b5029b38e92e2ae05a7",
+    "726b8479f654b64a7d500002bccb56cc53250c45f6d1d6516e3b4c1ff8e02963"
   ],
-  "reuse_candidate": true
+  "reuse_candidate": false
 }
