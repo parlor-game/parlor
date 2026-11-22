@@ -64,7 +64,8 @@ def prepare(out, deadline):
     return cp.read_text()
 
 
-SCENARIOS = {'admission': 'MultiProcessEndpoint', 'resume': 'ResumeProcessEndpoint'}
+SCENARIOS = {'admission': 'MultiProcessEndpoint', 'resume': 'ResumeProcessEndpoint',
+             'party-resume': 'ResumeProcessEndpoint'}
 RESUME_MARKERS = {
     'host': (b'FROZEN_ROSTER_PASS\n', b'PHYSICAL_CLOSE_PASS\n', b'REJOIN_SAME_SEAT_PASS\n'),
     'peer': (b'SELECTED_GAME_REJECTION_PASS\n', b'SELECTED_VERSION_REJECTION_PASS\n',
@@ -74,7 +75,8 @@ RESUME_MARKERS = {
 
 def endpoint_command(role, namespace, classpath, scenario='admission'):
     probe.require(scenario in SCENARIOS, 'Unsupported process scenario')
-    return ['java', '-Xmx512m', '-cp', classpath, 'com.parlor.transport.p2p.' + SCENARIOS[scenario], role, namespace]
+    args = ['java', '-Xmx512m', '-cp', classpath, 'com.parlor.transport.p2p.' + SCENARIOS[scenario], role, namespace]
+    return args + ['party'] if scenario == 'party-resume' else args
 
 
 def bounded_log(path):
@@ -134,7 +136,7 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
         host.stdin.close()
         close_observed = False
         while any(process.poll() is None for process in processes.values()):
-            if scenario == 'resume' and not close_observed and b'PHYSICAL_CLOSE_PASS\n' in bounded_log(directory / 'host.log'):
+            if scenario != 'admission' and not close_observed and b'PHYSICAL_CLOSE_PASS\n' in bounded_log(directory / 'host.log'):
                 peer.stdin.write(b'CLOSE_OBSERVED\n')
                 peer.stdin.flush()
                 peer.stdin.close()
@@ -153,8 +155,11 @@ def run_pair(classpath, directory, deadline, scenario='admission'):
                           'Endpoint or teardown failed')
             expected = (b'AUTHENTICATED_ACTOR_PASS\n', b'PEER_DISCONNECT_PASS\n') if role == 'host' else (b'BIDIRECTIONAL_PASS\n',)
             probe.require(all(marker in data for marker in expected), 'Required endpoint assertions missing')
-            if scenario == 'resume':
+            if scenario != 'admission':
                 probe.require(all(marker in data for marker in RESUME_MARKERS[role]), 'Required resume assertions missing')
+            if scenario == 'party-resume':
+                marker = b'PARTY_SAME_ROOM_REOPEN_PASS\n' if role == 'host' else b'EXACT_PARTY_SCOPE_PASS\n'
+                probe.require(marker in data, 'Required party continuation assertion missing')
         successful = True
     except BaseException as failure:
         failure_type = type(failure).__name__

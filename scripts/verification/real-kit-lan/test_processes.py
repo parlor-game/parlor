@@ -62,8 +62,9 @@ class ProcessPreconditionTest(unittest.TestCase):
     def test_scenario_selects_only_allowlisted_compiled_endpoints(self):
         for scenario, endpoint in probe.SCENARIOS.items():
             command = probe.endpoint_command('peer', '0' * 32, 'classpath', scenario)
-            self.assertEqual(command, ['java', '-Xmx512m', '-cp', 'classpath',
-                                      'com.parlor.transport.p2p.' + endpoint, 'peer', '0' * 32])
+            expected = ['java', '-Xmx512m', '-cp', 'classpath',
+                        'com.parlor.transport.p2p.' + endpoint, 'peer', '0' * 32]
+            self.assertEqual(command, expected + (['party'] if scenario == 'party-resume' else []))
         with self.assertRaisesRegex(RuntimeError, 'Unsupported'):
             probe.endpoint_command('peer', '0' * 32, 'classpath', 'untrusted-class')
 

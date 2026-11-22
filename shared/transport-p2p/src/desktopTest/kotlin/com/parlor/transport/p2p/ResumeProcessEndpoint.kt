@@ -1,10 +1,13 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.SessionEndReason
@@ -15,6 +18,7 @@ import com.parlor.networking.room.SendTarget
 import com.parlor.networking.room.SessionEndCommitStatus
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.HostedPartyProtocol
 import com.parlor.networking.transport.JoinConfig
 import dev.p2pkit.core.AppId
 import java.util.concurrent.Executors
@@ -47,7 +51,8 @@ object ResumeProcessEndpoint {
     @JvmStatic
     fun main(args: Array<String>) {
         try {
-            check(args.size == 2 && args[0] in setOf("host", "peer"))
+            check(args.size in 2..3 && args[0] in setOf("host", "peer"))
+            check(args.getOrNull(2)?.let { it == "party" } ?: true)
             check(args[1].matches(Regex("[a-f0-9]{32}")))
             Executors.newFixedThreadPool(4).asCoroutineDispatcher().use { dispatcher ->
                 executeEndpoint(args, dispatcher)
@@ -64,6 +69,11 @@ object ResumeProcessEndpoint {
     private fun executeEndpoint(args: Array<String>, dispatcher: CoroutineDispatcher) = runBlocking {
         val scope = CoroutineScope(dispatcher + SupervisorJob())
         var room: LocalRoom? = null
+        val party = if (args.getOrNull(2) == "party") {
+            HostedPartyProtocol(PartyId(args[1]), game)
+        } else {
+            null
+        }
         try {
             withTimeout(90_000) {
                 val fixture = LoopbackDeviceFixture(dispatcher)
@@ -71,17 +81,23 @@ object ResumeProcessEndpoint {
                     AppId("com.parlor.p2p.process.${args[1]}"), args[0] + "-fixture", scope,
                 )
                 if (args[0] == "host") {
-                    val result = transport.host(HostConfig("Process Fixture", maxRemotePlayers = 1, gameProtocol = game))
+                    val result = transport.host(HostConfig(
+                        "Process Fixture", maxRemotePlayers = 1,
+                        gameProtocol = game.takeIf { party == null }, partyProtocol = party,
+                    ))
                     check(result is Result.Success)
                     room = result.data
                     verifyHost(result.data)
                 } else {
                     val code = readln()
                     check(code.matches(Regex("[A-Z0-9]{6}")))
-                    val result = transport.join(JoinConfig(code, "process-peer", expectedGameProtocol = game))
+                    val result = transport.join(JoinConfig(
+                        code, "process-peer", expectedGameProtocol = game.takeIf { party == null },
+                        party = party?.let { PartyAdmissionContext(it.id, listOf(GameProtocolRef(game.gameId, game.gameVersion))) },
+                    ))
                     check(result is Result.Success)
                     room = result.data
-                    verifyPeer(result.data, fixture, transport) { room = it }
+                    verifyPeer(result.data, fixture, transport, party?.id) { room = it }
                 }
             }
             println("ENDPOINT_PASS")
@@ -116,7 +132,8 @@ object ResumeProcessEndpoint {
         check(message.header == header(0, "process-peer-heartbeat-0001"))
         check(message.actor != PlayerId("forged-process-actor"))
         println("AUTHENTICATED_ACTOR_PASS")
-        val roster = room.closeAdmissions()
+        val match = SessionId("process-fixture-session")
+        val roster = room.partyMatches?.freezeMatch(match, setOf(player)) ?: room.closeAdmissions()
         check(roster is Result.Success && roster.data.size == 1 && roster.data.count { it.playerId == player } == 1)
         println("FROZEN_ROSTER_PASS")
         val resumedInbound = async(start = CoroutineStart.UNDISPATCHED) {
@@ -133,6 +150,14 @@ object ResumeProcessEndpoint {
         withTimeout(10_000) { room.members.first { members -> members.any { it.playerId == player && it.connected } } }
         check(room.members.value.size == 1 && room.pendingAdmissions.value.isEmpty())
         println("REJOIN_SAME_SEAT_PASS")
+        room.partyMatches?.let { leases ->
+            check(leases.reopenMatch(match) is Result.Success)
+            val next = SessionId("process-fixture-session-2")
+            val second = leases.freezeMatch(next, setOf(player))
+            check(second is Result.Success && second.data.single().playerId == player)
+            check(leases.reopenMatch(next) is Result.Success)
+            println("PARTY_SAME_ROOM_REOPEN_PASS")
+        }
         check(room.send(SendTarget.Direct(player), HostMessage.SessionEnded(
             header(3, "process-host-terminal-0001"), SessionEndReason.Cancelled, 0,
         )) is Result.Success)
@@ -144,6 +169,7 @@ object ResumeProcessEndpoint {
         room: LocalRoom,
         fixture: LoopbackDeviceFixture,
         transport: P2pKitRoomTransport,
+        partyId: PartyId?,
         onRoom: (LocalRoom) -> Unit,
     ) = coroutineScope {
         check(!room.isHost)
@@ -151,9 +177,16 @@ object ResumeProcessEndpoint {
         val loaded = store.loadResumeCandidate()
         check(loaded is Result.Success && loaded.data != null)
         val before = checkNotNull(loaded.data)
-        val summary = transport.resumableSession()
-        check(summary is Result.Success)
-        val selection = checkNotNull(summary.data?.deletionSelection)
+        val selection = if (partyId == null) {
+            val summary = transport.resumableSession()
+            check(summary is Result.Success)
+            checkNotNull(summary.data?.deletionSelection)
+        } else {
+            check(transport.resumableSession() == Result.Success(null))
+            val summary = transport.resumablePartySession()
+            check(summary is Result.Success && summary.data?.partyId == partyId)
+            checkNotNull(summary.data?.selection)
+        }
         val checkpoint = async(start = CoroutineStart.UNDISPATCHED) {
             withTimeout(15_000) { room.incoming.first() }
         }
@@ -174,7 +207,15 @@ object ResumeProcessEndpoint {
             Result.Failure(NetError.IncompatibleProtocol))
         check(fixture.realKitCreationAttempts == creations && store.loadResumeCandidate() == Result.Success(before))
         println("SELECTED_VERSION_REJECTION_PASS")
-        val result = transport.resumeLastSession(game, selection)
+        val result = if (partyId == null) {
+            transport.resumeLastSession(game, selection)
+        } else {
+            val wrongId = PartyId(if (partyId.raw.first() == 'a') "b".repeat(32) else "a".repeat(32))
+            check(transport.resumeParty(wrongId, selection) == Result.Failure(NetError.IncompatibleProtocol))
+            check(fixture.realKitCreationAttempts == creations)
+            println("EXACT_PARTY_SCOPE_PASS")
+            transport.resumeParty(partyId, selection)
+        }
         check(result is Result.Success)
         val resumed = result.data
         onRoom(resumed)
@@ -185,7 +226,11 @@ object ResumeProcessEndpoint {
         val rotated = checkNotNull(rotatedResult.data)
         check(rotated.membershipId == before.membershipId && rotated.playerId == before.playerId)
         check(rotated.generation > before.generation && rotated.secret != before.secret)
-        check(rotated.gameId == game.gameId.raw && rotated.gameVersion == game.gameVersion)
+        if (partyId == null) {
+            check(rotated.gameId == game.gameId.raw && rotated.gameVersion == game.gameVersion)
+        } else {
+            check(rotated.partyId == partyId && rotated.roomId == before.roomId && rotated.gameId == null)
+        }
         println("ROTATED_CREDENTIAL_PASS")
         val terminal = async(start = CoroutineStart.UNDISPATCHED) {
             withTimeout(15_000) { resumed.incoming.first() }
