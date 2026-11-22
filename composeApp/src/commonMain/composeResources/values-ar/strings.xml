@@ -8,7 +8,6 @@
     <string name="navigation_settings_description">افتح الإعدادات.</string>
 
     <!-- الشاشة الرئيسية. -->
-    <string name="home_eyebrow">الليلة حول مائدتكم</string>
     <string name="home_title">مكتبة الألعاب</string>
     <string name="home_whodunit_title">من القاتل</string>
     <string name="home_whodunit_subtitle">سبعة ألغاز ومذنب واحد بين الضيوف.</string>
@@ -34,13 +33,10 @@
     <!-- أساليب اللعب التي تستخدمها شاشة الإعداد المعتمدة على السجل. -->
     <string name="playmode_solo_title">منفرد</string>
     <string name="playmode_solo_body">أنا فقط على هذا الهاتف. تخطَّ مراسم التمرير واستعرض ملف كل لاعب واحدًا تلو الآخر. الأنسب للتجربة أو لقراءة القضية وحدك.</string>
-    <string name="playmode_solo_meta">هاتف واحد · شخص واحد</string>
     <string name="playmode_solo_choose">العب منفردًا</string>
     <string name="playmode_solo_choose_description">ابدأ جلسة منفردة على هذا الجهاز بدون تمرير.</string>
     <string name="playmode_passandplay_title">تمرير ولعب</string>
     <string name="playmode_passandplay_body">مرّروا الهاتف بين الأدوار.</string>
-    <string name="playmode_passandplay_meta">هاتف واحد · %1$d–%2$d لاعبين</string>
-    <string name="playmode_passandplay_meta_exact">هاتف واحد · %1$d لاعبين</string>
     <string name="playmode_passandplay_choose">تمرير ولعب</string>
     <string name="playmode_passandplay_choose_description">ابدأ جلسة تمرير ولعب على هذا الجهاز.</string>
 
@@ -100,8 +96,6 @@
     <string name="permission_back_description">العودة إلى الشاشة الرئيسية دون بدء الاتصال بالشبكة.</string>
 
     <!-- Home: game-first redesign. -->
-    <string name="home_subtitle">اختر لعبة واجمع أصدقاءك وابدؤوا وقتًا ممتعًا.</string>
-    <string name="home_games_label">اختر لعبة</string>
     <plurals name="home_games_count">
         <item quantity="zero">لا ألعاب (%1$d)</item>
         <item quantity="one">لعبة واحدة (%1$d)</item>
@@ -123,8 +117,6 @@
 
     <!-- Game setup screen: 4 cards (Solo / Pass and Play / Host / Join). -->
     <string name="setup_eyebrow">إعداد اللعبة</string>
-    <string name="setup_title">كيف ستلعبون؟</string>
-    <string name="setup_subtitle">اختر الإعداد المناسب لمجموعتك.</string>
     <string name="setup_one_device_label">هاتف واحد</string>
     <string name="setup_each_device_label">هواتف قريبة</string>
     <string name="setup_solo_unavailable_title">اللعب المنفرد غير متاح.</string>
@@ -135,16 +127,12 @@
     <string name="setup_back_description">العودة إلى الشاشة الرئيسية.</string>
     <string name="setup_host_title">استضف غرفة</string>
     <string name="setup_host_body">أنشئ الرمز وتولَّ قيادة اللعبة.</string>
-    <string name="setup_host_meta">هاتف لكل لاعب</string>
     <string name="setup_host_choose">استضف غرفة</string>
     <string name="setup_host_choose_description">افتح غرفة وأظهر الرمز لأصدقائك للانضمام.</string>
     <string name="setup_join_title">انضم برمز</string>
     <string name="setup_join_body">أدخل رمز المضيف المكوّن من ستة أحرف.</string>
-    <string name="setup_join_meta">هاتف لكل لاعب</string>
     <string name="setup_join_choose">انضم إلى غرفة</string>
     <string name="setup_join_choose_description">أدخل رمز المضيف للدخول إلى طاولته.</string>
-    <string name="setup_multiplayer_disabled">اللعب متعدد الأجهزة غير متاح في هذا الإصدار.</string>
-    <string name="setup_mode_unavailable">هذا الإعداد غير متاح لهذه اللعبة.</string>
     <string name="home_resume_open_failed">تعذّر فتح اللعبة المحفوظة.</string>
     <string name="home_recovery_checking">جارٍ التحقق من الألعاب المحفوظة والجلسات القابلة للاستئناف…</string>
     <string name="home_recovery_unavailable_title">بعض معلومات الاستعادة غير متاحة.</string>

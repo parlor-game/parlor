@@ -8,7 +8,6 @@
     <string name="navigation_settings_description">Open settings.</string>
 
     <!-- Home screen. -->
-    <string name="home_eyebrow">TONIGHT AT YOUR TABLE</string>
     <string name="home_title">Game library</string>
     <string name="home_whodunit_title">Whodunit</string>
     <string name="home_whodunit_subtitle">Seven mysteries. One guilty guest.</string>
@@ -34,13 +33,10 @@
     <!-- Play-mode labels used by the registry-driven setup screen. -->
     <string name="playmode_solo_title">Solo</string>
     <string name="playmode_solo_body">Just me on this phone. Skip the hand-off ceremony and walk through every player's dossier back-to-back. Best for testing or reading the case alone.</string>
-    <string name="playmode_solo_meta">1 phone · 1 person</string>
     <string name="playmode_solo_choose">Play Solo</string>
     <string name="playmode_solo_choose_description">Start a solo run on this device with no hand-off.</string>
     <string name="playmode_passandplay_title">Pass and Play</string>
     <string name="playmode_passandplay_body">Pass the phone between turns.</string>
-    <string name="playmode_passandplay_meta">1 phone · %1$d–%2$d players</string>
-    <string name="playmode_passandplay_meta_exact">1 phone · %1$d players</string>
     <string name="playmode_passandplay_choose">Pass and Play</string>
     <string name="playmode_passandplay_choose_description">Start a pass-and-play session on this device.</string>
 
@@ -100,8 +96,6 @@
     <string name="permission_back_description">Return to the home screen without starting networking.</string>
 
     <!-- Home: game-first redesign. -->
-    <string name="home_subtitle">Choose a game. Gather your people. Start something fun.</string>
-    <string name="home_games_label">CHOOSE A GAME</string>
     <plurals name="home_games_count">
         <item quantity="one">%1$d game</item>
         <item quantity="other">%1$d games</item>
@@ -119,8 +113,6 @@
 
     <!-- Game setup screen: 4 cards (Solo / Pass and Play / Host / Join). -->
     <string name="setup_eyebrow">GAME SETUP</string>
-    <string name="setup_title">How will you play?</string>
-    <string name="setup_subtitle">Choose the setup that works for your group.</string>
     <string name="setup_one_device_label">One phone</string>
     <string name="setup_each_device_label">Nearby phones</string>
     <string name="setup_solo_unavailable_title">Solo is not available.</string>
@@ -131,16 +123,12 @@
     <string name="setup_back_description">Return to the home screen.</string>
     <string name="setup_host_title">Host a room</string>
     <string name="setup_host_body">Create the code and lead the game.</string>
-    <string name="setup_host_meta">One phone per player</string>
     <string name="setup_host_choose">Host a Room</string>
     <string name="setup_host_choose_description">Open a room and show a code your friends can join.</string>
     <string name="setup_join_title">Join with a code</string>
     <string name="setup_join_body">Enter the host’s six-character code.</string>
-    <string name="setup_join_meta">One phone per player</string>
     <string name="setup_join_choose">Join a Room</string>
     <string name="setup_join_choose_description">Enter the host's room code to join their table.</string>
-    <string name="setup_multiplayer_disabled">Multiplayer is not available in this build.</string>
-    <string name="setup_mode_unavailable">This setup is not available for this game.</string>
     <string name="home_resume_open_failed">Saved game could not be opened.</string>
     <string name="home_recovery_checking">Checking saved games and resumable sessions…</string>
     <string name="home_recovery_unavailable_title">Some recovery information is unavailable.</string>
