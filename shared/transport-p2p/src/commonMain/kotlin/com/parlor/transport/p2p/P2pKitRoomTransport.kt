@@ -2986,11 +2986,13 @@ internal class HostP2pRoom(
         val commit = stateMutex.withLock {
             val pending = pendingByPlayer[playerId]
             val previousCredential = credentialsByPlayer[playerId]
+            val previousMember = membersByPlayer[playerId]
             if (
                 playerId !in admissionReservations ||
                 pending?.session !== session ||
                 pending.transaction !== transaction ||
                 previousCredential == null ||
+                previousMember == null ||
                 session.state.value != ConnectionState.Connected
             ) {
                 null
@@ -3000,7 +3002,7 @@ internal class HostP2pRoom(
                 publishPendingAdmissions()
                 val oldSession = sessionsByPlayer[playerId]?.takeIf { it !== session }
                 sessionsByPlayer[playerId] = session
-                membersByPlayer[playerId] = RoomMember(playerId, displayName, connected = true)
+                membersByPlayer[playerId] = previousMember.copy(connected = true)
                 rejoinDeadlineByPlayer.remove(playerId)
                 credentialsByPlayer[playerId] = HostCredential(
                     digest = SecureHashes.sha256Utf8(transaction.offer.secret),
@@ -3543,7 +3545,9 @@ internal class HostP2pRoom(
                 publishPendingAdmissions()
                 val old = sessionsByPlayer[playerId]?.takeIf { it !== session }
                 sessionsByPlayer[playerId] = session
-                membersByPlayer[playerId] = RoomMember(playerId, displayName, connected = true)
+                membersByPlayer[playerId] = RoomMember(
+                    playerId, displayName, connected = true, partySupportedGames = pending.partySupportedGames,
+                )
                 previouslySeenPlayerIds += playerId
                 rejoinDeadlineByPlayer.remove(playerId)
                 val oldCredential = credentialsByPlayer.put(

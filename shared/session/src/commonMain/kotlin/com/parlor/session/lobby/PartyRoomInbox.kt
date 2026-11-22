@@ -87,10 +87,7 @@ internal class PartyRoomInbox(
     private fun routeMatch(message: RoomMessage) {
         val inbox = active ?: return
         val header = message.matchHeader() ?: return
-        if (header.partyId != partyId || header.protocol != PARTY_WIRE_VERSION ||
-            header.sessionId != inbox.match.id || header.gameId != inbox.match.game.gameId ||
-            header.gameVersion != inbox.match.game.gameVersion
-        ) return
+        if (!header.belongsTo(partyId, inbox.match)) return
         if (isHost != (message is PeerMessage)) return
         val actor = message.matchActor()
         if (isHost && (actor == null || actor !in inbox.match.roster)) return
@@ -119,7 +116,7 @@ internal class PartyRoomInbox(
     }
 }
 
-private fun RoomMessage.matchHeader(): SessionEnvelopeHeader? = when (this) {
+internal fun RoomMessage.matchHeader(): SessionEnvelopeHeader? = when (this) {
     is HostMessage.PlayerSnapshot -> header
     is HostMessage.CommandResult -> header
     is HostMessage.Heartbeat -> header
@@ -135,7 +132,7 @@ private fun RoomMessage.matchHeader(): SessionEnvelopeHeader? = when (this) {
     else -> null
 }
 
-private fun RoomMessage.matchActor(): PlayerId? = when (this) {
+internal fun RoomMessage.matchActor(): PlayerId? = when (this) {
     is PeerMessage.ClientCommand -> actor
     is PeerMessage.CommandOutcomeRequest -> actor
     is PeerMessage.SnapshotRequest -> actor
@@ -144,3 +141,7 @@ private fun RoomMessage.matchActor(): PlayerId? = when (this) {
     is PeerMessage.SessionStartReady -> actor
     else -> null
 }
+
+internal fun SessionEnvelopeHeader.belongsTo(partyId: PartyId, match: PartyMatch): Boolean =
+    this.partyId == partyId && protocol == PARTY_WIRE_VERSION &&
+        sessionId == match.id && gameId == match.game.gameId && gameVersion == match.game.gameVersion

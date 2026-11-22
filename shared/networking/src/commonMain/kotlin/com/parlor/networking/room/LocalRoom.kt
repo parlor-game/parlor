@@ -247,6 +247,8 @@ data class RoomMember(
     val playerId: PlayerId,
     val displayName: String,
     val connected: Boolean,
+    /** Selected during authenticated party admission and retained across socket replacement. Host-side only. */
+    val partySupportedGames: List<GameProtocolRef> = emptyList(),
 )
 
 data class PendingAdmission(

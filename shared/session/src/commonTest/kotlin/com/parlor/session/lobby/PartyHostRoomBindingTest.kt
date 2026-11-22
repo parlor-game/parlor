@@ -1,0 +1,139 @@
+package com.parlor.session.lobby
+
+import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.SessionId
+import com.parlor.core.result.Result
+import com.parlor.networking.protocol.CommandStatus
+import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyProtocolHeader
+import com.parlor.networking.protocol.PeerMessage
+import com.parlor.networking.protocol.RoomMessage
+import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.NetError
+import com.parlor.networking.room.PartyMatchAdmission
+import com.parlor.networking.room.RoomInfo
+import com.parlor.networking.room.RoomMember
+import com.parlor.networking.room.SendTarget
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class PartyHostRoomBindingTest {
+    private val party = PartyId("a".repeat(32))
+    private val hostId = PlayerId("host")
+    private val playerId = PlayerId("client")
+    private val mafia = PartyGame(GameProtocolRef(GameId("mafia"), 2), 2..4)
+    private val word = PartyGame(GameProtocolRef(GameId("word-impostor"), 1), 2..4)
+    private val games = setOf(mafia.protocol, word.protocol)
+
+    @Test
+    fun confirmed_members_ready_once_and_stay_connected_through_an_explicit_game_switch() = runTest {
+        val room = HostRoom()
+        val host = PartyHostRoomBinding(room, mafia, games, backgroundScope, messageId = { "host-message-0001" })
+        try {
+            room.members.value = listOf(RoomMember(playerId, "Peer", connected = true))
+            runCurrent()
+            assertEquals(setOf(hostId), host.state.value.seats.keys)
+            room.members.value = listOf(RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList()))
+            runCurrent()
+
+            assertEquals(Result.Failure(PartyRejection.WaitingForReadiness), host.prepareMatch())
+            room.messages.send(ready(1, host.state.value.revision))
+            runCurrent()
+            assertTrue(host.state.value.seats.getValue(playerId).ready)
+            assertEquals(CommandStatus.Applied, room.sent.filterIsInstance<HostMessage.PartyCommandResult>().single().status)
+
+            val first = assertIs<Result.Success<PartyMatchRoom>>(host.prepareMatch()).data
+            assertEquals(mafia.protocol.gameId, first.protocol.gameId)
+            assertIs<Result.Success<PartyLobby>>(host.commitMatch(first.protocol.sessionId))
+            assertIs<Result.Success<PartyLobby>>(host.returnToLobby(first.protocol.sessionId))
+            assertNull(room.frozen)
+            assertEquals(0, room.leaveCount)
+            assertEquals(setOf(hostId, playerId), host.state.value.seats.keys)
+
+            assertIs<Result.Success<PartyLobby>>(host.selectGame(word))
+            room.messages.send(ready(2, host.state.value.revision))
+            runCurrent()
+            val second = assertIs<Result.Success<PartyMatchRoom>>(host.prepareMatch()).data
+            assertEquals(word.protocol.gameId, second.protocol.gameId)
+            assertNotEquals(first.protocol.sessionId, second.protocol.sessionId)
+            assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(first.protocol.sessionId))
+            assertEquals(second.protocol.sessionId, room.frozen)
+            assertTrue(room.sent.filterIsInstance<HostMessage.PartySnapshot>()
+                .any { it.lobby.selectedGame == word.protocol && it.lobby.members.any { seat -> seat.playerId == playerId } })
+        } finally {
+            assertEquals(Result.Success(Unit), host.leave())
+            assertEquals(1, room.leaveCount)
+        }
+    }
+
+    private fun ready(sequence: Long, revision: Long) = PeerMessage.PartySetReady(
+        PartyProtocolHeader(PARTY_WIRE_VERSION, party, "peer-message-000$sequence", 0),
+        playerId, sequence, revision, ready = true,
+    )
+
+    private inner class HostRoom : LocalRoom {
+        override val info = MutableStateFlow(RoomInfo("ABCDEF", "Host", hostId, RoomInfo.Status.Hosting, partyId = party))
+        override val members = MutableStateFlow<List<RoomMember>>(emptyList())
+        override val selfPlayerId = hostId
+        override val isHost = true
+        val messages = Channel<RoomMessage>(16)
+        override val incoming = messages.receiveAsFlow()
+        val sent = mutableListOf<HostMessage>()
+        var selected = mafia.protocol
+        var frozen: SessionId? = null
+        var leaveCount = 0
+        override val partyMatches: PartyMatchAdmission = object : PartyMatchAdmission {
+            override val partyId = party
+
+            override suspend fun selectGame(
+                expected: GameProtocolRef,
+                next: GameProtocolRef,
+                seatLimit: Int,
+                expectedMembers: Set<PlayerId>,
+            ): Result<Unit, NetError> {
+                if (expected != selected || expectedMembers != setOf(playerId)) return Result.Failure(NetError.StaleRoom)
+                selected = next
+                return Result.Success(Unit)
+            }
+
+            override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>): Result<List<RoomMember>, NetError> {
+                if (expectedPeers != setOf(playerId)) return Result.Failure(NetError.NotConnected)
+                frozen = id
+                return Result.Success(members.value)
+            }
+
+            override suspend fun reopenMatch(id: SessionId): Result<Unit, NetError> {
+                if (frozen != id) return Result.Failure(NetError.StaleRoom)
+                frozen = null
+                return Result.Success(Unit)
+            }
+        }
+
+        override suspend fun send(target: SendTarget, message: HostMessage): Result<Unit, NetError> {
+            assertEquals(SendTarget.Direct(playerId), target)
+            sent += message
+            return Result.Success(Unit)
+        }
+
+        override suspend fun sendToHost(message: PeerMessage): Result<Unit, NetError> = Result.Failure(NetError.Unauthorized)
+
+        override suspend fun leave() {
+            leaveCount++
+        }
+    }
+}
