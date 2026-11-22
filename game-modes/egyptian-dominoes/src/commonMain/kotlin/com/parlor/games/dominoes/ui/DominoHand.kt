@@ -9,16 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,8 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -40,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.parlor.core.ids.PlayerId
+import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.InPlaceBackHandler
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.dominoes.domain.DominoAction
@@ -66,8 +64,13 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun DominoHand(
-    state: DominoState, self: PlayerId, enabled: Boolean, visible: Boolean, motion: DominoMotion,
-    onVisibility: (Boolean) -> Unit, onAction: (DominoAction) -> Unit,
+    state: DominoState,
+    self: PlayerId,
+    enabled: Boolean,
+    visible: Boolean,
+    motion: DominoMotion,
+    onVisibility: (Boolean) -> Unit,
+    onAction: (DominoAction) -> Unit,
 ) {
     val own = state.privatePerPlayer.getValue(self)
     var selected by remember(state.public.token, state.public.move, visible, motion) { mutableStateOf<Int?>(null) }
@@ -77,6 +80,11 @@ internal fun DominoHand(
     var previousHandSize by remember(state.public.token) { mutableStateOf(own.hand.size) }
     val haptic = LocalHapticFeedback.current
     val reducedMotion = ParlorTheme.reducedMotion
+    val colors = ParlorTheme.colors
+    val spacing = ParlorTheme.spacing
+    val isMyTurn = state.public.turn == self
+    val rackShape = RoundedCornerShape(ParlorTheme.radii.card)
+
     LaunchedEffect(own.hand.size, visible) {
         val drew = own.hand.size > previousHandSize
         previousHandSize = own.hand.size
@@ -89,49 +97,114 @@ internal fun DominoHand(
             rackRequester.bringIntoView()
         }
     }
+
     Column(
-        Modifier.fillMaxWidth().background(Color(0xFF332C21), RoundedCornerShape(22.dp)).padding(14.dp)
-            .onGloballyPositioned { motion.rack = DominoFlightPose(it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f)),
-                it.size.height * .55f, 90f) },
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier
+            .fillMaxWidth()
+            .clip(rackShape)
+            .background(if (isMyTurn) colors.surfaceHero else colors.surfaceElevated)
+            .border(
+                width = ParlorTheme.borders.hairline,
+                color = if (isMyTurn) colors.accentEmber.copy(alpha = 0.45f) else colors.borderSubtle,
+                shape = rackShape,
+            )
+            .padding(spacing.m)
+            .onGloballyPositioned {
+                motion.rack = DominoFlightPose(
+                    it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f)),
+                    it.size.height * .55f,
+                    90f,
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(spacing.s),
     ) {
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.dom_hand), color = DominoGold, style = ParlorTheme.typography.labelLarge)
-            TextButton(onClick = { onVisibility(!visible) }, enabled = enabled || visible, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(if (visible) Res.string.dom_hide else Res.string.dom_reveal), color = DominoGold)
-            }
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            EyebrowLabel(
+                text = stringResource(Res.string.dom_hand),
+            )
+            DominoTopAction(
+                text = stringResource(if (visible) Res.string.dom_hide else Res.string.dom_reveal),
+                accented = !visible,
+                enabled = enabled || visible,
+                onClick = { onVisibility(!visible) },
+            )
         }
         if (!visible) {
             DominoBody(stringResource(Res.string.dom_private))
         } else {
-            Row(Modifier.fillMaxWidth().bringIntoViewRequester(rackRequester).horizontalScroll(scroll).padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val slotShape = RoundedCornerShape(ParlorTheme.radii.subtle)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(rackRequester)
+                    .horizontalScroll(scroll)
+                    .padding(vertical = spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
                 own.hand.forEach { tile ->
                     val playable = DominoRules.playableEnds(state, self, tile).isNotEmpty()
+                    val isSelected = selected == tile.id
                     val label = stringResource(Res.string.dom_tile, tile.low, tile.high)
-                    val status = stringResource(when {
-                        selected == tile.id -> Res.string.dom_tile_selected
-                        playable -> Res.string.dom_tile_available
-                        else -> Res.string.dom_tile_blocked
-                    })
+                    val status = stringResource(
+                        when {
+                            isSelected -> Res.string.dom_tile_selected
+                            playable -> Res.string.dom_tile_available
+                            else -> Res.string.dom_tile_blocked
+                        },
+                    )
+                    val slotBackground = when {
+                        isSelected -> colors.accentEmber.copy(alpha = 0.18f)
+                        playable -> colors.surfaceHigher.copy(alpha = 0.65f)
+                        else -> colors.surfaceInset.copy(alpha = 0.55f)
+                    }
+                    val slotBorder = when {
+                        isSelected -> colors.accentEmber
+                        playable -> colors.accentEmber.copy(alpha = 0.55f)
+                        else -> colors.borderSubtle.copy(alpha = 0.45f)
+                    }
                     Box(
-                        Modifier.size(52.dp, 100.dp)
-                            .border(if (selected == tile.id) 2.dp else 1.dp,
-                                if (playable) DominoGold else Color.Transparent, RoundedCornerShape(10.dp))
-                            .selectable(selected == tile.id, enabled = enabled && playable, role = Role.RadioButton) {
+                        Modifier
+                            .size(52.dp, 100.dp)
+                            .clip(slotShape)
+                            .background(slotBackground)
+                            .border(if (isSelected) 2.dp else 1.dp, slotBorder, slotShape)
+                            .selectable(isSelected, enabled = enabled && playable, role = Role.RadioButton) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 selected = tile.id
-                            }.semantics { contentDescription = label; stateDescription = status },
+                            }
+                            .semantics {
+                                contentDescription = label
+                                stateDescription = status
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
-                        DominoTileFace(tile.low, tile.high, Modifier.size(42.dp, 84.dp)
-                            .onGloballyPositioned { motion.hand[tile.id] = DominoFlightPose(
-                                it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f)), it.size.height.toFloat(), 90f) }
-                            .graphicsLayer {
-                                translationY = if (selected == tile.id) -4.dp.toPx() else 0f
-                                alpha = if (motion.hiddenHandTile == tile.id) 0f else 1f
-                            }, vertical = true)
+                        DominoTileFace(
+                            left = tile.low,
+                            right = tile.high,
+                            modifier = Modifier
+                                .size(42.dp, 84.dp)
+                                .onGloballyPositioned {
+                                    motion.hand[tile.id] = DominoFlightPose(
+                                        it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f)),
+                                        it.size.height.toFloat(),
+                                        90f,
+                                    )
+                                }
+                                .graphicsLayer {
+                                    translationY = if (isSelected) -4.dp.toPx() else 0f
+                                    alpha = when {
+                                        motion.hiddenHandTile == tile.id -> 0f
+                                        !playable && isMyTurn -> 0.55f
+                                        else -> 1f
+                                    }
+                                },
+                            vertical = true,
+                        )
                     }
                 }
             }
@@ -147,7 +220,7 @@ internal fun DominoHand(
                         onAction(DominoAction.Place(self, state.public.token, state.public.move, chosen.id, end))
                     }
                 }
-            } else if (state.public.turn == self) {
+            } else if (isMyTurn) {
                 DominoBody(stringResource(if (own.requiredOpening != null) Res.string.dom_opener else Res.string.dom_pick))
             }
         }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -21,6 +22,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -47,9 +49,11 @@ private class BoardOrigin(var value: Offset = Offset.Zero)
 internal fun DominoBoard(state: DominoState, motion: DominoMotion) {
     val layout = remember(state.public.chain) { dominoChainLayout(state.public.chain) }
     val density = LocalDensity.current
+    val colors = ParlorTheme.colors
     val title = stringResource(Res.string.dom_table)
     val duration = if (ParlorTheme.reducedMotion) 0 else 280
     val origin = remember(motion) { BoardOrigin() }
+    val wellShape = RoundedCornerShape(ParlorTheme.radii.card)
     // A physical chain is spatial, not a sentence: all peers see the same orientation in both locales.
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -64,14 +68,25 @@ internal fun DominoBoard(state: DominoState, motion: DominoMotion) {
             }
             SideEffect { updateGeometry() }
             Box(
-                Modifier.fillMaxWidth().height(height).background(DominoInk.copy(alpha = .22f), RoundedCornerShape(28.dp))
-                    .border(1.dp, DominoGold.copy(alpha = .18f), RoundedCornerShape(28.dp))
+                Modifier
+                    .fillMaxWidth()
+                    .height(height)
+                    .clip(wellShape)
+                    .background(colors.surfaceInset)
+                    .border(ParlorTheme.borders.hairline, colors.borderElevated, wellShape)
                     .semantics { contentDescription = title }
-                    .onGloballyPositioned { origin.value = it.positionInRoot(); updateGeometry() },
+                    .onGloballyPositioned {
+                        origin.value = it.positionInRoot()
+                        updateGeometry()
+                    },
             ) {
                 if (state.public.chain.isEmpty()) {
-                    Text(stringResource(Res.string.dom_empty), color = DominoGold.copy(alpha = .7f),
-                        style = ParlorTheme.typography.headingMedium, modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        text = stringResource(Res.string.dom_empty),
+                        color = colors.textTertiary,
+                        style = ParlorTheme.typography.headingMedium,
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = ParlorTheme.spacing.l),
+                    )
                 }
                 state.public.chain.forEach { placed ->
                     key(placed.tile.id) {
@@ -79,14 +94,19 @@ internal fun DominoBoard(state: DominoState, motion: DominoMotion) {
                         val position by animateOffsetAsState(pose.center, tween(duration))
                         val angle by animateFloatAsState(pose.angle, tween(duration))
                         val label = stringResource(Res.string.dom_tile, placed.left, placed.right)
-                        DominoTileFace(placed.left, placed.right,
-                            Modifier.size(with(density) { pose.length.toDp() }, with(density) { (pose.length / 2).toDp() })
+                        DominoTileFace(
+                            left = placed.left,
+                            right = placed.right,
+                            modifier = Modifier
+                                .size(with(density) { pose.length.toDp() }, with(density) { (pose.length / 2).toDp() })
                                 .graphicsLayer {
                                     translationX = position.x - pose.length / 2
                                     translationY = position.y - pose.length / 4
                                     rotationZ = angle
                                     alpha = if (motion.hiddenBoardTile == placed.tile.id) 0f else 1f
-                                }.semantics { contentDescription = label })
+                                }
+                                .semantics { contentDescription = label },
+                        )
                     }
                 }
                 state.public.chain.firstOrNull()?.let { first ->
@@ -105,6 +125,20 @@ internal fun DominoBoard(state: DominoState, motion: DominoMotion) {
 @Composable
 private fun EndMark(label: String, center: Offset) {
     val density = LocalDensity.current
-    Text(label, color = DominoGold, style = ParlorTheme.typography.labelMedium,
-        modifier = Modifier.offset(with(density) { center.x.toDp() - 5.dp }, with(density) { center.y.toDp() - 8.dp }))
+    val colors = ParlorTheme.colors
+    val pill = RoundedCornerShape(ParlorTheme.radii.pill)
+    Box(
+        modifier = Modifier
+            .offset(with(density) { center.x.toDp() - 12.dp }, with(density) { center.y.toDp() - 10.dp })
+            .clip(pill)
+            .background(colors.surfaceElevated)
+            .border(ParlorTheme.borders.hairline, colors.accentEmber.copy(alpha = 0.65f), pill)
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+    ) {
+        Text(
+            text = label,
+            color = colors.accentEmber,
+            style = ParlorTheme.typography.labelSmall,
+        )
+    }
 }
