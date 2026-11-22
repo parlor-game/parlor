@@ -106,22 +106,24 @@ class ThirdPartyNoticesTest(unittest.TestCase):
             cursor += 46 + name_size + extra_size + comment_size
         self.fail("Synthetic central entry not found")
 
-    def test_actual_source_set_is_26_complete_hash_bound_resources_not_a_package_pass(self):
+    def test_actual_source_set_is_27_complete_hash_bound_resources_not_a_package_pass(self):
         receipt = notices.verify(ROOT)
         self.assertEqual(receipt["status"], "PASS")
         self.assertIsNone(receipt["package"])
-        self.assertEqual(receipt["source"]["resource_count"], 26)
+        self.assertEqual(receipt["source"]["resource_count"], 27)
         self.assertEqual({row["name"] for row in receipt["source"]["files"]}, notices.NOTICE_NAMES)
-        self.assertEqual(sum(len(raw) for name, raw in self.source_files.items() if name != "INDEX.txt"), 94484)
+        self.assertEqual(sum(len(raw) for name, raw in self.source_files.items() if name != "INDEX.txt"), 95573)
 
     def test_verbatim_crlf_and_notice_provenance_are_preserved(self):
         raw = self.source_files["SLF4J-2.0.16-LICENSE.txt"]
         self.assertEqual(hashlib.sha256(raw).hexdigest(), "4e7f90c86ab51278228bce153122f1d8df30149d13ce9ef524c8444a84c32dcc")
         self.assertIn(b"\r\n", raw)
         self.assertNotEqual(raw, raw.replace(b"\r\n", b"\n"))
-        self.assertEqual(len(self.manifest["files"]), 26)
+        self.assertEqual(len(self.manifest["files"]), 27)
         self.assertTrue(all("/Users/" not in json.dumps(row) for row in self.manifest["files"]))
         entries = {row["name"]: row for row in self.manifest["files"]}
+        self.assertEqual(entries["QRCode-Kotlin-4.5.0-LICENSE.txt"]["sha256"],
+                         "b13b37465b05419dc9cfa79b78cd24dff358ef164f46accf61b5c585a6ceae95")
         self.assertEqual(entries["Kotlin-libbacktrace-LICENSE.txt"]["classification"], "NATIVE_INPUT_LICENSE")
         self.assertEqual(entries["Kotlin-Unicode-LICENSE.txt"]["classification"], "STDLIB_INPUT_LICENSE")
         self.assertEqual(entries["libpng-LICENSE.txt"]["classification"], "OPTIONAL_BINARY_ACKNOWLEDGEMENT")
@@ -134,7 +136,7 @@ class ThirdPartyNoticesTest(unittest.TestCase):
                 packaged = receipt["package"]
                 self.assertEqual(packaged["status"], "PASS")
                 self.assertEqual(packaged["format"], "android-aab")
-                self.assertEqual(packaged["resource_count"], 26)
+                self.assertEqual(packaged["resource_count"], 27)
                 self.assertEqual(packaged["exact_byte_policy"], notices.EXACT_BYTE_POLICY)
                 for row in packaged["files"]:
                     self.assertEqual(row["path"], notices.AAB_PREFIX + "/" + row["name"])

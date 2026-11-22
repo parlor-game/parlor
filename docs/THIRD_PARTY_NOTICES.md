@@ -18,18 +18,11 @@ Medium and SemiBold, adapted from PartyDeck's Standard table. Their verbatim
 SIL Open Font License notices and source provenance live in
 `game-modes/last-light/src/commonMain/composeResources/files/licenses/`.
 These game resources are additional to the dependency supplement below; they
-do not replace or alter its exact 26-file verification contract.
-
-## QRCode-Kotlin
-
-The Smart Lobby invitation QR encoder uses QRCode-Kotlin 4.5.0 under MIT.
-The verbatim upstream license ships in
-`shared/design-system/src/commonMain/composeResources/files/licenses/`.
-This is separate from the 26-file dependency supplement.
+do not replace or alter its exact 27-file verification contract.
 
 ## Scope and shipped materials
 
-`composeApp/src/commonMain/composeResources/files/legal/` contains 25 verbatim
+`composeApp/src/commonMain/composeResources/files/legal/` contains 26 verbatim
 upstream notice/license texts and a Parlor-authored `INDEX.txt`. Common Compose
 resources package the complete set on Android and iOS (also Desktop development
 builds). The index identifies each component and the platform of the **inspected
@@ -88,7 +81,7 @@ Only SLF4J and WebP-COPYING have path-specific whitespace parsing exceptions for
 their verbatim CRLF/final blank lines. Ordinary trailing spaces remain errors in
 these notices and in application source; fixture tests enforce that distinction.
 
-Package checks require all 26 exact files, with no extra notice files, at:
+Package checks require all 27 exact files, with no extra notice files, at:
 
 - AAB: `base/assets/composeResources/com.parlor.app.resources/files/legal/`
 - iOS `.app`: `compose-resources/composeResources/com.parlor.app.resources/files/legal/`
@@ -157,3 +150,11 @@ The publisher must review custom/commercial terms and any remaining obligations;
 see [dependency inventory](DEPENDENCY_INVENTORY.md) and
 [dependency review](DEPENDENCY_REVIEW.md). Existing publication disablement and
 application-identity safeguards are unchanged.
+
+### November 22, 2026 QRCode-Kotlin notice
+
+The Smart Lobby invitation encoder adds `QRCode-Kotlin-4.5.0-LICENSE.txt` to
+the verified app package. The file matches the [upstream MIT license at the
+4.5.0 source commit](https://raw.githubusercontent.com/g0dkar/qrcode-kotlin/773d7047fca4df35f40ae8c0364ba963fd622002/LICENSE)
+byte for byte. The manifest references the exact catalog and complete
+resource set, and both release package verifiers check all 27 files.

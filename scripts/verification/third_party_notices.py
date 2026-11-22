@@ -53,7 +53,7 @@ NOTICE_NAMES = frozenset({
     "Kotlin-Boost-LICENSE.txt", "Kotlin-libbacktrace-LICENSE.txt",
     "Kotlin-Unicode-LICENSE.txt", "HarfBuzz-hb-ucd-ISC-LICENSE.txt",
     "Unicode-V3-LICENSE.txt", "BouncyCastle-1.85-LICENSE.md", "SLF4J-2.0.16-LICENSE.txt",
-    "INDEX.txt",
+    "QRCode-Kotlin-4.5.0-LICENSE.txt", "INDEX.txt",
 })
 CLASSIFICATIONS = frozenset({
     "INDEX", "SHARED_LICENSE_TEXT", "NATIVE_INPUT_NOTICE", "NATIVE_INPUT_LICENSE",
@@ -66,7 +66,7 @@ UPSTREAM_KEYS = frozenset({
     "kotlin_native", "kotlin_commit", "icu_commit", "harfbuzz_commit", "expat_commit",
     "webp_commit", "dng_sdk_commit", "libjpeg_turbo_commit", "libpng_commit", "zlib_commit",
     "wuffs", "harfbuzz_unicode_data", "kotlin_unicode_data", "unicode_license_accessed",
-    "bouncycastle", "slf4j",
+    "bouncycastle", "slf4j", "qrcode_kotlin", "qrcode_kotlin_commit",
 })
 REQUIRED_ACKNOWLEDGEMENTS = (
     "This software is based in part on the work of the Independent JPEG Group.",
@@ -168,6 +168,7 @@ def read_manifest(raw):
         if key.endswith("_commit"):
             require(re.fullmatch(r"[0-9a-f]{40}", version), "Invalid upstream commit")
     require(pins.get("kotlin") == upstream["kotlin_native"], "Kotlin input pin mismatch")
+    require(pins.get("qrcode-kotlin") == upstream["qrcode_kotlin"], "QR encoder input pin mismatch")
     files = value["files"]
     require(type(files) is list and len(files) == len(NOTICE_NAMES), "Incorrect manifest file count")
     names = set()
