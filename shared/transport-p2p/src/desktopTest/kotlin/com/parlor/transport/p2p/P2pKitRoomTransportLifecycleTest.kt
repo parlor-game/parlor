@@ -12,6 +12,7 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isTrue
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
@@ -350,6 +351,28 @@ class P2pKitRoomTransportLifecycleTest {
             val wrongVersion = FakeP2pSession(peer("wrong-version-peer", "Alice"))
             emitScopedRequest(kit, wrongVersion, GameProtocolRef(GameId("mafia"), 2))
             assertRejectedWithoutApproval(room, wrongVersion, AdmissionRejection.WrongGame)
+        } finally {
+            room.leave()
+        }
+    }
+
+    @Test
+    fun the_replacement_room_rejects_the_old_identity_even_when_its_code_and_game_match() = runBlocking {
+        val kit = FakeP2pKit(P2pPeerId("host-pid"))
+        val game = HostedGameProtocol(GameId("mafia"), 1)
+        val room = newHostRoom(kit, gameProtocol = game)
+        try {
+            val roomId = checkNotNull(room.info.value.roomId)
+            val stale = RoomId(if (roomId.raw == "a".repeat(32)) "b".repeat(32) else "a".repeat(32))
+            val old = FakeP2pSession(peer("stale-peer", "Alice"))
+            val expectedGame = GameProtocolRef(game.gameId, game.gameVersion)
+            emitScopedRequest(kit, old, expectedGame, expectedRoomId = stale)
+            assertRejectedWithoutApproval(room, old, AdmissionRejection.StaleRoom)
+
+            val current = FakeP2pSession(peer("current-peer", "Alice"))
+            emitScopedRequest(kit, current, expectedGame, expectedRoomId = roomId)
+            awaitCondition { room.pendingAdmissions.value.singleOrNull()?.playerId == PlayerId("current-peer") }
+            assertThat(room.members.value).isEmpty()
         } finally {
             room.leave()
         }
@@ -5360,6 +5383,7 @@ class P2pKitRoomTransportLifecycleTest {
         expectedGame: GameProtocolRef?,
         code: String = "ABCDEF",
         protocol: ProtocolVersion = ProtocolVersion(),
+        expectedRoomId: RoomId? = null,
     ) {
         attachSession(kit, session)
         val request = PeerMessage.AdmissionRequest(
@@ -5368,6 +5392,7 @@ class P2pKitRoomTransportLifecycleTest {
             roomCode = code,
             displayName = session.peer.name,
             expectedGame = expectedGame,
+            expectedRoomId = expectedRoomId,
         )
         session.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
     }

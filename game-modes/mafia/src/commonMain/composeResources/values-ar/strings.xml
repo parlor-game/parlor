@@ -313,4 +313,5 @@
     <string name="vote_public_label">تصويت علني</string>
     <string name="vote_public_detail">اختيارك ظاهر للجميع.</string>
     <string name="md_net_error_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
+    <string name="md_net_error_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
 </resources>

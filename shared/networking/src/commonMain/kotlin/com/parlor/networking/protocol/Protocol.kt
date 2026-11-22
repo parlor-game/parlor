@@ -2,6 +2,7 @@ package com.parlor.networking.protocol
 
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.state.Player
 import kotlinx.serialization.EncodeDefault
@@ -77,6 +78,7 @@ enum class AdmissionRejection {
     WrongCode,
     WrongGame,
     ApprovalExpired,
+    StaleRoom,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -102,6 +104,9 @@ data class ResumableCredentialOffer(
     val expiresAtEpochMillis: Long,
     val gameId: String? = null,
     val gameVersion: Int? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val roomId: RoomId? = null,
 )
 
 @Serializable
@@ -274,6 +279,9 @@ sealed interface PeerMessage : RoomMessage {
         @OptIn(ExperimentalSerializationApi::class)
         @EncodeDefault(EncodeDefault.Mode.NEVER)
         val expectedGame: GameProtocolRef? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val expectedRoomId: RoomId? = null,
     ) : PeerMessage
 
     /** Confirms that the initial credential offer is durably staged. */

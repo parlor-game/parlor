@@ -2,6 +2,7 @@ package com.parlor.transport.p2p
 
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.EmptyResult
 import com.parlor.core.result.Result
@@ -349,6 +350,9 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
 
     @Suppress("LongMethod", "CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
     override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> {
+        if (config.expectedRoomId != null && config.expectedGameProtocol == null) {
+            return Result.Failure(NetError.InvalidInput)
+        }
         if (config.rejoinToken != null) {
             return Result.Failure(NetError.Unauthorized)
         }
@@ -514,6 +518,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                         displayName = effectiveConfig.displayName,
                         selfPlayerId = PlayerId(kit.localPeerId.value),
                         expectedGameProtocol = effectiveConfig.expectedGameProtocol,
+                        expectedRoomId = effectiveConfig.expectedRoomId,
                         firstResponseTimeoutMs = minOf(
                             FIRST_ADMISSION_RESPONSE_TIMEOUT_MS,
                             remainingFirstResponseBudgetMs,
@@ -982,6 +987,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         selfPlayerId: PlayerId,
         firstResponseTimeoutMs: Long,
         expectedGameProtocol: HostedGameProtocol?,
+        expectedRoomId: RoomId?,
     ): AdmissionOutcome = coroutineScope {
         val responses = Channel<HostMessage>(capacity = 8)
         val collector = launch(start = CoroutineStart.UNDISPATCHED) {
@@ -1015,6 +1021,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     roomCode = code,
                     displayName = displayName,
                     expectedGame = expectedGameProtocol?.toGameProtocolRef(),
+                    expectedRoomId = expectedRoomId,
                 ),
                 timeoutMs = firstResponseTimeoutMs,
                 accepts = { response ->
@@ -1079,12 +1086,8 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     // The encrypted offer identifies the authoritative game. Reject
                     // before staging secrets or confirming membership: discovery text
                     // is not authority and waiting for SessionStarting is too late.
-                    if (expectedGameProtocol != null && (
-                        credential.gameId != expectedGameProtocol.gameId.raw ||
-                            credential.gameVersion != expectedGameProtocol.gameVersion
-                        )
-                    ) {
-                        return@coroutineScope AdmissionOutcome.Failed(NetError.IncompatibleProtocol)
+                    decision.offer.validateAdmissionTarget(expectedGameProtocol, expectedRoomId)?.let {
+                        return@coroutineScope AdmissionOutcome.Failed(it)
                     }
                     when (credentialStore.stage(credential)) {
                         is Result.Failure ->
@@ -1630,6 +1633,7 @@ private fun NetError.toDiagnosticReason(): P2pDiagnosticReason = when (this) {
     NetError.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
     NetError.WrongGame -> P2pDiagnosticReason.WRONG_GAME
     NetError.ApprovalExpired -> P2pDiagnosticReason.APPROVAL_EXPIRED
+    NetError.StaleRoom -> P2pDiagnosticReason.STALE_ROOM
     NetError.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     NetError.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     NetError.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1653,6 +1657,7 @@ private fun AdmissionRejection.toDiagnosticReason(): P2pDiagnosticReason = when 
     AdmissionRejection.WrongCode -> P2pDiagnosticReason.WRONG_ROOM
     AdmissionRejection.WrongGame -> P2pDiagnosticReason.WRONG_GAME
     AdmissionRejection.ApprovalExpired -> P2pDiagnosticReason.APPROVAL_EXPIRED
+    AdmissionRejection.StaleRoom -> P2pDiagnosticReason.STALE_ROOM
     AdmissionRejection.RoomFull -> P2pDiagnosticReason.ROOM_FULL
     AdmissionRejection.SessionStarted -> P2pDiagnosticReason.SESSION_STARTED
     AdmissionRejection.IncompatibleProtocol -> P2pDiagnosticReason.INCOMPATIBLE_PROTOCOL
@@ -1770,12 +1775,23 @@ private suspend inline fun attemptCleanup(
     }
 }
 
+private fun ResumableCredentialOffer.validateAdmissionTarget(
+    expectedGame: HostedGameProtocol?,
+    expectedRoom: RoomId?,
+): NetError? = when {
+    expectedRoom != null && roomId != expectedRoom -> NetError.StaleRoom
+    expectedGame != null && (gameId != expectedGame.gameId.raw || gameVersion != expectedGame.gameVersion) ->
+        NetError.IncompatibleProtocol
+    else -> null
+}
+
 private fun HostedGameProtocol.toGameProtocolRef() = GameProtocolRef(gameId, gameVersion)
 
 private fun AdmissionRejection.toNetError(): NetError = when (this) {
     AdmissionRejection.WrongCode -> NetError.WrongCode
     AdmissionRejection.WrongGame -> NetError.WrongGame
     AdmissionRejection.ApprovalExpired -> NetError.ApprovalExpired
+    AdmissionRejection.StaleRoom -> NetError.StaleRoom
     AdmissionRejection.HostDeclined -> NetError.HostDeclined
     AdmissionRejection.RoomFull -> NetError.RoomFull
     AdmissionRejection.SessionStarted -> NetError.SessionStarted
@@ -1814,6 +1830,7 @@ internal class HostP2pRoom(
     private val currentTimeMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val recoveryElapsedMillis: () -> Long = ::platformRecoveryElapsedMillis,
     private val admissionTimeSource: TimeSource = TimeSource.Monotonic,
+    private val roomId: RoomId = RoomId(SecureIds.id128()),
 ) : LocalRoom, AppLifecycleAwareRoom {
 
     init {
@@ -1830,6 +1847,7 @@ internal class HostP2pRoom(
             hostDisplayName = hostDisplayName,
             hostPlayerId = hostPlayerId,
             status = RoomInfo.Status.Hosting,
+            roomId = roomId,
         ),
     )
     private val _members = MutableStateFlow<List<RoomMember>>(emptyList())
@@ -2371,6 +2389,10 @@ internal class HostP2pRoom(
             rejectSession(session, AdmissionRejection.InvalidRequest)
             return
         }
+        if (request.expectedRoomId?.let { it != roomId } == true) {
+            rejectSession(session, AdmissionRejection.StaleRoom)
+            return
+        }
         if (request.roomCode != roomCode) {
             rejectSession(session, AdmissionRejection.WrongCode)
             return
@@ -2593,6 +2615,7 @@ internal class HostP2pRoom(
                             expiresAtEpochMillis = now + P2pKitRoomTransport.CREDENTIAL_MAX_AGE_MS,
                             gameId = gameProtocol?.gameId?.raw,
                             gameVersion = gameProtocol?.gameVersion,
+                            roomId = roomId,
                         )
                         val transaction = AdmissionOfferTransaction(
                             offer = offer,
@@ -3067,6 +3090,7 @@ internal class HostP2pRoom(
                         expiresAtEpochMillis = now + P2pKitRoomTransport.CREDENTIAL_MAX_AGE_MS,
                         gameId = gameProtocol?.gameId?.raw,
                         gameVersion = gameProtocol?.gameVersion,
+                        roomId = roomId,
                     )
                     val transaction = AdmissionOfferTransaction(
                         offer = offer,

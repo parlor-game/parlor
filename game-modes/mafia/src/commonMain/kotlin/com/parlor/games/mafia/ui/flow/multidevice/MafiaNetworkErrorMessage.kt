@@ -22,6 +22,7 @@ import com.parlor.games.mafia.resources.md_net_error_unauthorized
 import com.parlor.games.mafia.resources.md_net_error_wrong_code
 import com.parlor.games.mafia.resources.md_net_error_wrong_game
 import com.parlor.games.mafia.resources.md_net_error_approval_expired
+import com.parlor.games.mafia.resources.md_net_error_stale_room
 import com.parlor.networking.room.NetError
 import org.jetbrains.compose.resources.stringResource
 
@@ -34,6 +35,7 @@ internal fun mafiaNetworkErrorMessage(error: NetError): String = stringResource(
         MafiaNetworkErrorMessageKey.WrongCode -> Res.string.md_net_error_wrong_code
         MafiaNetworkErrorMessageKey.WrongGame -> Res.string.md_net_error_wrong_game
         MafiaNetworkErrorMessageKey.ApprovalExpired -> Res.string.md_net_error_approval_expired
+        MafiaNetworkErrorMessageKey.StaleRoom -> Res.string.md_net_error_stale_room
         MafiaNetworkErrorMessageKey.HostDeclined -> Res.string.md_net_error_host_declined
         MafiaNetworkErrorMessageKey.RoomFull -> Res.string.md_net_error_room_full
         MafiaNetworkErrorMessageKey.SessionStarted -> Res.string.md_net_error_session_started
@@ -58,6 +60,7 @@ internal enum class MafiaNetworkErrorMessageKey {
     WrongCode,
     WrongGame,
     ApprovalExpired,
+    StaleRoom,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -82,6 +85,7 @@ internal fun mafiaNetworkErrorMessageKey(error: NetError): MafiaNetworkErrorMess
         NetError.WrongCode -> MafiaNetworkErrorMessageKey.WrongCode
         NetError.WrongGame -> MafiaNetworkErrorMessageKey.WrongGame
         NetError.ApprovalExpired -> MafiaNetworkErrorMessageKey.ApprovalExpired
+        NetError.StaleRoom -> MafiaNetworkErrorMessageKey.StaleRoom
         NetError.HostDeclined -> MafiaNetworkErrorMessageKey.HostDeclined
         NetError.RoomFull -> MafiaNetworkErrorMessageKey.RoomFull
         NetError.SessionStarted -> MafiaNetworkErrorMessageKey.SessionStarted

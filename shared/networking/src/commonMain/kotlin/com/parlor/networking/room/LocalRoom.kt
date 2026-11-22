@@ -1,6 +1,7 @@
 package com.parlor.networking.room
 
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
@@ -228,6 +229,7 @@ data class RoomInfo(
     val hostDisplayName: String,
     val hostPlayerId: PlayerId,
     val status: Status,
+    val roomId: RoomId? = null,
 ) {
     enum class Status { Idle, Hosting, Joined, Lost }
 }
@@ -252,6 +254,7 @@ sealed interface NetError {
     data object WrongCode : NetError
     data object WrongGame : NetError
     data object ApprovalExpired : NetError
+    data object StaleRoom : NetError
     data object HostDeclined : NetError
     data object RoomFull : NetError
     data object SessionStarted : NetError

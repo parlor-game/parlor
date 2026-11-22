@@ -92,4 +92,5 @@
     <string name="md_return_home_description">Leave this room and return home</string>
     <string name="md_session_new_room_body">The host closed this match. To play again, return home and join the host’s new room code.</string>
     <string name="md_net_error_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="md_net_error_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>

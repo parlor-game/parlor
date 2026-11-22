@@ -220,4 +220,5 @@
     <string name="resume_delete_failed">Could not remove this session. It may have changed or storage may be unavailable. Keep it and refresh the list before trying again.</string>
     <string name="resume_delete_busy">Removing saved session…</string>
     <string name="room_game_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="room_game_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>

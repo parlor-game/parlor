@@ -372,4 +372,5 @@
     <string name="timer_elapsed_format">%1$s:%2$s</string>
     <string name="timer_total_format">/ %1$s:%2$s</string>
     <string name="net_error_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
+    <string name="net_error_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
 </resources>

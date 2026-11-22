@@ -29,6 +29,23 @@ value class GameId(val raw: String) {
     }
 }
 
+/** Identity of one physical room. Distinct from its human code and each match SessionId. */
+@JvmInline
+@Serializable
+value class RoomId(val raw: String) {
+    init {
+        require(raw.length == HEX_LENGTH && raw.all { it in '0'..'9' || it in 'a'..'f' }) {
+            "Invalid room identifier"
+        }
+    }
+
+    override fun toString(): String = "RoomId(redacted)"
+
+    private companion object {
+        const val HEX_LENGTH = 32
+    }
+}
+
 @JvmInline
 @Serializable
 value class ModeId(val raw: String) {

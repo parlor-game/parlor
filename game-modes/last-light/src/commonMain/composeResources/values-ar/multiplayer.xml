@@ -92,4 +92,5 @@
     <string name="md_return_home_description">مغادرة هذه الغرفة والعودة إلى الرئيسية</string>
     <string name="md_session_new_room_body">أغلق المضيف هذه المباراة. للعب مجددًا، ارجع إلى الرئيسية وانضم برمز الغرفة الجديد لدى المضيف.</string>
     <string name="md_net_error_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
+    <string name="md_net_error_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
 </resources>

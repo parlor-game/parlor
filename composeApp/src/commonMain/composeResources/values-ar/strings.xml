@@ -228,4 +228,5 @@
     <string name="resume_delete_failed">تعذّر حذف الجلسة. ربما تغيّرت أو تعذّر الوصول إلى التخزين. احتفظ بها وحدّث القائمة قبل المحاولة مجددًا.</string>
     <string name="resume_delete_busy">جارٍ حذف الجلسة المحفوظة…</string>
     <string name="room_game_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
+    <string name="room_game_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
 </resources>

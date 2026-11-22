@@ -372,4 +372,5 @@
     <string name="timer_elapsed_format">%1$s:%2$s</string>
     <string name="timer_total_format">/ %1$s:%2$s</string>
     <string name="net_error_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="net_error_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>

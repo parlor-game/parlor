@@ -1,6 +1,7 @@
 package com.parlor.networking.transport
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
 import com.parlor.networking.room.DiscoveredRoom
 import com.parlor.networking.room.LocalRoom
@@ -39,7 +40,7 @@ interface RoomTransport {
     suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError>
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-        if (config.expectedGameProtocol != null) {
+        if (config.expectedGameProtocol != null || config.expectedRoomId != null) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
             join(config.code, config.displayName)
@@ -188,6 +189,7 @@ data class JoinConfig(
      * support must reject before opening a room. The wire request carries the validated tuple.
      */
     val expectedGameProtocol: HostedGameProtocol? = null,
+    val expectedRoomId: RoomId? = null,
 )
 
 data class ResumableSessionInfo(

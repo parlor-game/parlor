@@ -1,6 +1,7 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.HostMessage
@@ -57,6 +58,28 @@ class PeerOpeningCancellationTest {
     @Test
     fun missingAuthoritativeGameRejectsASelectedGameBinding() = runTest {
         verifyGameAdmissionRejected(HostedGameProtocol(GameId("fixture-game"), 1), missingGame = true)
+    }
+
+    @Test
+    fun an_offer_without_the_selected_room_identity_cannot_install_membership() = runTest {
+        val fixture = OpeningFixture(backgroundScope, resume = false)
+        fixture.prepare()
+        try {
+            val result = fixture.transport.join(JoinConfig(
+                code = "ABCDEF",
+                displayName = "Alice",
+                expectedGameProtocol = HostedGameProtocol(GameId("fixture-game"), 1),
+                expectedRoomId = RoomId("a".repeat(32)),
+            ))
+            assertEquals(Result.Failure(NetError.StaleRoom), result)
+            assertEquals(Result.Success(null), fixture.store.loadResumeCandidate())
+            assertFalse(fixture.session.sent.filterIsInstance<P2pMessage.Binary>().any {
+                RoomMessageCodec().decode(it.bytes) is PeerMessage.AdmissionConfirmed
+            })
+            fixture.assertReleased()
+        } finally {
+            fixture.stopFakeIfNeeded()
+        }
     }
 
     @Test

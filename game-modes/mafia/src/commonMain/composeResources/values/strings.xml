@@ -313,4 +313,5 @@
     <string name="vote_public_label">Public vote</string>
     <string name="vote_public_detail">Your vote is visible to everyone.</string>
     <string name="md_net_error_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="md_net_error_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>
