@@ -47,8 +47,10 @@ class AndroidReleaseLintContractTest {
         assertContains(appBuild, "outputs.upToDateWhen { false }")
         assertContains(appBuild, "lintTool.versionKey.get() == \"32.1.1\"")
         assertContains(appBuild, "lintTool.initializeLintCacheDir()")
-        assertContains(appBuild, "Files.copy(sources.resolve(relative), destination, StandardCopyOption.REPLACE_EXISTING)")
+        assertContains(appBuild, "Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)")
         assertContains(preparation, "https://dl.google.com/dl/android/maven2/")
+        assertContains(preparation, "https://repo.maven.apache.org/maven2/")
+        assertContains(preparation, "maven-versions/repo1.maven.org/")
         assertContains(preparation, "PASS_LIVE_REPOSITORY_INPUTS_NOT_LINT_QUALIFICATION")
         assertFalse(preparation.contains("lint-results-release"))
         assertContains(read(".github/workflows/production-verification.yml"), "composeApp/build/reports/lint-repository-inputs-*.json")
@@ -365,13 +367,15 @@ class AndroidReleaseLintContractTest {
         val english = read("composeApp/src/commonMain/composeResources/values/strings.xml")
         val arabic = read("composeApp/src/commonMain/composeResources/values-ar/strings.xml")
 
-        assertContains(picker, "Res.string.setup_mode_unavailable")
-        assertContains(picker, "enabled = availability.solo")
-        assertContains(picker, "enabled = availability.passAndPlay")
-        assertContains(picker, "enabled = availability.join")
-        assertContains(english, "This setup is not available for this game.")
+        assertContains(picker, "if (availability.solo)")
+        assertContains(picker, "if (availability.passAndPlay)")
+        assertContains(picker, "if (availability.host)")
+        assertContains(picker, "if (availability.join)")
+        assertContains(picker, "Res.string.setup_solo_unavailable_title")
+        assertContains(picker, "disabled()")
+        assertContains(english, "Solo is not available.")
         assertFalse(english.contains("All four work with the same case"))
-        assertContains(arabic, "هذا الإعداد غير متاح لهذه اللعبة.")
+        assertContains(arabic, "اللعب المنفرد غير متاح.")
     }
 
     private fun stringNames(file: File): Set<String> {

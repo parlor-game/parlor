@@ -468,7 +468,7 @@
     <string name="wi_question_people_q17">Would a crowd gather to see them?</string>
     <string name="wi_question_people_q18">Does their work bring people together?</string>
     <string name="wi_title">Word Impostor</string>
-    <string name="wi_tagline">One word. A room full of suspicion.</string>
+    <string name="wi_tagline">Ask questions. Find who’s bluffing about the word.</string>
     <string name="wi_subtitle">3–12 players · Questions, votes, secrets</string>
     <string name="wi_open">Join the conversation</string>
     <string name="wi_rules">Ordinary players share a secret word. Impostors know their teammates, never the word. Everyone asks once and answers once, then talks freely. The host opens voting. Each player privately votes for someone else; totals appear only after all vote. Each ordinary player whose own vote identifies any impostor earns one point, regardless of the majority or ties. Each impostor then guesses individually from five same-topic choices and earns one point for a correct answer. Correct word guesses never cancel correct-voter points. Awards and the secret are revealed after every impostor has guessed. Keep word screens private.</string>

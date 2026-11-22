@@ -4,14 +4,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -57,7 +58,12 @@ class TargetPickerInteractionTest {
         val id = PlayerId("player")
         val name = if (language == AppLanguage.Arabic) "لاعب باسم طويل يحتاج إلى مساحة كافية" else "Player with a long readable name"
         val submitLabel = if (language == AppLanguage.Arabic) "أرسل الحماية" else "Submit protection"
-        var submitted: PlayerId? = null
+        val submissions = mutableListOf<PlayerId?>()
+        val instructions = if (language == AppLanguage.Arabic) {
+            "اختر لاعبًا واحدًا لحمايته الليلة."
+        } else {
+            "Choose one player to protect tonight."
+        }
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 ProvideAppLanguage(language) {
@@ -65,19 +71,23 @@ class TargetPickerInteractionTest {
                         DoctorProtectScreen(
                             doctorName = if (language == AppLanguage.Arabic) "نور" else "Noor",
                             targets = listOf(PickableTarget(id, name)),
-                            onSubmit = { submitted = it },
+                            onSubmit = { submissions.add(it) },
                             modifier = Modifier.size(320.dp, 640.dp).testTag("mafia-target-evidence"),
                         )
                     }
                 }
             }
         }
+        onNodeWithText(instructions).assertIsDisplayed()
         onNodeWithContentDescription(submitLabel).assertIsNotEnabled()
-        onNodeWithText(name).performScrollTo().performClick().assertIsSelected()
+        onNodeWithText(name).assertIsDisplayed().performClick().assertIsSelected()
+        runOnIdle {
+            assertEquals(emptyList<PlayerId?>(), submissions, "Selection should wait for explicit confirmation")
+        }
         val output = File("build/reports/tests/public-ux/mafia-target-${language.tag}-2x.png")
         output.parentFile.mkdirs()
         ImageIO.write(onNodeWithTag("mafia-target-evidence").captureToImage().toAwtImage(), "png", output)
         onNodeWithContentDescription(submitLabel).performScrollTo().performClick()
-        assertEquals(id, submitted)
+        runOnIdle { assertEquals(listOf<PlayerId?>(id), submissions) }
     }
 }

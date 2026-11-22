@@ -124,7 +124,7 @@
 
     <string name="night_doctor_eyebrow_format">دكتور · %1$s</string>
     <string name="night_doctor_headline">احمِ لاعبًا</string>
-    <string name="night_doctor_instructions">اختر لاعبًا لحمايته من هجوم هذه الليلة.</string>
+    <string name="night_doctor_instructions">اختر لاعبًا واحدًا لحمايته الليلة.</string>
     <string name="night_doctor_submit">أرسل الحماية</string>
     <string name="night_doctor_skip">تخطي (بدون حماية)</string>
 
@@ -156,6 +156,7 @@
 
     <!-- Public night announcement -->
     <string name="night_announcement_eyebrow_format">اليوم %1$d · الفجر</string>
+    <string name="night_announcement_public">يمكن للجميع النظر إلى الشاشة.</string>
     <string name="night_announcement_killed_format">قُتل %1$s</string>
     <string name="night_announcement_saved">هوجم أحدهم لكن الدكتور أنقذه</string>
     <string name="night_announcement_no_kill">لم يمت أحد الليلة الماضية</string>

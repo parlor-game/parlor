@@ -124,7 +124,7 @@
 
     <string name="night_doctor_eyebrow_format">Doctor · %1$s</string>
     <string name="night_doctor_headline">Protect a player</string>
-    <string name="night_doctor_instructions">Pick one player to shield from tonight\'s attack.</string>
+    <string name="night_doctor_instructions">Choose one player to protect tonight.</string>
     <string name="night_doctor_submit">Submit protection</string>
     <string name="night_doctor_skip">Skip (protect no one)</string>
 
@@ -156,6 +156,7 @@
 
     <!-- Public night announcement -->
     <string name="night_announcement_eyebrow_format">Day %1$d · Dawn</string>
+    <string name="night_announcement_public">Everyone can look at the screen.</string>
     <string name="night_announcement_killed_format">%1$s was killed</string>
     <string name="night_announcement_saved">Someone was attacked but the doctor saved them</string>
     <string name="night_announcement_no_kill">No one died last night</string>

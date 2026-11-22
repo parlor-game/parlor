@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.EyebrowLabel
@@ -29,7 +31,7 @@ import com.parlor.games.whodunit.resources.round_begin_discussion
 import com.parlor.games.whodunit.resources.round_begin_discussion_description
 import com.parlor.games.whodunit.resources.round_context_public
 import com.parlor.games.whodunit.resources.round_clue_eyebrow_format
-import com.parlor.games.whodunit.resources.round_discussion_eyebrow
+import com.parlor.games.whodunit.resources.round_discussion_title
 import com.parlor.games.whodunit.resources.round_eyebrow_format
 import com.parlor.games.whodunit.resources.round_known_so_far
 import com.parlor.games.whodunit.resources.round_move_on
@@ -144,17 +146,19 @@ fun DiscussionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
+                .parlorSafeContentPadding(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
         ) {
+            Text(
+                text = stringResource(Res.string.round_discussion_title),
+                style = ParlorTheme.typography.headingLarge,
+                color = ParlorTheme.colors.textPrimary,
+                modifier = Modifier.semantics { heading() },
+            )
             ContextRibbon(
                 label = stringResource(Res.string.round_context_public),
                 detail = authorityLabel,
                 tone = ParlorContextTone.Public,
-            )
-            EyebrowLabel(
-                text = stringResource(Res.string.round_discussion_eyebrow),
-                accent = false,
             )
             if (timer != null) {
                 TimerRibbon(
@@ -166,25 +170,29 @@ fun DiscussionScreen(
             }
             Text(
                 text = stringResource(Res.string.round_known_so_far),
-                style = ParlorTheme.typography.headingLarge,
+                style = ParlorTheme.typography.headingMedium,
                 color = ParlorTheme.colors.textPrimary,
+                modifier = Modifier.semantics { heading() },
             )
-            revealedClues.forEach { c ->
-                ParlorCard(modifier = Modifier.fillMaxWidth()) {
+            revealedClues.asReversed().forEachIndexed { index, clue ->
+                ParlorCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = ParlorTheme.spacing.m,
+                    hero = index == 0,
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
                         EyebrowLabel(
-                            text = stringResource(Res.string.round_clue_eyebrow_format, c.roundIndex),
+                            text = stringResource(Res.string.round_clue_eyebrow_format, clue.roundIndex),
                             accent = false,
                         )
                         Text(
-                            text = c.text,
-                            style = ParlorTheme.typography.bodyLarge,
+                            text = clue.text,
+                            style = ParlorTheme.typography.bodyMedium,
                             color = ParlorTheme.colors.textPrimary,
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(ParlorTheme.spacing.l))
             ParlorButton(
                 label = stringResource(Res.string.round_move_on),
                 contentDescription = stringResource(Res.string.round_move_on_description),

@@ -150,7 +150,7 @@ class HomeCatalogColdRestorationTest {
             waitForIdle()
         }
         if (scrollDuringLoading) {
-            onNode(hasScrollToIndexAction()).performTouchInput { swipeUp(durationMillis = 600) }
+            onNode(hasScrollToIndexAction()).performTouchInput { swipeUp(startY = centerY + 32f, endY = centerY - 32f, durationMillis = 600) }
             waitForIdle()
             val userAnchor = runOnIdle { assertNotNull(currentState).anchorForSave() }
             assertNotEquals(originalAnchor, userAnchor, "The scroll must replace the pending platform anchor")

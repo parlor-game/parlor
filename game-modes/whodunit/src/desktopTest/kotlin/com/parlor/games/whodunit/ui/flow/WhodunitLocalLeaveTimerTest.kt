@@ -228,7 +228,7 @@ class WhodunitLocalLeaveTimerTest {
     }
 
     private fun ComposeUiTest.awaitGame(fixture: WhodunitDiscussionFixture) {
-        if (fixture.savedState().public.paused) awaitText("PAUSED") else awaitText("DISCUSSION")
+        if (fixture.savedState().public.paused) awaitText("PAUSED") else awaitText("Discussion")
     }
 
     private fun ComposeUiTest.awaitText(text: String) = waitUntil(timeoutMillis = 5_000L) {

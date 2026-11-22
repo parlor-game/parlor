@@ -169,7 +169,8 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
         self._integrated()
 
     def test_integrated_fixture_rejects_changed_story_and_unsigned_policy(self):
-        for mutation in ("story", "signature", "mapping", "native", "font", "missing_font", "extra_font", "font_license"):
+        for mutation in ("story", "signature", "mapping", "native", "font", "missing_font", "extra_font", "font_license",
+                         "shared_font_source", "shared_font_license", "missing_shared_font_license"):
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                 self._integrated(mutation)
 
@@ -182,7 +183,7 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
                 shutil.copyfile(ROOT / relative, target)
             for relative in (artifacts.notices.RESOURCE_DIRECTORY,
                              "game-modes/whodunit/src/commonMain/composeResources/files/cases",
-                             "shared/design-system/src/commonMain/composeResources/font",
+                             artifacts.SHARED_RESOURCES + "/font", artifacts.SHARED_RESOURCES + "/files/licenses",
                              artifacts.LAST_LIGHT_RESOURCES + "/font",
                              artifacts.LAST_LIGHT_RESOURCES + "/files/licenses"):
                 shutil.copytree(ROOT / relative, root / relative)
@@ -210,8 +211,9 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
                 entries["base/lib/arm64-v8a/libextra.so"] = elf("arm64-v8a")
             for source_dir, prefix in (("game-modes/whodunit/src/commonMain/composeResources/files/cases",
                                        "base/assets/composeResources/com.parlor.games.whodunit.resources/files/cases"),
-                                      ("shared/design-system/src/commonMain/composeResources/font",
-                                       "base/assets/composeResources/parlor.shared.design_system.generated.resources/font"),
+                                      (artifacts.SHARED_RESOURCES + "/font", artifacts.SHARED_PREFIX + "/font"),
+                                      (artifacts.SHARED_RESOURCES + "/files/licenses",
+                                       artifacts.SHARED_PREFIX + "/files/licenses"),
                                       (artifacts.LAST_LIGHT_RESOURCES + "/font", artifacts.LAST_LIGHT_PREFIX + "/font"),
                                       (artifacts.LAST_LIGHT_RESOURCES + "/files/licenses",
                                        artifacts.LAST_LIGHT_PREFIX + "/files/licenses"),
@@ -229,6 +231,14 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
                 entries[artifacts.LAST_LIGHT_PREFIX + "/font/extra.ttf"] = b"not reviewed"
             if mutation == "font_license":
                 entries[artifacts.LAST_LIGHT_PREFIX + "/files/licenses/manrope_ofl.txt"] = b"changed"
+            shared_license = "files/licenses/noto_sans_arabic_ofl.txt"
+            if mutation == "shared_font_source":
+                (root / artifacts.SHARED_RESOURCES / shared_license).write_bytes(b"changed at source")
+                entries[artifacts.SHARED_PREFIX + "/" + shared_license] = b"changed at source"
+            if mutation == "shared_font_license":
+                entries[artifacts.SHARED_PREFIX + "/" + shared_license] = b"changed in artifact"
+            if mutation == "missing_shared_font_license":
+                del entries[artifacts.SHARED_PREFIX + "/" + shared_license]
             if mutation == "signature":
                 entries["META-INF/FIXTURE.RSA"] = b"not a real signature"
             aab = root / "fixture.aab"
@@ -251,7 +261,7 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
             self.assertEqual("PASS", value["status"])
             self.assertEqual(26, value["notices"]["package"]["resource_count"])
             self.assertEqual(4, len(value["native_images"]))
-            self.assertEqual(15, len(value["raw_resources"]))
+            self.assertEqual(19, len(value["raw_resources"]))
             self.assertEqual(3, len(calls))
             self.assertNotIn("-i", calls[-1])  # Never ignore a DEX checksum failure.
             self.assertNotIn("-j", calls[-1])  # Never disable DEX verification.

@@ -450,9 +450,14 @@ val verifyApplicationIdentities by tasks.registering {
 val releaseLintRepositoryInputs = layout.buildDirectory.dir("lint-repository-inputs")
 val prepareReleaseLintRepositoryInputs by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Validates live Google Maven indexes before release lint."
+    description = "Validates live Google Maven and Maven Central metadata before release lint."
     val root = rootProject.layout.projectDirectory
-    inputs.files(root.file("scripts/ci/android_lint_repository.py"), root.file("gradle/libs.versions.toml"), root.file("gradle.properties"))
+    inputs.files(
+        root.file("scripts/ci/android_lint_repository.py"),
+        root.file("config/android-lint-accepted-warnings.txt"),
+        root.file("gradle/libs.versions.toml"),
+        root.file("gradle.properties"),
+    )
     outputs.dir(releaseLintRepositoryInputs)
     outputs.upToDateWhen { false }
     commandLine("python3", root.file("scripts/ci/android_lint_repository.py").asFile, root.asFile)
@@ -474,10 +479,16 @@ tasks.withType<com.android.build.gradle.internal.lint.AndroidLintAnalysisTask>()
                 ancestor = ancestor.parent
             }
             lintTool.initializeLintCacheDir()
-            val target = cache.resolve("maven.google")
             val sources = preparedIndexes.get().toPath()
-            for (relative in listOf("master-index.xml", "androidx/navigation3/group-index.xml")) {
-                val destination = target.resolve(relative)
+            val manifest = sources.resolve("cache-files.txt")
+            check(!Files.isSymbolicLink(manifest)) { "Symlinked lint input manifest" }
+            for (relative in Files.readAllLines(manifest)) {
+                val destination = cache.resolve(relative).normalize()
+                check(destination.startsWith(cache) && relative.endsWith(".xml")) { "Invalid lint cache index path" }
+                val source = sources.resolve(relative).normalize()
+                check(source.startsWith(sources) && Files.isRegularFile(source) && !Files.isSymbolicLink(source)) {
+                    "Invalid lint input: ${source.fileName}"
+                }
                 check(!Files.isSymbolicLink(destination)) { "Symlinked lint cache index" }
                 var parent: Path? = destination.parent
                 while (parent != cache) {
@@ -485,7 +496,7 @@ tasks.withType<com.android.build.gradle.internal.lint.AndroidLintAnalysisTask>()
                     parent = parent.parent
                 }
                 Files.createDirectories(destination.parent)
-                Files.copy(sources.resolve(relative), destination, StandardCopyOption.REPLACE_EXISTING)
+                Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
             }
         }
     }

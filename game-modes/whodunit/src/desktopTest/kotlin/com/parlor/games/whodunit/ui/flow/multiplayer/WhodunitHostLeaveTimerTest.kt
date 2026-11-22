@@ -140,7 +140,7 @@ class WhodunitHostLeaveTimerTest {
                     // the entire remaining deadline without 22,500 idle renders.
                     assertIs<Result.Success<*>>(runtime.session.submit(WhodunitAction.TimerTicked(REMAINING_SECONDS)))
                 }
-                awaitText("DISCUSSION")
+                awaitText("Discussion")
                 val initial = canonical.value
                 assertEquals(180, assertNotNull(initial.public.timer).totalSeconds)
                 assertEquals(REMAINING_SECONDS, assertNotNull(initial.public.timer).remainingSeconds)

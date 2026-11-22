@@ -6,15 +6,20 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -41,6 +46,29 @@ import kotlinx.serialization.json.Json
 /** Public catalog only; reproduce Nav3's saved Home entry and asynchronous recovery refresh. */
 @OptIn(ExperimentalTestApi::class)
 class HomeCatalogRestorationTest {
+    @Test
+    fun keyboard_selection_restores_focus_to_the_game_on_return() = runComposeUiTest {
+        val visible = mutableStateOf(true)
+        val game = DominoGameShellBinding(DominoDefinition())
+        setContent {
+            ProvideAppLanguage(AppLanguage.English) {
+                ParlorTheme(reducedMotion = true) {
+                    val entries = rememberSaveableStateHolder()
+                    if (visible.value) entries.SaveableStateProvider("home") {
+                        HomeScreen(games = listOf(game), onGameSelected = { visible.value = false })
+                    }
+                }
+            }
+        }
+        // Three filter stops precede the first game.
+        repeat(4) { onRoot().performKeyInput { pressKey(Key.Tab) } }
+        val card = onNodeWithContentDescription("Open Egyptian Dominoes", substring = true)
+        card.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        card.assertDoesNotExist()
+        runOnIdle { visible.value = true }
+        card.assertIsDisplayed().assertIsFocused()
+    }
+
     @Test
     fun returning_while_recovery_loads_preserves_the_selected_catalog_card_position() {
         verifyRestoration(AppLanguage.English, 1f)

@@ -30,7 +30,7 @@ internal data class AndroidRecoveryPublicCounts(
         if (text == "الإعدادات") { arabicSettings++; if (heading) arabicHeading++ }
         if (labels.englishLocal != null && labels.englishLocal in descriptions) englishLocal++
         if (labels.arabicLocal != null && labels.arabicLocal in descriptions) arabicLocal++
-        if (text == "Make room for play." || text == "لنجتمع على لعبة.") homeTitle++
+        if (text == "Game library" || text == "مكتبة الألعاب") homeTitle++
         if (text == "Checking saved games and resumable sessions…" ||
             text == "جارٍ التحقق من الألعاب المحفوظة والجلسات القابلة للاستئناف…") checking++
         if (text == "Some recovery information is unavailable." || text == "بعض معلومات الاستعادة غير متاحة.") {

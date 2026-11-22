@@ -1,5 +1,16 @@
 # Third-party notice supplement
 
+## Shared interface fonts
+
+Parlor bundles unchanged variable TrueType fonts for English display and Arabic
+interface text. Their original SIL Open Font License 1.1 notices ship in
+`shared/design-system/src/commonMain/composeResources/files/licenses/`.
+
+| Resource | Pinned source | SHA-256 |
+| --- | --- | --- |
+| `bricolage_grotesque.ttf` | [Google Fonts commit 6ce172f](https://github.com/google/fonts/tree/6ce172f74aa355ea43eb964fa4a91570a4d3064d/ofl/bricolagegrotesque) | `413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682` |
+| `noto_sans_arabic_ui.ttf` | [Noto Sans Arabic UI 2.011](https://github.com/notofonts/arabic/releases/tag/NotoSansArabicUI-v2.011), `NotoSansArabicUI/full/slim-variable-ttf/NotoSansArabicUI[wght].ttf` | `0a327f4d47b47ffbd81d82505179c49d820de1fff77036166cbc07080fa575f1` |
+
 ## Last Light fonts
 
 The Last Light game separately packages Fraunces SemiBold and Manrope Regular,

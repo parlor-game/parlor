@@ -29,6 +29,7 @@ import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class WhodunitDiscussionLayoutTest {
@@ -42,6 +43,7 @@ class WhodunitDiscussionLayoutTest {
         var advances = 0
         val arabic = language == AppLanguage.Arabic
         val clue = if (arabic) "كانت النافذة مفتوحة قبل وصول الضيوف." else "The window was open before the guests arrived."
+        val earlierClue = if (arabic) "بقي الباب مغلقًا." else "The door stayed locked."
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 ProvideAppLanguage(language) {
@@ -49,11 +51,10 @@ class WhodunitDiscussionLayoutTest {
                         Box(Modifier.size(320.dp, 640.dp).testTag("discussion-evidence")) {
                             DiscussionScreen(
                                 timer = PublicTimerState("discussion-1", 60, 42, false),
-                                revealedClues = listOf(RevealedClue(
-                                    ClueId("example-clue"),
-                                    clue,
-                                    roundIndex = 1,
-                                )),
+                                revealedClues = listOf(
+                                    RevealedClue(ClueId("earlier-clue"), earlierClue, roundIndex = 1),
+                                    RevealedClue(ClueId("latest-clue"), clue, roundIndex = 2),
+                                ),
                                 authorityLabel = if (arabic) "المضيف يتحكم بالتقدم" else "Host leads the discussion",
                                 onAdvance = { advances++ },
                             )
@@ -63,12 +64,17 @@ class WhodunitDiscussionLayoutTest {
             }
         }
         val timer = if (arabic) "النقاش. المتبقي 0:42 من 1:00." else "DISCUSSION. 0:42 remaining of 1:00."
-        onNodeWithContentDescription(timer).performScrollTo().assertIsDisplayed()
+        onNodeWithContentDescription(timer).assertIsDisplayed()
+        val latest = onNodeWithText(clue)
+        val earlier = onNodeWithText(earlierClue)
+        latest.assertIsDisplayed()
+        val latestNode = latest.fetchSemanticsNode()
+        assertTrue(latestNode.boundsInRoot.height >= latestNode.size.height - 1f, "The latest clue is clipped")
+        assertTrue(latestNode.positionInRoot.y < earlier.fetchSemanticsNode().positionInRoot.y)
         val output = File("build/reports/tests/public-ux/whodunit-discussion-${language.tag}-2x.png")
         output.parentFile.mkdirs()
         ImageIO.write(onNodeWithTag("discussion-evidence").captureToImage().toAwtImage(), "png", output)
-        onNodeWithText(if (arabic) "الجولة 1  ·  دليل" else "ROUND 1  ·  CLUE").performScrollTo().assertIsDisplayed()
-        onNodeWithText(clue).performScrollTo().assertIsDisplayed()
+        earlier.performScrollTo().assertIsDisplayed()
         onNodeWithText(if (arabic) "تابع" else "Move On").performScrollTo().performClick()
         runOnIdle { assertEquals(1, advances) }
     }

@@ -17,6 +17,44 @@ def once(text, old, new):
     return text.replace(old, new)
 
 
+def picker_controls(text):
+    """Match one reviewed picker layout and attach to its actual Host and Join cards."""
+    legacy, redesigned = [], []
+    for title, control in (('Host', 1), ('Join', 2)):
+        callback = f'on{title}'
+        old = f'                        onClick = {callback},\n                        modifier = Modifier.fillMaxWidth(),'
+        probe = f'pin01PublicInput({control})'
+        legacy.append((old, old.replace('Modifier.fillMaxWidth()', f'Modifier.fillMaxWidth().{probe}')))
+
+        resource = title.lower()
+        card = (
+            '        SetupOptionCard(\n'
+            f'            icon = SetupIcon.{title},\n'
+            f'            title = stringResource(Res.string.setup_{resource}_title),\n'
+            f'            body = stringResource(Res.string.setup_{resource}_body),\n'
+            f'            contentDescription = stringResource(Res.string.setup_{resource}_choose_description),\n'
+            f'            onClick = {callback},\n'
+        )
+        redesigned.append((card, card + f'            inputObserver = Modifier.{probe},\n'))
+
+    card_modifier = (
+        '    onClick: () -> Unit,\n'
+        ') {\n'
+        '    val shape = RoundedCornerShape(ParlorTheme.radii.card)\n'
+        '    ParlorCard(\n'
+        '        modifier = Modifier.fillMaxWidth().clip(shape).libraryFocusOutline(shape)\n'
+    )
+    redesigned.append((card_modifier, card_modifier.replace(
+        '    onClick: () -> Unit,\n', '    onClick: () -> Unit,\n    inputObserver: Modifier = Modifier,\n',
+    ) + '            .then(inputObserver)\n'))
+
+    recognized = [plan for plan in (legacy, redesigned) if all(text.count(old) == 1 for old, _ in plan)]
+    if len(recognized) != 1 or any(old in text for plan in (legacy, redesigned)
+                                  if plan is not recognized[0] for old, _ in plan):
+        raise RuntimeError('PIN01 picker layout missing, mixed or ambiguous')
+    return recognized[0]
+
+
 def setup_callbacks(text):
     """Require one complete known callback shape; never guess or mix revisions."""
     known = []
@@ -57,9 +95,8 @@ def render(sources, expected_sha256, *, native_observer):
     output = dict(sources)
     text = once(output[PICKER], 'import androidx.compose.ui.Modifier\n',
                 'import androidx.compose.ui.Modifier\nimport com.parlor.app.inputcopy.pin01PublicInput\n')
-    for callback, control in (('onHost', 1), ('onJoin', 2)):
-        anchor = f'                        onClick = {callback},\n                        modifier = Modifier.fillMaxWidth(),'
-        text = once(text, anchor, anchor.replace('Modifier.fillMaxWidth()', f'Modifier.fillMaxWidth().pin01PublicInput({control})'))
+    for old, new in picker_controls(text):
+        text = once(text, old, new)
     output[PICKER] = text
     text = once(output[SHELL], '    val settings = gate::openAppSettings.takeIf { gate.canOpenNetworkSettings }',
         '    com.parlor.app.inputcopy.PIN01PublicStage(when (step) {\n'

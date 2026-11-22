@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
@@ -31,6 +32,7 @@ import com.parlor.games.dominoes.DominoDefinition
 import com.parlor.games.ghamza.GhamzaDefinition
 import com.parlor.games.wordimpostor.WordImpostorDefinition
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.PendingAdmission
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.testing.InMemoryHostRoom
 import com.parlor.networking.testing.InMemoryRoomBus
@@ -54,8 +56,10 @@ class RoomGameLobbyRenderingTest {
     ) = runComposeUiTest {
         val hostName = "أحمد (Ahmed 12)"
         val members = MutableStateFlow(emptyList<RoomMember>())
+        val requests = MutableStateFlow(emptyList<PendingAdmission>())
         val room = object : LocalRoom by InMemoryHostRoom(InMemoryRoomBus(), PlayerId("host"), hostName) {
             override val members = members
+            override val pendingAdmissions = requests
         }
         val setup = GameHostSetupCheckpoint(spec.kind("setup"), spec.defaultCaseId)
         val toast = ParlorToastState()
@@ -78,7 +82,17 @@ class RoomGameLobbyRenderingTest {
         val minimum = spec.definition.supportedPlayerCounts.first
         runOnIdle {
             members.value = (1 until minimum).map { RoomMember(PlayerId("guest-$it"), "Player $it", true) }
+            requests.value = listOf(PendingAdmission(PlayerId("pending"), "سلمى (Salma)", isRejoin = false))
         }
+        onNodeWithText(if (arabic) "طلبات الانضمام" else "Join requests").performScrollTo().assertIsDisplayed()
+        val admissionHint = if (arabic) {
+            "وافق على طلبات الانضمام أو ارفضها قبل البدء."
+        } else {
+            "Approve or decline each join request before starting."
+        }
+        onNodeWithText(admissionHint).performScrollTo().assertIsDisplayed()
+        onNodeWithText(startLabel(arabic, minimum)).performScrollTo().assertIsNotEnabled()
+        runOnIdle { requests.value = emptyList() }
         onNodeWithText(startLabel(arabic, minimum)).performScrollTo().assertIsEnabled().performClick()
         runOnIdle { assertEquals(1, starts) }
         val maximum = spec.definition.supportedPlayerCounts.last

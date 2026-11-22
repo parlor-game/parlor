@@ -4,19 +4,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.designsystem.backdrop.HeroBackdrop
-import com.parlor.designsystem.components.EyebrowLabel
+import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.domain.state.Role
 import com.parlor.games.mafia.resources.Res
@@ -25,6 +28,7 @@ import com.parlor.games.mafia.resources.night_announcement_continue_description
 import com.parlor.games.mafia.resources.night_announcement_eyebrow_format
 import com.parlor.games.mafia.resources.night_announcement_killed_format
 import com.parlor.games.mafia.resources.night_announcement_no_kill
+import com.parlor.games.mafia.resources.night_announcement_public
 import com.parlor.games.mafia.resources.night_announcement_revealed_role_format
 import com.parlor.games.mafia.resources.night_announcement_saved
 import com.parlor.games.mafia.ui.screens.reveal.roleDisplayName
@@ -53,15 +57,16 @@ fun NightAnnouncementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l, Alignment.CenterVertically),
+                .parlorSafeContentPadding(ParlorTheme.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EyebrowLabel(
-                text = stringResource(Res.string.night_announcement_eyebrow_format, day),
-                textAlign = TextAlign.Center,
+            ContextRibbon(
+                label = stringResource(Res.string.night_announcement_eyebrow_format, day),
+                detail = stringResource(Res.string.night_announcement_public),
+                tone = ParlorContextTone.Public,
             )
-            ParlorCard(modifier = Modifier.fillMaxWidth()) {
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
@@ -70,7 +75,7 @@ fun NightAnnouncementScreen(
                     val headline = when {
                         killedPlayerName != null -> stringResource(
                             Res.string.night_announcement_killed_format,
-                            killedPlayerName,
+                            killedPlayerName.asBidiArgument(),
                         )
                         wasSaved -> stringResource(Res.string.night_announcement_saved)
                         else -> stringResource(Res.string.night_announcement_no_kill)
@@ -80,6 +85,7 @@ fun NightAnnouncementScreen(
                         style = ParlorTheme.typography.displayMedium,
                         color = ParlorTheme.colors.textPrimary,
                         textAlign = TextAlign.Center,
+                        modifier = Modifier.semantics { heading() },
                     )
                     if (killedPlayerName != null && revealedRole != null) {
                         Text(

@@ -61,6 +61,14 @@ class CopyControls(unittest.TestCase):
             self.assertEqual(set(transformed), set(copies.MODIFIED) | {copies.ADDITION})
             self.assertEqual(source, actual_sources())
             self.assertEqual(driver, (ROOT / 'iosApp/iosAppUITests/IOSAppLaunchUITests.swift').read_bytes())
+            picker = transformed[copies.PICKER]
+            for control in (1, 2):
+                self.assertEqual(picker.count(f'.pin01PublicInput({control})'), 1)
+            for old, new in copies.picker_controls(source[copies.PICKER]):
+                self.assertEqual(picker.count(new), 1)
+                picker = picker.replace(new, old)
+            self.assertEqual(picker.replace('import com.parlor.app.inputcopy.pin01PublicInput\n', ''),
+                             source[copies.PICKER])
             for statement in ('onClick = onClick,', 'enabled = enabled,', 'role = Role.Button,',
                               '.verticalScroll(rememberScrollState())', 'clearAndSetSemantics'):
                 self.assertEqual(source[copies.PICKER].count(statement), transformed[copies.PICKER].count(statement))
@@ -90,8 +98,7 @@ class CopyControls(unittest.TestCase):
 
     def test_each_actual_anchor_mutation_rejects_before_any_write(self):
         source = actual_sources()
-        anchors = ((copies.PICKER, '                        onClick = onHost,\n                        modifier = Modifier.fillMaxWidth(),'),
-                   (copies.PICKER, '                        onClick = onJoin,\n                        modifier = Modifier.fillMaxWidth(),'),
+        anchors = (*((copies.PICKER, old) for old, _ in copies.picker_controls(source[copies.PICKER])),
                    *((copies.SHELL, old) for old, _ in copies.setup_callbacks(source[copies.SHELL])),
                    (copies.MAIN, '        startKoinOnce()'),
                    (copies.CONTENT, '        ComposeContainerViewController(contentController: MainViewControllerKt.MainViewController())'))
@@ -101,6 +108,16 @@ class CopyControls(unittest.TestCase):
                 with self.subTest(path=path, changed=changed[-45:]), self.assertRaises(RuntimeError):
                     copies.render(altered, digest(altered), native_observer=True)
         self.assertEqual(actual_sources(), source)
+
+    def test_legacy_picker_still_has_two_observers_and_mixed_layouts_fail_closed(self):
+        legacy = ''.join(f'                        onClick = on{title},\n'
+                         '                        modifier = Modifier.fillMaxWidth(),\n'
+                         for title in ('Host', 'Join'))
+        source = actual_sources()
+        for control, (_, observed) in enumerate(copies.picker_controls(legacy), 1):
+            self.assertIn(f'Modifier.fillMaxWidth().pin01PublicInput({control})', observed)
+        with self.assertRaisesRegex(RuntimeError, 'picker layout missing, mixed or ambiguous'):
+            copies.picker_controls(source[copies.PICKER] + legacy)
 
     def test_guarded_callback_plan_preserves_the_origin_check_and_is_exactly_reversible(self):
         source = actual_sources()

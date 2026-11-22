@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,26 +50,9 @@ import org.jetbrains.compose.resources.stringResource
 internal fun DominoResults(state: DominoState, host: Boolean, enabled: Boolean, onAction: (DominoAction) -> Unit) {
     val result = checkNotNull(state.public.result)
     val match = state.phase == DominoPhase.MatchResult
-    val appear = remember(state.public.token) { Animatable(0f) }
-    val reducedMotion = ParlorTheme.reducedMotion
-    LaunchedEffect(appear, reducedMotion) { appear.animateTo(1f, tween(if (reducedMotion) 0 else 700)) }
+    val showAwardArt = LocalDensity.current.fontScale < 1.5f
     Column(Modifier.fillMaxWidth().background(DominoInk, RoundedCornerShape(26.dp)).padding(22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(92.dp).clearAndSetSemantics {}) {
-                val radius = size.minDimension * .36f
-                drawCircle(DominoGold.copy(alpha = .25f), radius, style = Stroke(1.dp.toPx()))
-                repeat(16) { index ->
-                    rotate(index * 22.5f) {
-                        val r = radius * (1f + .2f * appear.value)
-                        drawLine(DominoGold.copy(alpha = appear.value), center + Offset(0f, r),
-                            center + Offset(0f, r + 5.dp.toPx()), 2.dp.toPx())
-                    }
-                }
-            }
-            Text(stringResource(Res.string.dom_award, result.points), color = DominoGold,
-                style = ParlorTheme.typography.headingMedium, textAlign = TextAlign.Center)
-        }
         if (match) {
             DominoTitle(stringResource(Res.string.dom_match_result))
             DominoTitle(state.players.filter { it.id in state.public.matchWinners }.joinToString(" · ") { it.displayName.asBidiArgument() })
@@ -76,9 +60,22 @@ internal fun DominoResults(state: DominoState, host: Boolean, enabled: Boolean, 
             DominoTitle(result.winner?.let { stringResource(Res.string.dom_round_winner, dominoSideName(state, it)) }
                 ?: stringResource(Res.string.dom_tie))
         }
+        val award = stringResource(Res.string.dom_award, result.points)
+        if (showAwardArt) {
+            DominoAwardSeal(award, state.public.token)
+        } else {
+            Text(award, color = DominoGold, style = ParlorTheme.typography.headingMedium)
+        }
         if (result.blocked) DominoBody(stringResource(Res.string.dom_blocked))
         if (match && DominoScoring.isShutout(state.public.settings, state.public.scores)) {
             DominoBody(stringResource(Res.string.dom_shutout))
+        }
+        if (host) {
+            DominoButton(stringResource(if (match) Res.string.dom_rematch else Res.string.dom_next), enabled) {
+                onAction(if (match) DominoAction.Rematch(state.public.token) else DominoAction.NextRound(state.public.token))
+            }
+        } else {
+            DominoBody(stringResource(Res.string.dom_wait_host))
         }
         DominoScoring.sides(state.players, state.public.settings).entries.sortedByDescending {
             state.public.scores.getValue(it.key)
@@ -99,8 +96,26 @@ internal fun DominoResults(state: DominoState, host: Boolean, enabled: Boolean, 
                 }
             }
         }
-        if (host) DominoButton(stringResource(if (match) Res.string.dom_rematch else Res.string.dom_next), enabled) {
-            onAction(if (match) DominoAction.Rematch(state.public.token) else DominoAction.NextRound(state.public.token))
-        } else DominoBody(stringResource(Res.string.dom_wait_host))
+    }
+}
+
+@Composable
+private fun DominoAwardSeal(award: String, token: Long) {
+    val appear = remember(token) { Animatable(0f) }
+    val reducedMotion = ParlorTheme.reducedMotion
+    LaunchedEffect(appear, reducedMotion) { appear.animateTo(1f, tween(if (reducedMotion) 0 else 700)) }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(92.dp).clearAndSetSemantics {}) {
+            val radius = size.minDimension * .36f
+            drawCircle(DominoGold.copy(alpha = .25f), radius, style = Stroke(1.dp.toPx()))
+            repeat(16) { index ->
+                rotate(index * 22.5f) {
+                    val r = radius * (1f + .2f * appear.value)
+                    drawLine(DominoGold.copy(alpha = appear.value), center + Offset(0f, r),
+                        center + Offset(0f, r + 5.dp.toPx()), 2.dp.toPx())
+                }
+            }
+        }
+        Text(award, color = DominoGold, style = ParlorTheme.typography.headingMedium, textAlign = TextAlign.Center)
     }
 }

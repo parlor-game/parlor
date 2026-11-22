@@ -8,8 +8,7 @@
     <string name="navigation_settings_description">Open settings.</string>
 
     <!-- Home screen. -->
-    <string name="home_eyebrow">TONIGHT AT YOUR TABLE</string>
-    <string name="home_title">Make room for play.</string>
+    <string name="home_title">Game library</string>
     <string name="home_whodunit_title">Whodunit</string>
     <string name="home_whodunit_subtitle">Seven mysteries. One guilty guest.</string>
     <string name="home_whodunit_tagline">Trade secrets, reveal evidence, and accuse carefully.</string>
@@ -21,26 +20,23 @@
 
     <!-- Resume in-progress sessions. -->
     <string name="home_resume_tile_title">Resume saved game</string>
-    <string name="home_resume_tile_subtitle">Continue your in-progress game.</string>
+    <string name="home_resume_tile_subtitle">On this phone</string>
     <string name="home_resume_tile_description">Resume an in-progress local game.</string>
     <string name="home_resume_tile_game_title">Resume %1$s</string>
     <string name="home_resume_tile_position">Saved local game %1$d of %2$d.</string>
     <string name="home_resume_tile_game_description">Resume %1$s local game, saved game %2$d of %3$d.</string>
     <string name="home_resume_tile_unknown_description">Open saved local game %1$d of %2$d for recovery.</string>
     <string name="home_resume_multiplayer_title">Rejoin multiplayer game</string>
-    <string name="home_resume_multiplayer_subtitle">Reconnect to your previous room before the rejoin window closes.</string>
+    <string name="home_resume_multiplayer_subtitle">Return to your previous room.</string>
     <string name="home_resume_multiplayer_description">Rejoin the previous multiplayer game.</string>
 
     <!-- Play-mode labels used by the registry-driven setup screen. -->
     <string name="playmode_solo_title">Solo</string>
     <string name="playmode_solo_body">Just me on this phone. Skip the hand-off ceremony and walk through every player's dossier back-to-back. Best for testing or reading the case alone.</string>
-    <string name="playmode_solo_meta">1 phone · 1 person</string>
     <string name="playmode_solo_choose">Play Solo</string>
     <string name="playmode_solo_choose_description">Start a solo run on this device with no hand-off.</string>
     <string name="playmode_passandplay_title">Pass and Play</string>
-    <string name="playmode_passandplay_body">Hand one phone around. Private turns stay covered between players.</string>
-    <string name="playmode_passandplay_meta">1 phone · %1$d–%2$d players</string>
-    <string name="playmode_passandplay_meta_exact">1 phone · %1$d players</string>
+    <string name="playmode_passandplay_body">Pass the phone between turns.</string>
     <string name="playmode_passandplay_choose">Pass and Play</string>
     <string name="playmode_passandplay_choose_description">Start a pass-and-play session on this device.</string>
 
@@ -59,9 +55,8 @@
     <string name="name_back_description">Return to the home screen.</string>
 
     <!-- Join prompt. -->
-    <string name="join_eyebrow">JOIN A GAME</string>
-    <string name="join_title">Enter the room code.</string>
-    <string name="join_code_help">Six letters and digits the host showed you.</string>
+    <string name="join_title">Join with a code</string>
+    <string name="join_code_help">Get the six characters from the host.</string>
     <string name="join_code_field">Room code</string>
     <string name="join_confirm">Find the room</string>
     <string name="join_confirm_description">Connect to the host using the entered room code.</string>
@@ -101,8 +96,6 @@
     <string name="permission_back_description">Return to the home screen without starting networking.</string>
 
     <!-- Home: game-first redesign. -->
-    <string name="home_subtitle">Choose a game. Gather your people. Start something fun.</string>
-    <string name="home_games_label">CHOOSE A GAME</string>
     <plurals name="home_games_count">
         <item quantity="one">%1$d game</item>
         <item quantity="other">%1$d games</item>
@@ -110,8 +103,8 @@
     <string name="home_saved_on_device">Saved on this device</string>
     <string name="home_players_exact_format">%1$d players</string>
     <string name="home_players_range_format">%1$d–%2$d players</string>
-    <string name="home_local_lan_meta">Local + same Wi-Fi</string>
-    <string name="home_local_meta">Local play</string>
+    <string name="home_local_lan_meta">One phone or nearby</string>
+    <string name="home_local_meta">One phone</string>
     <string name="home_continue_label">CONTINUE</string>
     <string name="home_whodunit_open">Open Whodunit</string>
     <string name="home_whodunit_open_description">Open Whodunit and pick how you want to play.</string>
@@ -120,32 +113,26 @@
 
     <!-- Game setup screen: 4 cards (Solo / Pass and Play / Host / Join). -->
     <string name="setup_eyebrow">GAME SETUP</string>
-    <string name="setup_title">How will you play?</string>
-    <string name="setup_subtitle">Choose the setup that works for your group.</string>
-    <string name="setup_one_device_label">ONE DEVICE</string>
-    <string name="setup_each_device_label">ONE DEVICE EACH · SAME WI-FI</string>
+    <string name="setup_one_device_label">One phone</string>
+    <string name="setup_each_device_label">Nearby phones</string>
     <string name="setup_solo_unavailable_title">Solo is not available.</string>
     <string name="setup_solo_requires_exact">This game needs a full table of %1$d players.</string>
     <string name="setup_solo_requires_range">This game needs %1$d–%2$d players.</string>
     <string name="setup_solo_unavailable_description_format">Solo is not available. %1$s</string>
-    <string name="setup_lan_note">Rooms stay on your local network. No accounts, public matchmaking, or manual IP addresses.</string>
+    <string name="setup_lan_note">Connect everyone’s phone to the same Wi-Fi.</string>
     <string name="setup_back_description">Return to the home screen.</string>
-    <string name="setup_host_title">Host a Room</string>
+    <string name="setup_host_title">Host a room</string>
     <string name="setup_host_body">Create the code and lead the game.</string>
-    <string name="setup_host_meta">One phone per player</string>
     <string name="setup_host_choose">Host a Room</string>
     <string name="setup_host_choose_description">Open a room and show a code your friends can join.</string>
-    <string name="setup_join_title">Join a Room</string>
+    <string name="setup_join_title">Join with a code</string>
     <string name="setup_join_body">Enter the host’s six-character code.</string>
-    <string name="setup_join_meta">One phone per player</string>
     <string name="setup_join_choose">Join a Room</string>
     <string name="setup_join_choose_description">Enter the host's room code to join their table.</string>
-    <string name="setup_multiplayer_disabled">Multiplayer is not available in this build.</string>
-    <string name="setup_mode_unavailable">This setup is not available for this game.</string>
     <string name="home_resume_open_failed">Saved game could not be opened.</string>
     <string name="home_recovery_checking">Checking saved games and resumable sessions…</string>
     <string name="home_recovery_unavailable_title">Some recovery information is unavailable.</string>
-    <string name="home_recovery_unavailable_body">Parlor could not safely read every saved game or resumable session. Available games remain listed. Check again before starting over.</string>
+    <string name="home_recovery_unavailable_body">Available games are listed below. Check again for missing saves.</string>
     <string name="home_recovery_retry">Check again</string>
     <string name="home_recovery_retry_description">Retry checking saved games and resumable sessions.</string>
     <string name="local_resume_failure_eyebrow">RECOVERY UNAVAILABLE</string>
@@ -178,7 +165,10 @@
         <item quantity="one">Start with %1$d player</item>
         <item quantity="other">Start with %1$d players</item>
     </plurals>
-    <string name="room_game_cannot_start">Check player count, settings, and pending requests.</string>
+    <string name="room_game_cannot_start">Choose settings that fit the players at the table.</string>
+    <string name="room_game_wait_for_admission">Approve or decline each join request before starting.</string>
+    <string name="room_game_wait_for_connection">Wait for the room connection to be ready.</string>
+    <string name="room_game_wait_for_players">Players needed to start: %1$s.</string>
     <string name="room_game_opening">Opening your table…</string>
     <string name="room_game_joining">Connecting to the room…</string>
     <string name="room_game_wait_host">You are in. Waiting for the host to start.</string>
@@ -203,24 +193,23 @@
 
     <!-- Capability-based catalog and contextual onboarding. -->
     <string name="catalog_filter_all">All</string>
-    <string name="catalog_filter_local">One device</string>
+    <string name="catalog_filter_local">One phone</string>
     <string name="catalog_filter_nearby">Nearby</string>
-    <string name="catalog_nearby_only_meta">Same Wi-Fi · own devices</string>
+    <string name="catalog_nearby_only_meta">Nearby phones</string>
     <string name="catalog_empty_title">No games for this setup</string>
     <string name="catalog_empty_body">Choose All games to see another way to play.</string>
-    <string name="join_steps_title">Join in three steps</string>
-    <string name="join_steps_network">Connect every device to the same Wi-Fi.</string>
-    <string name="join_steps_code">Ask your host for the room code.</string>
-    <string name="join_steps_approval">Find the room, then wait for the host to let you in.</string>
+    <string name="join_steps_network">Use the same Wi-Fi as the host.</string>
+    <string name="join_steps_approval">Wait for the host to approve your request.</string>
     <string name="lobby_welcome_title">Your room is open</string>
     <string name="lobby_welcome_body">Share the code with your friends. Approve their requests, then start when everyone is here.</string>
+    <string name="lobby_requests_heading">Join requests</string>
     <string name="lobby_player_ready">Connected</string>
     <string name="lobby_player_host">Host · you</string>
     <string name="lobby_setup_heading">Make it your game</string>
     <string name="settings_language_help">Choose the language for every game and screen.</string>
     <string name="settings_appearance_help">Follow your device, or choose your favourite look.</string>
     <string name="settings_accessibility_help">Make play more comfortable for you.</string>
-    <string name="resume_delete_action">Remove saved session</string>
+    <string name="resume_delete_action">Remove</string>
     <string name="resume_delete_description">Remove: %1$s</string>
     <string name="resume_delete_title">Remove saved session?</string>
     <string name="resume_delete_local_body">This deletes this saved game from this device. Other saved games and settings are not affected. This cannot be undone.</string>

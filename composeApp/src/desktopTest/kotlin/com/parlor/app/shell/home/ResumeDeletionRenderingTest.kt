@@ -74,7 +74,7 @@ class ResumeDeletionRenderingTest {
                 }
             }
         }
-        val remove = if (language == AppLanguage.Arabic) "حذف الجلسة المحفوظة" else "Remove saved session"
+        val remove = if (language == AppLanguage.Arabic) "حذف" else "Remove"
         onNodeWithText(remove).performScrollTo().performClick()
         onNodeWithTag("resume-delete-cancel").performClick()
         runOnIdle { assertEquals(1, cancelled); assertEquals(0, confirmed) }

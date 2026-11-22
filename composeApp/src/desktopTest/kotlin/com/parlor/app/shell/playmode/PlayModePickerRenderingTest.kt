@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.parlor.app.shell.game.DominoGameShellBinding
 import com.parlor.app.shell.game.GameEntryMode
+import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.app.shell.game.GameShellCapabilities
 import com.parlor.app.shell.game.GhamzaGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
@@ -41,14 +42,13 @@ class PlayModePickerRenderingTest {
         )
         for (binding in bindings) {
             for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
-                verifyMultiplayerOnly(binding.capabilities, binding.definition.supportedPlayerCounts, language)
+                verifyMultiplayerOnly(binding, language)
             }
         }
     }
 
     private fun verifyMultiplayerOnly(
-        capabilities: GameShellCapabilities,
-        playerCounts: IntRange,
+        binding: GameShellBinding,
         language: AppLanguage,
     ) = runComposeUiTest {
         var localSelections = 0
@@ -64,8 +64,9 @@ class PlayModePickerRenderingTest {
                                 onHost = { hostSelections++ },
                                 onJoin = { joinSelections++ },
                                 onBack = {},
-                                capabilities = capabilities,
-                                supportedPlayerCounts = playerCounts,
+                                presentation = binding.catalogPresentation(),
+                                capabilities = binding.capabilities,
+                                supportedPlayerCounts = binding.definition.supportedPlayerCounts,
                             )
                         }
                     }
@@ -73,7 +74,7 @@ class PlayModePickerRenderingTest {
             }
         }
         val arabic = language == AppLanguage.Arabic
-        onNodeWithText(if (arabic) "جهاز واحد" else "ONE DEVICE").assertDoesNotExist()
+        onNodeWithText(if (arabic) "هاتف واحد" else "One phone").assertDoesNotExist()
         onNodeWithText(if (arabic) "اللعب المنفرد غير متاح." else "Solo is not available.").assertDoesNotExist()
         onNodeWithContentDescription(
             if (arabic) "ابدأ جلسة تمرير ولعب على هذا الجهاز." else "Start a pass-and-play session on this device.",
@@ -112,13 +113,14 @@ class PlayModePickerRenderingTest {
                         onHost = {},
                         onJoin = {},
                         onBack = {},
+                        presentation = GhamzaGameShellBinding(GhamzaDefinition()).catalogPresentation(),
                         capabilities = GameShellCapabilities(modes),
                         supportedPlayerCounts = 3..6,
                     )
                 }
             }
         }
-        onNodeWithText("ONE DEVICE").assertExists()
+        onNodeWithText("One phone").assertExists()
         onNodeWithContentDescription("Start a pass-and-play session on this device.")
             .performScrollTo().assertIsEnabled().performClick()
         if (solo) {

@@ -214,6 +214,22 @@ class ReleaseArtifactTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unreviewed resource name"):
             artifacts.raw_resource_path(artifacts.LAST_LIGHT_ROOT + "font/unreviewed.ttf")
 
+    def test_shared_font_licenses_are_required_in_their_shipping_namespace(self):
+        for suffix in ("files/licenses/bricolage_grotesque_ofl.txt", "files/licenses/noto_sans_arabic_ofl.txt"):
+            with self.subTest(license=suffix):
+                relative = artifacts.SHARED_ROOT + suffix
+                self.source_paths.append(relative)
+                self.write(self.source, relative, b"synthetic reviewed license")
+                shipped = "compose-resources/composeResources/parlor.shared.design_system.generated.resources/" + suffix
+                self.assertEqual(shipped, artifacts.raw_resource_path(relative))
+                with self.assertRaisesRegex(RuntimeError, "shipping Compose namespace"):
+                    self.inspect()
+                path = self.write(self.app, shipped, b"changed license")
+                with self.assertRaisesRegex(RuntimeError, "Exact raw case/font bytes"):
+                    self.inspect()
+                path.write_bytes(b"synthetic reviewed license")
+        self.assertEqual(4, len(self.inspect()["raw_resource_matches"]))
+
     def test_symlinked_package_or_resource_is_rejected(self):
         alias = self.root / "alias.app"
         alias.symlink_to(self.app, target_is_directory=True)

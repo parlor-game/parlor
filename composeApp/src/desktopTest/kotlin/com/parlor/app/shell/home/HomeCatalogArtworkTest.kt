@@ -149,6 +149,9 @@ class HomeCatalogArtworkTest {
         assertEquals(1, onAllNodesWithContentDescription(label).fetchSemanticsNodes().size)
         val semantics = card.fetchSemanticsNode().config
         assertEquals(Role.Button, semantics[SemanticsProperties.Role])
+        val requirements = semantics[SemanticsProperties.StateDescription]
+        val expected = if (language == AppLanguage.Arabic) "من 2 إلى 4 لاعبين · هواتف قريبة" else "2–4 players · Nearby phones"
+        assertTrue(requirements.endsWith(expected), "The tile must announce its group size and device arrangement")
         assertTrue(semantics.contains(SemanticsActions.OnClick))
         val before = card.captureToImage()
         val first = IntArray(before.width * before.height).also { before.readPixels(it) }

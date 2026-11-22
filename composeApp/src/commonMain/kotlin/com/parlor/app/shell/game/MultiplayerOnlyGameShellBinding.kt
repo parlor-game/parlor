@@ -20,6 +20,6 @@ internal abstract class MultiplayerOnlyGameShellBinding<S : GameState, A : GameA
         launch: GameShellLaunch, onExit: () -> Unit, backRequest: GameShellBackRequest, modifier: Modifier,
     ) {
         require(launch.gameId == definition.id)
-        MultiplayerShellContent(this, launch, capabilities, onExit, backRequest, modifier)
+        MultiplayerShellContent(this, launch, capabilities, catalogPresentation(), onExit, backRequest, modifier)
     }
 }

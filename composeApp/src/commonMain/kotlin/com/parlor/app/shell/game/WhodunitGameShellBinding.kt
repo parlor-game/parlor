@@ -81,6 +81,7 @@ internal class WhodunitGameShellBinding(
         ParlorAccentScope(ParlorAccent.Amber) {
             WhodunitShellContent(
                 launch = launch,
+                presentation = catalogPresentation(),
                 capabilities = capabilities,
                 supportedPlayerCounts = SHIPPED_WHODUNIT_PLAYER_COUNTS,
                 onExit = onExit,
@@ -112,6 +113,7 @@ private enum class WhodunitShellScreen {
 @Composable
 private fun WhodunitShellContent(
     launch: GameShellLaunch,
+    presentation: GameCatalogPresentation,
     capabilities: GameShellCapabilities,
     supportedPlayerCounts: IntRange,
     onExit: () -> Unit,
@@ -196,6 +198,7 @@ private fun WhodunitShellContent(
 
     when (screen) {
         WhodunitShellScreen.Setup -> PlayModePickerScreen(
+            presentation = presentation,
             onModeSelected = { mode ->
                 if (
                     screen == WhodunitShellScreen.Setup &&
@@ -240,6 +243,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.HostName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = true,
             initial = hostName,
             onConfirm = { name ->
@@ -306,6 +310,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.JoinName -> NameInputScreen(
+            gameTitle = presentation.title,
             isHost = false,
             initial = peerName,
             onConfirm = { name ->
@@ -319,6 +324,7 @@ private fun WhodunitShellContent(
         )
 
         WhodunitShellScreen.JoinPrompt -> JoinPromptScreen(
+            gameTitle = presentation.title,
             onConfirm = { code ->
                 if (screen == WhodunitShellScreen.JoinPrompt) {
                     pendingJoinCode = code

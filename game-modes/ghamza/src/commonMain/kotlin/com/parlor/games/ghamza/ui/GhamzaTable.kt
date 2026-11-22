@@ -241,15 +241,21 @@ private fun GhamzaFinalGuess(state: GhamzaState, self: PlayerId, enabled: Boolea
 @Composable
 private fun GhamzaResults(state: GhamzaState, host: Boolean, enabled: Boolean, onAction: (GhamzaAction) -> Unit) {
     val result = checkNotNull(state.public.result)
-    GhamzaTitle(stringResource(Res.string.gh_result))
-    GhamzaEye(true, Modifier.fillMaxWidth())
-    GhamzaTitle(stringResource(Res.string.gh_winner, state.name(result.winner)))
-    GhamzaBody(stringResource(Res.string.gh_loser, state.name(result.loser)))
-    GhamzaBody(stringResource(Res.string.gh_revealed, state.name(result.winker)))
-    GhamzaBody(stringResource(Res.string.gh_guess_result, state.name(result.guesser), state.name(result.guessed)))
     val matchFinished = state.phase == GhamzaPhase.MatchResult
-    if (matchFinished) GhamzaTitle(stringResource(Res.string.gh_match_complete))
-    GhamzaBody(stringResource(Res.string.gh_next_lives))
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .background(GhamzaInk.copy(alpha = .7f), RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        GhamzaTitle(stringResource(Res.string.gh_winner, state.name(result.winner)))
+        GhamzaBody(stringResource(if (matchFinished) Res.string.gh_match_complete else Res.string.gh_result))
+    }
+    GhamzaBody(stringResource(Res.string.gh_guess_result, state.name(result.guesser), state.name(result.guessed)))
+    GhamzaBody(stringResource(Res.string.gh_revealed, state.name(result.winker)))
+    GhamzaBody(stringResource(Res.string.gh_loser, state.name(result.loser)))
+    if (!matchFinished) GhamzaBody(stringResource(Res.string.gh_next_lives))
     if (host) GhamzaButton(stringResource(if (matchFinished) Res.string.gh_rematch else Res.string.gh_next), enabled) {
         onAction(if (matchFinished) GhamzaAction.Rematch(state.public.token) else GhamzaAction.NextRound(state.public.token))
     } else GhamzaBody(stringResource(Res.string.gh_wait_host))
