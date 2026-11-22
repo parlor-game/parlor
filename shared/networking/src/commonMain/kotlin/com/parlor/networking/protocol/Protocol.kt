@@ -66,6 +66,9 @@ data class SessionEnvelopeHeader(
      * room/session ownership generation rather than by rotating this field.
      */
     val connectionEpoch: Long = 1L,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val partyId: PartyId? = null,
 )
 
 /** Game context claimed by a peer. The host validates it before publishing an approval. */
