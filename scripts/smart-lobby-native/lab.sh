@@ -28,7 +28,8 @@ build() {
     grep -Fxq 'Build version 17C529' "$package/xcode.txt"
     xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
       -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-      -derivedDataPath "$work/parlor-xcode" build
+      -derivedDataPath "$work/parlor-xcode" \
+      ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
     app="$work/parlor-xcode/Build/Products/Debug-iphonesimulator/Parlor.app"
     if [[ ! -d "$app" ]]; then
       apps=("$work"/parlor-xcode/Build/Products/Debug-iphonesimulator/*.app)
@@ -80,7 +81,22 @@ boot_ios_group() {
   [[ "$(uname -m)" == arm64 ]]
   xcodebuild -version | tee "$proof/xcode.txt"
   grep -Fxq 'Build version 17C529' "$proof/xcode.txt"
-  runtime=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; print(next(r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r["isAvailable"] and r["version"] == "26.3" and ".iOS-" in r["identifier"]))')
+  xcrun simctl list runtimes -j > "$proof/runtime-inventory.json"
+  runtime=$(python3 - "$proof/runtime-inventory.json" <<'RUNTIME'
+import json
+import sys
+
+with open(sys.argv[1]) as inventory:
+    available = [runtime for runtime in json.load(inventory)["runtimes"]
+                 if runtime["isAvailable"] and ".iOS-" in runtime["identifier"]]
+if not available:
+    raise SystemExit("No supported iOS simulator runtime")
+pin = next((runtime for runtime in available if runtime["version"] == "26.3"), None)
+selected = pin or max(available, key=lambda value: tuple(map(int, value["version"].split("."))))
+print(selected["identifier"])
+RUNTIME
+  )
+  printf '%s\n' "$runtime" > "$proof/selected-runtime.txt"
   for ((index=0; index<DEVICE_COUNT; index++)); do
     device=$(xcrun simctl create "Parlor Smart Lobby $index" com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$runtime")
     printf '%s\n' "$device" >> "$devices"
