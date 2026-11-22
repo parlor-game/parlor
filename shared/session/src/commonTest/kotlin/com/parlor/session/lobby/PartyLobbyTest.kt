@@ -113,6 +113,7 @@ class PartyLobbyTest {
         val committed = disconnected.commitMatch(match.id).value()
 
         assertEquals(match, assertIs<PartyPhase.Playing>(committed.phase).match)
+        assertEquals(Result.Success(committed), committed.commitMatch(match.id))
         assertFalse(committed.acceptsGameplay(match.id, mafia.protocol, peer))
         assertTrue(committed.updatePresence(peer, true).value().acceptsGameplay(match.id, mafia.protocol, peer))
     }

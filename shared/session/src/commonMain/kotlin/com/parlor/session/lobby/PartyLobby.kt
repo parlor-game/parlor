@@ -130,6 +130,9 @@ internal data class PartyLobby private constructor(
     }
 
     fun commitMatch(matchId: SessionId): Result<PartyLobby, PartyRejection> {
+        if (phase is PartyPhase.Playing) {
+            return if (phase.match.id == matchId) Result.Success(this) else Result.Failure(PartyRejection.StaleMatch)
+        }
         val current = (phase as? PartyPhase.Starting)?.match ?: return Result.Failure(PartyRejection.InvalidPhase)
         if (current.id != matchId) return Result.Failure(PartyRejection.StaleMatch)
         // Called after the game coordinator's irreversible Ready/Commit
