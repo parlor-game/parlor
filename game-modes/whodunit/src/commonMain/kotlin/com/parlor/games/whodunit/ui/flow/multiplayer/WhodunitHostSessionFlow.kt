@@ -75,6 +75,7 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorToastSeverity
@@ -442,6 +443,7 @@ private fun HostLobbyContent(
                                 accent = false,
                             )
                             RoomCodeText(code = info.code)
+                            LobbyRoomTag(info.roomTag)
                             Text(
                                 text = stringResource(Res.string.host_hosting_as_format, hostName),
                                 style = ParlorTheme.typography.bodyMedium,

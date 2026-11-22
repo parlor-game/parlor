@@ -30,7 +30,7 @@ class JoinInputLiveCodeTest {
             setContent {
                 ProvideAppLanguage(language) {
                     ParlorTheme(reducedMotion = true) {
-                        JoinPromptScreen(onConfirm = submitted::add, onCancel = {})
+                        JoinPromptScreen(onConfirm = { code, _ -> submitted.add(code) }, onCancel = {})
                     }
                 }
             }

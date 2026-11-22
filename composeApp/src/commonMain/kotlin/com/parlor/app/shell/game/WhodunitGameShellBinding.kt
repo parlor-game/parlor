@@ -33,6 +33,7 @@ import com.parlor.games.whodunit.WhodunitPlayModePolicy
 import com.parlor.games.whodunit.ui.flow.WhodunitGameFlow
 import com.parlor.games.whodunit.ui.flow.multiplayer.WhodunitHostRoomBridge
 import com.parlor.games.whodunit.ui.screens.setup.ModeSelectionScreen
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
 import com.parlor.session.multidevice.MultiplayerSessionRole
@@ -172,6 +173,7 @@ private fun WhodunitShellContent(
             },
         )
     }
+    var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
         mutableStateOf(
             restoredRoute
@@ -325,9 +327,12 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
-            onConfirm = { code ->
+            transport = transport,
+            game = HostedGameProtocol(WhodunitIds.GameId, WhodunitHostRoomBridge.GAME_VERSION),
+            onConfirm = { code, selection ->
                 if (screen == WhodunitShellScreen.JoinPrompt) {
                     pendingJoinCode = code
+                    discoveredRoom = selection
                     screen = WhodunitShellScreen.PeerLobby
                 }
             },
@@ -342,6 +347,7 @@ private fun WhodunitShellContent(
                 WhodunitPeerSessionFlow(
                     transport = transport,
                     code = pendingJoinCode,
+                    discoveredRoom = discoveredRoom,
                     peerName = peerName,
                     onBackToLibrary = onExit,
                     onOpenNetworkSettings = openNetworkSettings,

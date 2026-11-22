@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="lobby_room_tag">الغرفة القريبة %1$s</string>
     <string name="session_exit_affordance">مغادرة</string>
     <string name="session_exit_affordance_description">فتح خيارات مغادرة اللعبة.</string>
     <string name="session_exit_stay">البقاء في اللعبة</string>

@@ -70,7 +70,7 @@ class RoomCodeAccessibilityAcceptanceTest {
         var canceled = 0
         setContent {
             ShellAcceptanceFrame(language, theme) {
-                JoinPromptScreen(onConfirm = submitted::add, onCancel = { canceled++ })
+                JoinPromptScreen(onConfirm = { code, _ -> submitted.add(code) }, onCancel = { canceled++ })
             }
         }
         val arabic = language == AppLanguage.Arabic

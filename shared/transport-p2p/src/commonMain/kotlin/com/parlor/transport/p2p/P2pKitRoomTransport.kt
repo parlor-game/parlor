@@ -262,9 +262,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     }
 
     override val capability: TransportCapability = TransportCapability(
-        // The UI currently uses explicit room-code entry. Do not claim the
-        // RoomTransport discovery contract until discoverRooms() is mapped.
-        supportsDiscovery = false,
+        supportsDiscovery = true,
         latencyHintMs = 25,
         maxPayloadBytes = MAX_ROOM_FRAME_BYTES,
         // Room-code entry still discovers a generic LAN advertisement. Parlor
@@ -354,6 +352,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     hostPlayerId = PlayerId(kit.localPeerId.value),
                     maxRemotePlayers = config.maxRemotePlayers,
                     gameProtocol = config.gameProtocol,
+                    roomTag = (LobbyAdvertisement.parse(advertisedDeviceName) as? LobbyAdvertisement.Entry.GameRoom)?.roomTag,
                     scope = scope,
                     codec = codec,
                     diagnostics = diagnostics,
@@ -1929,6 +1928,7 @@ internal class HostP2pRoom(
     private val recoveryElapsedMillis: () -> Long = ::platformRecoveryElapsedMillis,
     private val admissionTimeSource: TimeSource = TimeSource.Monotonic,
     private val roomId: RoomId = RoomId(SecureIds.id128()),
+    roomTag: String? = null,
 ) : LocalRoom, AppLifecycleAwareRoom {
 
     init {
@@ -1946,6 +1946,7 @@ internal class HostP2pRoom(
             hostPlayerId = hostPlayerId,
             status = RoomInfo.Status.Hosting,
             roomId = roomId,
+            roomTag = roomTag,
         ),
     )
     private val _members = MutableStateFlow<List<RoomMember>>(emptyList())

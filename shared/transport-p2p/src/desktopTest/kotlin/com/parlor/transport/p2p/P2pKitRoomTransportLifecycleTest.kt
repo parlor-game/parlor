@@ -1331,7 +1331,7 @@ class P2pKitRoomTransportLifecycleTest {
             },
         )
 
-        assertThat(transport.capability.supportsDiscovery).isFalse()
+        assertThat(transport.capability.supportsDiscovery).isTrue()
         assertThat(transport.capability.supportsManualEndpointConnection).isFalse()
     }
 

@@ -230,6 +230,7 @@ data class RoomInfo(
     val hostPlayerId: PlayerId,
     val status: Status,
     val roomId: RoomId? = null,
+    val roomTag: String? = null,
 ) {
     enum class Status { Idle, Hosting, Joined, Lost }
 }

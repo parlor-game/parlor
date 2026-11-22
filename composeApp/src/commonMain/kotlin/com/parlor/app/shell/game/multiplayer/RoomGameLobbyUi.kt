@@ -84,7 +84,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.l),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
             Text(stringResource(Res.string.room_game_local), color = ParlorTheme.colors.textSecondary)
-            LobbyInvitation(info.code, info.hostDisplayName)
+            LobbyInvitation(info.code, info.hostDisplayName, info.roomTag)
             if (pending.isNotEmpty()) {
                 Text(
                     text = stringResource(Res.string.lobby_requests_heading),

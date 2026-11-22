@@ -33,6 +33,7 @@ import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostLobbyFlow
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostRoomBridge
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightPeerLobbyFlow
 import com.parlor.games.lastlight.ui.flow.passandplay.LastLightGameFlow
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
 import com.parlor.session.multidevice.MultiplayerSessionRole
@@ -161,6 +162,7 @@ private fun LastLightShellContent(
             },
         )
     }
+    var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
         mutableStateOf(
             restoredRoute
@@ -267,9 +269,12 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
-            onConfirm = { code ->
+            transport = transport,
+            game = HostedGameProtocol(launch.gameId, LastLightHostRoomBridge.GAME_VERSION),
+            onConfirm = { code, selection ->
                 if (screen == LastLightShellScreen.JoinPrompt) {
                     pendingJoinCode = code
+                    discoveredRoom = selection
                     screen = LastLightShellScreen.PeerLobby
                 }
             },
@@ -284,6 +289,7 @@ private fun LastLightShellContent(
                 LastLightPeerLobbyFlow(
                     transport = transport,
                     code = pendingJoinCode,
+                    discoveredRoom = discoveredRoom,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,

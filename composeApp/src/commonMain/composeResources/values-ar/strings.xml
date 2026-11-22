@@ -209,6 +209,14 @@
     <string name="catalog_empty_body">اختر كل الألعاب لتجد طريقة أخرى للعب.</string>
     <string name="join_steps_network">استخدم شبكة الواي فاي نفسها.</string>
     <string name="join_steps_approval">انتظر موافقة المضيف.</string>
+    <string name="nearby_search">ابحث عن غرف قريبة</string>
+    <string name="nearby_stop">أوقف البحث</string>
+    <string name="nearby_searching">جارٍ البحث على شبكة Wi-Fi هذه…</string>
+    <string name="nearby_empty">لم نجد غرفًا متوافقة على شبكة Wi-Fi هذه.</string>
+    <string name="nearby_error">تعذّر البحث عن الغرف. تحقّق من شبكة Wi-Fi وحاول مرة أخرى.</string>
+    <string name="nearby_room">غرفة %1$s</string>
+    <string name="nearby_selected">الغرفة المحددة %1$s</string>
+    <string name="nearby_clear">استخدم الرمز فقط</string>
     <string name="lobby_welcome_title">غرفتك مفتوحة</string>
     <string name="lobby_requests_heading">طلبات الانضمام</string>
     <string name="lobby_welcome_body">شارك الرمز مع أصدقائك. وافق على طلباتهم ثم ابدأ عندما يكتمل الجميع.</string>

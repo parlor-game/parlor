@@ -46,7 +46,7 @@ class PublicInputKeyboardOptionsTest {
                         },
                     ) {
                         if (isCode) {
-                            JoinPromptScreen(onConfirm = {}, onCancel = {})
+                            JoinPromptScreen(onConfirm = { _, _ -> }, onCancel = {})
                         } else {
                             NameInputScreen(isHost = false, initial = "", onConfirm = {}, onBack = {})
                         }

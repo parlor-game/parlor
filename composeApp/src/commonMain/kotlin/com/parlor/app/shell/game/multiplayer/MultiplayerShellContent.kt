@@ -20,6 +20,7 @@ import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.MultiplayerSessionRole
 import org.koin.compose.koinInject
@@ -43,6 +44,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         mutableStateOf(owned?.displayName ?: (launch as? GameShellLaunch.ResumeMultiplayer)?.displayName.orEmpty())
     }
     var code by remember(launch) { mutableStateOf(owned?.roomCode.orEmpty()) }
+    var discoveredRoom by remember(launch) { mutableStateOf(owned?.discoveredRoom) }
     var step by remember(launch) {
         mutableStateOf(when {
             launch is GameShellLaunch.ResumeMultiplayer -> ShellStep.ResumePermission
@@ -91,11 +93,14 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         }
         ShellStep.JoinCode -> JoinPromptScreen(
             gameTitle = presentation.title,
-            onConfirm = {
+            transport = transport,
+            game = HostedGameProtocol(spec.definition.id, spec.version),
+            onConfirm = { entered, selection ->
                 // Once accepted, late editor/activation callbacks cannot select
                 // a different room or move an owned peer back into setup.
                 if (step == ShellStep.JoinCode) {
-                    code = it
+                    code = entered
+                    discoveredRoom = selection
                     step = ShellStep.Peer
                 }
             },
@@ -106,7 +111,10 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         ShellStep.Peer, ShellStep.Resume -> if (name.isBlank() || (step == ShellStep.Peer && code.isBlank())) {
             InvalidGameRouteFallback(onExit)
         } else {
-            PeerGameLobby(spec, transport, code, name, step == ShellStep.Resume, onExit, settings, activeBack, modifier, resumeSelection)
+            PeerGameLobby(
+                spec, transport, code, name, step == ShellStep.Resume, onExit, settings, activeBack, modifier,
+                resumeSelection, discoveredRoom,
+            )
         }
     }
 }

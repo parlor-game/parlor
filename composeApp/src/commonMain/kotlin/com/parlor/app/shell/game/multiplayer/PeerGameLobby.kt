@@ -26,6 +26,7 @@ import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.NetError
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
@@ -46,10 +47,11 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
     spec: MultiplayerGameSpec<S, A, E>, transport: RoomTransport, code: String, name: String, resume: Boolean,
     onExit: () -> Unit, onSettings: (() -> Unit)?, backRequest: Long, modifier: Modifier,
     resumeSelection: ResumableSessionSelection? = null,
+    discoveredRoom: DiscoveredRoomSelection? = null,
 ) {
     val owner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(spec.definition.id, code, name, resume, resumeSelection) {
-        MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection)
+    val route = remember(spec.definition.id, code, name, resume, resumeSelection, discoveredRoom) {
+        MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection, discoveredRoom)
     }
     val ownerState by owner.state.collectAsState()
     val session = (ownerState as? ProcessMultiplayerState.Active)?.session?.takeIf { it.route == route }
@@ -69,6 +71,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
                 MultiplayerOpenMode.Join -> transport.join(JoinConfig(
                     code = code, displayName = name,
                     expectedGameProtocol = HostedGameProtocol(spec.definition.id, spec.version),
+                    discoveredRoom = route.discoveredRoom,
                 ))
                 MultiplayerOpenMode.Resume -> route.resumeSelection?.let { selection ->
                     transport.resumeLastSession(HostedGameProtocol(spec.definition.id, spec.version), selection)

@@ -201,6 +201,14 @@
     <string name="catalog_empty_body">Choose All games to see another way to play.</string>
     <string name="join_steps_network">Use the same Wi-Fi as the host.</string>
     <string name="join_steps_approval">Wait for the host to approve your request.</string>
+    <string name="nearby_search">Find nearby rooms</string>
+    <string name="nearby_stop">Stop searching</string>
+    <string name="nearby_searching">Searching on this Wi-Fi…</string>
+    <string name="nearby_empty">No compatible rooms found on this Wi-Fi.</string>
+    <string name="nearby_error">Could not search for rooms. Check your Wi-Fi and try again.</string>
+    <string name="nearby_room">Room %1$s</string>
+    <string name="nearby_selected">Selected room %1$s</string>
+    <string name="nearby_clear">Use code only</string>
     <string name="lobby_welcome_title">Your room is open</string>
     <string name="lobby_welcome_body">Share the code with your friends. Approve their requests, then start when everyone is here.</string>
     <string name="lobby_requests_heading">Join requests</string>

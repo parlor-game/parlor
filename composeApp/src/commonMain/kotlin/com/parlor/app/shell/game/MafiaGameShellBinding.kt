@@ -27,6 +27,7 @@ import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostLobbyFlow
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostRoomBridge
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaPeerLobbyFlow
 import com.parlor.games.mafia.ui.flow.passandplay.MafiaGameFlow
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
 import com.parlor.session.multidevice.MultiplayerSessionRole
@@ -139,6 +140,7 @@ private fun MafiaShellContent(
             },
         )
     }
+    var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
         mutableStateOf(
             restoredRoute
@@ -245,9 +247,12 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
-            onConfirm = { code ->
+            transport = transport,
+            game = HostedGameProtocol(launch.gameId, MafiaHostRoomBridge.GAME_VERSION),
+            onConfirm = { code, selection ->
                 if (screen == MafiaShellScreen.JoinPrompt) {
                     pendingJoinCode = code
+                    discoveredRoom = selection
                     screen = MafiaShellScreen.PeerLobby
                 }
             },
@@ -262,6 +267,7 @@ private fun MafiaShellContent(
                 MafiaPeerLobbyFlow(
                     transport = transport,
                     code = pendingJoinCode,
+                    discoveredRoom = discoveredRoom,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
