@@ -15,11 +15,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import com.parlor.designsystem.localization.asBidiArgument
-import com.parlor.app.resources.lobby_setup_heading
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.home_players_exact_format
+import com.parlor.app.resources.home_players_range_format
+import com.parlor.app.resources.lobby_requests_heading
+import com.parlor.app.resources.lobby_setup_heading
 import com.parlor.app.resources.room_game_action_failed
 import com.parlor.app.resources.room_game_approve
 import com.parlor.app.resources.room_game_cannot_start
@@ -28,6 +32,9 @@ import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_local
 import com.parlor.app.resources.room_game_request
 import com.parlor.app.resources.room_game_start
+import com.parlor.app.resources.room_game_wait_for_admission
+import com.parlor.app.resources.room_game_wait_for_connection
+import com.parlor.app.resources.room_game_wait_for_players
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
@@ -35,6 +42,7 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
@@ -62,13 +70,32 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
     val toast = LocalParlorToastState.current
     val failed = stringResource(Res.string.room_game_action_failed)
     val enabled = !operationInFlight && !state.starting && !state.frozen && foregroundReady
-    val canStart = enabled && admitting.isEmpty() && pending.isEmpty() && spec.acceptsSettings(state.caseId.raw, count)
+    val admissionInProgress = admitting.isNotEmpty() || pending.isNotEmpty()
+    val settingsAccepted = spec.acceptsSettings(state.caseId.raw, count)
+    val canStart = enabled && !admissionInProgress && settingsAccepted
+    val startHint = when {
+        !foregroundReady -> stringResource(Res.string.room_game_wait_for_connection)
+        admissionInProgress -> stringResource(Res.string.room_game_wait_for_admission)
+        count !in spec.definition.supportedPlayerCounts -> requiredPlayersHint(spec.definition.supportedPlayerCounts)
+        !settingsAccepted -> stringResource(Res.string.room_game_cannot_start)
+        else -> null
+    }
     HeroBackdrop(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.l),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
             Text(stringResource(Res.string.room_game_local), color = ParlorTheme.colors.textSecondary)
             LobbyInvitation(info.code, info.hostDisplayName)
-            LobbyRoster(info.hostDisplayName, connected)
+            if (pending.isNotEmpty()) {
+                Text(
+                    text = stringResource(Res.string.lobby_requests_heading),
+                    color = ParlorTheme.colors.textPrimary,
+                    style = ParlorTheme.typography.headingMedium,
+                    modifier = Modifier.semantics {
+                        heading()
+                        liveRegion = LiveRegionMode.Polite
+                    },
+                )
+            }
             pending.forEach { request ->
                 ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
                     Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
@@ -93,10 +120,18 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
                     }
                 }
             }
+            LobbyRoster(info.hostDisplayName, connected)
             Text(stringResource(Res.string.lobby_setup_heading), color = ParlorTheme.colors.textPrimary,
                 style = ParlorTheme.typography.headingMedium, modifier = Modifier.semantics { heading() })
             spec.Settings(state.caseId, count, enabled, setup::select)
-            if (!canStart) Text(stringResource(Res.string.room_game_cannot_start), color = ParlorTheme.colors.textSecondary)
+            if (startHint != null) {
+                Text(
+                    text = startHint,
+                    color = ParlorTheme.colors.textSecondary,
+                    style = ParlorTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
             state.error?.let { Text(roomGameError(it), color = ParlorTheme.colors.textSecondary) }
             RoomButton(pluralStringResource(Res.plurals.room_game_start, count, count), {
                 val currentCount = room.members.value.count(RoomMember::connected) + 1
@@ -105,4 +140,14 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
             RoomButton(stringResource(Res.string.room_game_leave), onLeave, !operationInFlight, true)
         }
     }
+}
+
+@Composable
+private fun requiredPlayersHint(range: IntRange): String {
+    val playerCount = if (range.first == range.last) {
+        stringResource(Res.string.home_players_exact_format, range.first)
+    } else {
+        stringResource(Res.string.home_players_range_format, range.first, range.last)
+    }
+    return stringResource(Res.string.room_game_wait_for_players, playerCount)
 }
