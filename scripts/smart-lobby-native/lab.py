@@ -199,6 +199,9 @@ def start_one(temp, index, device, digest, pairing):
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
+    visual_fallback = os.environ.get("GITHUB_EVENT_NAME") != "push" or not json.loads(CONFIG.read_text()).get(
+        "require_native_ios", False
+    )
     # Lifecycle output can contain control endpoints. Send only closed-vocabulary
     # startup categories to Actions and retain raw output in the job's private dir.
     markers = (
@@ -233,7 +236,7 @@ def start_one(temp, index, device, digest, pairing):
             if attempt == 2 or any((s / "connection.json").exists() or not (s / "outcome").exists()
                                    for s in sessions):
                 raise
-            if target == "ios" and pairing == "mixed" and any(
+            if target == "ios" and pairing == "mixed" and visual_fallback and any(
                 marker in lines for marker in ("axe", "screen capture", "accessibility", "out of alignment")
             ):
                 environment["UI_TEST_IOS_AXE"] = ""
