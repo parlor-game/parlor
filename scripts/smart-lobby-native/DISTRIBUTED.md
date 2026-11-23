@@ -52,7 +52,7 @@ the overlay. TLS keys and controller bearers remain private.
    where the device lease permits. Retire the owned workflow when finished and
    verify its native artifacts are published before updating the matrix.
 
-## macOS controller checks
+## Device controller checks
 
 Check the reported controller capabilities on each Mac. Simulator and
 desktop-window screenshots have different coordinate spaces. When using the
@@ -72,6 +72,13 @@ The distributed UI controller exposes a bounded `parlor_transport` source via
 reason codes from `diagnostics.REASON_CODES` on the run's exact harness
 revision. Use it to diagnose admission during a live match without retiring
 the runner. The native artifact still contains the final redacted timeline.
+
+If an Android guest reports a local-network error after a passing probe, check
+its current `AndroidWifi` association in Android's Internet panel. The
+isolated network has no public Internet access. A saved network can be
+disconnected during a long rendezvous, so confirm a current connection and
+record any manual reassociation. Let a planned interruption occur before using
+that recovery step.
 
 ## Scaling bounds
 
