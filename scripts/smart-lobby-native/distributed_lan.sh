@@ -19,8 +19,8 @@ case "${1:?}" in
     cc -O2 -Wall -Wextra -Werror "$upstream/frame-port.c" -o "$root/frame-port"
     # Each runner generates its own identity. Only public certificates and
     # the hub's short-lived relay address enter rendezvous artifacts.
-    openssl req -x509 -newkey ed25519 -nodes -days 1 -subj /CN=ui-mobile-lan \
-      -addext subjectAltName=DNS:ui-mobile-lan -keyout "$root/key.pem" -out "$root/public/cert.pem"
+    openssl req -x509 -newkey ed25519 -nodes -days 1 -subj "/CN=parlor-lab-seat-$seat" \
+      -keyout "$root/key.pem" -out "$root/public/cert.pem"
     if [[ "$seat" == 1 ]]; then
       openssl req -x509 -newkey ed25519 -nodes -days 1 -subj /CN=ui-mobile-lan \
         -addext subjectAltName=DNS:ui-mobile-lan -keyout "$root/relay-key.pem" -out "$root/public/relay-cert.pem"
@@ -64,6 +64,9 @@ case "${1:?}" in
         cat "$root/identities/$peer/cert.pem"
         printf '\n'
       done > "$root/clients.pem"
+      for ((peer=1; peer<=count; peer++)); do
+        openssl verify -purpose sslclient -CAfile "$root/clients.pem" "$root/identities/$peer/cert.pem" >/dev/null
+      done
       LAN_UI_DIR="$LAN_UI_DIR" "$root/venv/bin/python" "$driver" relay --layout "$layout" --seat 1 \
         --identities "$root/identities" --cert "$hub/relay-cert.pem" --key "$root/relay-key.pem" \
         --trust "$root/clients.pem" --stats "$proof/distributed-relay.json" >"$root/relay.log" 2>&1 &

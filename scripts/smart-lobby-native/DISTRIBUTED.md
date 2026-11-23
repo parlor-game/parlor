@@ -7,7 +7,7 @@ The iOS app uses a Simulator on a disposable macOS VM and reaches the lab
 through its paired fake Ethernet interfaces.
 
 Each job provisions a unique IPv4 address and presents its own ephemeral TLS
-certificate. The relay authenticates the certificates from the current
+certificate with a unique subject. The relay authenticates the certificates from the current
 workflow attempt and binds each connection to one seat. It forwards allowed
 ARP, ICMP, peer TCP and mDNS Ethernet frames. It distributes mDNS multicast
 within the roster and preserves the native DNS answers and TCP endpoints.
