@@ -185,7 +185,7 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": (temp / "parlor-axe-path").read_text().strip()
-        if target == "ios" and pairing == "mixed" else "",
+        if target == "ios" else "",
         "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
@@ -215,9 +215,8 @@ def start_one(temp, index, device, digest, pairing):
             # Never retry after a session receipt could already have been issued.
             if attempt == 2 or any(root.glob("ui-session-*")):
                 raise
-            if target == "ios":
-                # An AXe startup can fail before allocating a controller.
-                # Preserve the installed simulator, then retry via its window.
+            if target == "ios" and pairing == "mixed":
+                # Verify the single mixed guest through its window if native control failed.
                 environment["UI_TEST_IOS_AXE"] = ""
             time.sleep(4 + index)
     connection, = root.glob("ui-session-*/connection.json")
@@ -249,12 +248,8 @@ def start():
         digests = [digests[0 if target == "android" else 1]]
     if len(devices) != len(digests) or len(set(devices)) != len(devices):
         raise ValueError("Independent device allocations do not match the operator roster")
-    if pairing == "ios":
-        # Both app instances are installed and launched. One desktop controller switches
-        # between their named simulator windows; multiple controllers would compete for focus.
-        devices, digests = devices[:1], digests[:1]
     (temp / "parlor-connections").mkdir()
-    with ThreadPoolExecutor(max_workers=min(2, len(devices))) as pool:
+    with ThreadPoolExecutor(max_workers=1 if pairing == "ios" else min(2, len(devices))) as pool:
         jobs = [pool.submit(start_one, temp, index, device, digest, pairing)
                 for index, (device, digest) in enumerate(zip(devices, digests), 1)]
         for job in jobs:
