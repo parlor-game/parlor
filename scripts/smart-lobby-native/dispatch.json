@@ -1,8 +1,8 @@
 {
-  "pairing": "ios",
+  "pairing": "mixed",
   "token_digests": [
-    "1d7ddb8a7273062e4b74ef492762285963ae0ef496ffa5783980547178a506fb",
-    "8c24e5da500470cd2fc34b61cc960f5d803f7cfc2bd3d28d8b996202da2c80f0"
+    "2072efe1eac7db9acab51c9d6da3eaee7ef0c55df3a970e173ff4e72cd51c1e8",
+    "fd84ef01ff6eb790b2df8f1ade36f57fb70ab92302db4e57e7eb4188fa0fda2d"
   ],
   "reuse_candidate": true
 }

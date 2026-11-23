@@ -175,6 +175,12 @@ jobs:
           PY
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
+      - name: Observe isolated LAN continuity during native gameplay
+        if: matrix.pairing == 'mixed' && matrix.target == 'android'
+        run: |
+          setsid bash scripts/smart-lobby-native/lab.sh mixed-lan-probe </dev/null \
+            >"$RUNNER_TEMP/parlor-proof/lan-echo.jsonl" &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/mobile-lan/probe.pid"
       - name: Measure guest clock offset before UI actions
         run: python3 scripts/smart-lobby-native/diagnostics.py clock-before
       - name: Open independent UI controllers

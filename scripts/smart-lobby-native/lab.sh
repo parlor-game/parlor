@@ -114,12 +114,40 @@ boot_android_group() {
   done
 }
 
+# Keep a wedged CoreSimulator request from consuming the entire device lease.
+# Stdout stays machine-readable for create, inventory and container receipts.
+bounded_simctl() {
+  local deadline="$1"
+  shift
+  python3 - "$proof" "$deadline" "$@" <<'SIMCTL'
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+proof, seconds, operation, *args = sys.argv[1:]
+started = time.monotonic()
+try:
+    result = subprocess.run(["/usr/bin/xcrun", "simctl", operation, *args],
+                            timeout=int(seconds), check=False)
+    status = result.returncode if result.returncode >= 0 else 128 - result.returncode
+except subprocess.TimeoutExpired:
+    status = 124
+with (Path(proof) / "ios-provisioning.jsonl").open("a") as stream:
+    stream.write(json.dumps({"operation": operation, "status": status,
+                             "elapsed_seconds": round(time.monotonic() - started, 3)}) + "\n")
+print(f"CoreSimulator {operation} exited with {status}", file=sys.stderr)
+raise SystemExit(status)
+SIMCTL
+}
+
 boot_ios_group() {
   local runtime index device
   [[ "$(uname -m)" == arm64 ]]
   xcodebuild -version | tee "$proof/xcode.txt"
   grep -Fxq 'Build version 17C529' "$proof/xcode.txt"
-  xcrun simctl list runtimes -j > "$proof/runtime-inventory.json"
+  bounded_simctl 90 list runtimes -j > "$proof/runtime-inventory.json"
   runtime=$(python3 - "$proof/runtime-inventory.json" <<'RUNTIME'
 import json
 import sys
@@ -136,10 +164,10 @@ RUNTIME
   )
   printf '%s\n' "$runtime" > "$proof/selected-runtime.txt"
   for ((index=0; index<DEVICE_COUNT; index++)); do
-    device=$(xcrun simctl create "Parlor Smart Lobby $index" com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$runtime")
+    printf 'Allocating simulator %s of %s\n' "$((index + 1))" "$DEVICE_COUNT"
+    device=$(bounded_simctl 90 create "Parlor Smart Lobby $index" com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$runtime")
     printf '%s\n' "$device" >> "$devices"
-    xcrun simctl boot "$device"
-    xcrun simctl bootstatus "$device" -b
+    bounded_simctl 240 bootstatus "$device" -b
   done
 }
 
@@ -216,15 +244,15 @@ install_ios() {
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
-    xcrun simctl install "$device" "$app"
-    installed=$(xcrun simctl get_app_container "$device" "$bundle" app)
+    bounded_simctl 90 install "$device" "$app"
+    installed=$(bounded_simctl 45 get_app_container "$device" "$bundle" app)
     python3 "$verification" manifest "$installed" > "$record/installed-app-manifest.json"
     cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
-    xcrun simctl spawn "$device" launchctl list > "$record/runtime-processes.txt"
+    bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
     if [[ "$PAIRING_NAME" == mixed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"
     fi
-    xcrun simctl launch "$device" "$bundle" > "$record/app-launch.txt"
+    bounded_simctl 60 launch "$device" "$bundle" > "$record/app-launch.txt"
   done 3< "$devices"
 }
 
@@ -259,6 +287,23 @@ install() {
   fi
 }
 
+# The mixed relay's first ping establishes reachability. Keep a bounded,
+# independent series during gameplay so a later interruption can be separated
+# from an application session transition. This output carries no packet data.
+mixed_lan_probe() {
+  local sent completed delivered
+  while [[ -f "$work/mobile-lan/ready" ]]; do
+    sent="$(date -u +%s%3N)"
+    delivered=0
+    if timeout 4 adb -s emulator-5554 shell ping -I wlan0 -c 1 -W 2 192.168.137.2 >/dev/null 2>&1; then
+      delivered=1
+    fi
+    completed="$(date -u +%s%3N)"
+    printf '{"send_epoch_ms":%s,"complete_epoch_ms":%s,"delivered":%s}\n' "$sent" "$completed" "$delivered"
+    sleep 3
+  done
+}
+
 cleanup() {
   python3 "$verification" stop
   if [[ "$TARGET" == android ]]; then
@@ -274,7 +319,7 @@ cleanup() {
       if [[ "$TARGET" == android ]]; then
         adb -s "$device" emu kill || true
       else
-        xcrun simctl delete "$device" || true
+        bounded_simctl 45 delete "$device" || true
       fi
     done 3< "$devices"
   fi
@@ -284,5 +329,6 @@ case "${1:?}" in
   build) build ;;
   install) install ;;
   cleanup) cleanup ;;
+  mixed-lan-probe) mixed_lan_probe ;;
   *) exit 2 ;;
 esac

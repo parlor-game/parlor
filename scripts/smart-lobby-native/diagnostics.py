@@ -75,23 +75,39 @@ def guest_command(platform, device):
     raise ValueError("Invalid job-owned guest")
 
 
+def prepare_ios_clock(temp):
+    binary = temp / "parlor-ios-clock"
+    if binary.is_file():
+        return binary
+    sdk = shell_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-path"], 20).strip()
+    source = Path(__file__).with_name("clock_probe.c")
+    shell_output(["xcrun", "--sdk", "iphonesimulator", "clang", "-std=c11", "-Wall", "-Wextra",
+                  "-Werror", "-target", "arm64-apple-ios16.0-simulator", "-isysroot", sdk,
+                  str(source), "-o", str(binary)], 30)
+    shell_output(["codesign", "--force", "--sign", "-", str(binary)], 15)
+    return binary
+
+
 def clock(platform, device):
     command = guest_command(platform, device)
-    format_arg = "+%s%3N" if platform == "android" else "+%s"
+    if platform == "android":
+        command += ["date", "+%s%3N"]
+    else:
+        command.append(str(prepare_ios_clock(Path(os.environ["RUNNER_TEMP"]))))
     samples = []
     for _ in range(3):
         before_ms = time.time_ns() // 1_000_000
-        guest = shell_output(command + ["date", format_arg], 8).strip()
+        guest = shell_output(command, 15).strip()
         after_ms = time.time_ns() // 1_000_000
-        if not re.fullmatch(r"[0-9]{13}" if platform == "android" else r"[0-9]{10}", guest):
+        if not re.fullmatch(r"[0-9]{13}", guest):
             raise ValueError("Invalid guest clock result")
-        guest_ms = int(guest) if platform == "android" else int(guest) * 1000 + 500
+        guest_ms = int(guest)
         samples.append({"runner_midpoint_epoch_ms": (before_ms + after_ms) // 2,
                         "guest_epoch_ms": guest_ms,
                         "offset_ms": guest_ms - (before_ms + after_ms) // 2,
                         "roundtrip_ms": after_ms - before_ms})
     return {"samples": samples, "median_offset_ms": int(statistics.median(v["offset_ms"] for v in samples)),
-            "guest_resolution_ms": 1 if platform == "android" else 1000}
+            "guest_resolution_ms": 1}
 
 
 def read_events(platform, device):
