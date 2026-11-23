@@ -46,6 +46,8 @@ flowchart LR
    Each roster with an iOS seat allows up to 15 minutes for certificate rendezvous.
    This covers the observed 11-minute wait for the second Mac in run 45264443120.
    The native proof records the elapsed time and any missing seat numbers.
+   iOS jobs also record separate timings for inventory, boot, and simulator
+   process readiness. The boot command has a four-minute deadline.
    Each guest probes every other guest before its controller starts. A queued or
    failed seat leaves the run unqualified. Download controller documents privately. Use the seat
    number in the artifact/filename and its matching, distinct bearer.

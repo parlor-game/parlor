@@ -153,7 +153,7 @@ six_seat_boot_memory() {
 bounded_simctl() {
   local deadline="$1"
   shift
-  python3 - "$proof" "$deadline" "$@" <<'SIMCTL'
+  python3 - "${PARLOR_NATIVE_IOS_PROOF:-$proof}" "$deadline" "$@" <<'SIMCTL'
 import json
 from pathlib import Path
 import subprocess
@@ -230,7 +230,8 @@ await_owned_springboard() {
 install_ios_controller() {
   local asset=AXe-macOS-v2.1.1-universal.tar.gz
   mkdir -p "$work/parlor-axe"
-  curl -fsSL --retry 3 "https://github.com/cameroncooke/AXe/releases/download/v2.1.1/$asset" -o "$work/$asset"
+  curl -fsSL --connect-timeout 15 --max-time 75 --retry 3 --retry-max-time 120 \
+    "https://github.com/cameroncooke/AXe/releases/download/v2.1.1/$asset" -o "$work/$asset"
   printf '%s  %s\n' 8788838b1b32059d143cf06541b72fcaead85c16274457cdbff086510a5b17fa "$work/$asset" | shasum -a 256 -c -
   tar -xzf "$work/$asset" -C "$work/parlor-axe"
   find "$work/parlor-axe" -name axe -type f -print > "$work/parlor-axe-path"
@@ -409,9 +410,20 @@ import sys
 
 path, seat = Path(sys.argv[1]), int(sys.argv[2])
 script = path.read_text()
-assert script.count("192.168.137.2 netmask") == 1
-path.write_text(script.replace("192.168.137.2 netmask", f"192.168.137.{19 + seat} netmask"))
+replacements = {
+    "192.168.137.2 netmask": f"192.168.137.{19 + seat} netmask",
+    "xcrun simctl list devices available -j": "bounded_simctl 60 list devices available -j",
+    'xcrun simctl bootstatus "$device" -b': 'bounded_simctl 240 bootstatus "$device" -b',
+    'xcrun simctl spawn "$device" launchctl list': 'bounded_simctl 45 spawn "$device" launchctl list',
+}
+for command, replacement in replacements.items():
+    if script.count(command) != 1:
+        raise SystemExit("The pinned iOS lab preflight changed")
+    script = script.replace(command, replacement)
+path.write_text(script)
 PY_ADDRESS
+        export -f bounded_simctl
+        export PARLOR_NATIVE_IOS_PROOF="$proof"
       fi
     fi
     (cd "$LAN_UI_DIR" && bash "verification/mobile-lan/preflight-$TARGET.sh")
