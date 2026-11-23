@@ -22,6 +22,7 @@ class IosCrashSummaryTest(unittest.TestCase):
             "asi": {"role": ["Private role"]},
             "faultingThread": 0,
             "threads": [{"frames": [{"imageIndex": 0, "imageOffset": 1040, "symbol": "Private symbol"}]}],
+            "lastExceptionBacktrace": [{"imageIndex": 0, "imageOffset": 800, "symbol": "Private symbol"}],
             "usedImages": [{"uuid": self.image, "path": "Private path"}],
         }
         return json.dumps(header) + "\n" + json.dumps(report)
@@ -34,6 +35,7 @@ class IosCrashSummaryTest(unittest.TestCase):
             "termination_namespace": "SIGNAL",
             "termination_code": 6,
             "faulting_frames": [{"image_uuid": self.image, "image_offset": 1040}],
+            "exception_frames": [{"image_uuid": self.image, "image_offset": 800}],
         }, summarize_ios_crash(self.make_report(), self.device))
 
     def test_rejects_other_apps_and_guests(self):

@@ -137,6 +137,18 @@ def read_events(platform, device):
             if (event := parse_event(line, platform)) is not None]
 
 
+def safe_native_frames(callstack, images):
+    frames = []
+    for frame in callstack[:24]:
+        image_index, offset = frame.get("imageIndex"), frame.get("imageOffset")
+        if type(image_index) is not int or not 0 <= image_index < len(images) or type(offset) is not int:
+            continue
+        uuid = images[image_index].get("uuid", "")
+        if isinstance(uuid, str) and CRASH_UUID.fullmatch(uuid):
+            frames.append({"image_uuid": uuid, "image_offset": offset})
+    return frames
+
+
 def summarize_ios_crash(contents, device):
     header, report = contents.split("\n", 1)
     metadata = json.loads(header)
@@ -161,15 +173,9 @@ def summarize_ios_crash(contents, device):
     images = crash.get("usedImages", [])
     thread_index = crash.get("faultingThread")
     if type(thread_index) is int and 0 <= thread_index < len(threads):
-        frames = []
-        for frame in threads[thread_index].get("frames", [])[:24]:
-            image_index, offset = frame.get("imageIndex"), frame.get("imageOffset")
-            if type(image_index) is not int or not 0 <= image_index < len(images) or type(offset) is not int:
-                continue
-            uuid = images[image_index].get("uuid", "")
-            if isinstance(uuid, str) and CRASH_UUID.fullmatch(uuid):
-                frames.append({"image_uuid": uuid, "image_offset": offset})
-        output["faulting_frames"] = frames
+        output["faulting_frames"] = safe_native_frames(threads[thread_index].get("frames", []), images)
+    if report_frames := crash.get("lastExceptionBacktrace"):
+        output["exception_frames"] = safe_native_frames(report_frames, images)
     return output
 
 
