@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
 DURATION = "80"
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
+RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
 
 
 def configuration():
@@ -40,17 +41,27 @@ def configuration():
 
 def plan():
     pairing, digests = configuration()
+    payload = json.loads(CONFIG.read_text()) if os.environ.get("GITHUB_EVENT_NAME") == "push" else {}
+    candidate = payload.get("candidate", RETAINED_CANDIDATE)
+    observe_reconnect = payload.get("observe_reconnect") is True
+    reuse_candidate = payload.get("reuse_candidate") is True
+    if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
+        raise ValueError("Candidate must be an exact commit SHA")
+    if observe_reconnect and (pairing != "mixed" or reuse_candidate or candidate == RETAINED_CANDIDATE):
+        raise ValueError("Reconnect observations require a newly built mixed pair")
+    if candidate != RETAINED_CANDIDATE and not observe_reconnect:
+        raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     builds = [{"target": target, "runner": runner} for target, runner in
               (("android", "ubuntu-24.04"), ("ios", "macos-26")) if target in targets]
     labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
             for entry in builds]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
-        print(f"build={json.dumps([entry for entry in builds if entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps([entry for entry in builds if observe_reconnect or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
-        reuse_candidate = (os.environ.get("GITHUB_EVENT_NAME") == "push"
-                         and json.loads(CONFIG.read_text()).get("reuse_candidate") is True)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
+        print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
+        print(f"candidate={candidate}", file=stream)
 
 
 def manifest():
@@ -199,6 +210,9 @@ def start_one(temp, index, device, digest, pairing):
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
+    if target == "android" and pairing == "mixed" and os.environ.get("LAN_FAULTS") == "1":
+        environment["UI_TEST_NETWORK_CONTROL"] = str(temp / "mobile-lan/control/link.sock")
+        environment["PARLOR_NETWORK_CONTROL_ROOT"] = str(temp)
     visual_fallback = os.environ.get("GITHUB_EVENT_NAME") != "push" or not json.loads(CONFIG.read_text()).get(
         "require_native_ios", False
     )

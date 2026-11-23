@@ -26,6 +26,8 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
+      observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
+      candidate: ${{ steps.plan.outputs.candidate }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -48,7 +50,7 @@ jobs:
     timeout-minutes: 85
     env:
       TARGET: ${{ matrix.target }}
-      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
+      CANDIDATE: ${{ needs.plan.outputs.candidate }}
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -98,9 +100,10 @@ jobs:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
-      CANDIDATE: e4e2b73a6286212c9f8c19ec3e421238fbbf4deb
+      CANDIDATE: ${{ needs.plan.outputs.candidate }}
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
+      LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
     defaults:
@@ -120,7 +123,7 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: matrix.target == 'android'
+        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -128,12 +131,17 @@ jobs:
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: matrix.target == 'ios'
+        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'ios' && needs.plan.outputs.reuse_candidate == 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
           run-id: '45082889009'
           name: candidate-ios-1
+          path: ${{ runner.temp }}/parlor-package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.observe_reconnect == 'true' || (matrix.target == 'ios' && needs.plan.outputs.reuse_candidate != 'true')
+        with:
+          name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN
         if: matrix.pairing == 'mixed'
@@ -172,6 +180,16 @@ jobs:
           if original.count(anchor) != 1:
               raise SystemExit("The pinned bridge process check changed")
           script.write_text(original.replace(anchor, "sudo -n " + anchor))
+          if __import__("os").environ["LAN_FAULTS"] == "1":
+              # Controller retries have private per-attempt temp directories.
+              # Keep the upstream socket owner check against this job's root.
+              session = Path("session.py")
+              original = session.read_text()
+              anchor = 'NetworkControl(Path(network_path), Path(os.environ["RUNNER_TEMP"]))'
+              if original.count(anchor) != 1:
+                  raise SystemExit("The pinned network controller scope changed")
+              session.write_text(original.replace(anchor,
+                  'NetworkControl(Path(network_path), Path(os.environ["PARLOR_NETWORK_CONTROL_ROOT"]))'))
           PY
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
@@ -181,6 +199,11 @@ jobs:
           setsid bash scripts/smart-lobby-native/lab.sh mixed-lan-probe </dev/null \
             >"$RUNNER_TEMP/parlor-proof/lan-echo.jsonl" &
           printf '%s\n' "$!" > "$RUNNER_TEMP/mobile-lan/probe.pid"
+      - name: Record aggregate LAN and owned listener samples
+        if: needs.plan.outputs.observe_reconnect == 'true'
+        run: |
+          python3 scripts/smart-lobby-native/lan_trace.py </dev/null >"$RUNNER_TEMP/parlor-proof/lan-trace.jsonl" &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/mobile-lan/trace.pid"
       - name: Measure guest clock offset before UI actions
         run: python3 scripts/smart-lobby-native/diagnostics.py clock-before
       - name: Open independent UI controllers

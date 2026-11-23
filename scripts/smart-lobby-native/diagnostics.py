@@ -19,6 +19,7 @@ EXPORT = re.compile(
 EVENTS = frozenset("""
     session_create_started session_create_succeeded session_create_failed
     discovery_started discovery_candidates discovery_attempted discovery_finished
+    reconnect_browse_sample host_advertisement_sample
     lan_connection_preparing lan_connection_waiting lan_connection_ready
     lan_connection_failed lan_connection_cancelled connection_secure connection_closed
     admission_requested admission_reserved admission_committed admission_rolled_back
@@ -33,7 +34,8 @@ REASONS = frozenset("""
     permission wrong_room wrong_game approval_expired stale_room room_full session_started
     incompatible_protocol unauthorized name_in_use rate_limit payload_limit wrong_direction
     malformed invalid_action stale_revision sequence_gap session_ended unknown_command
-    disconnected lifecycle internal
+    disconnected lifecycle internal pinned_host_absent advertisement_scope_mismatch
+    host_acceptor_active host_acceptor_stopped host_kit_not_running
 """.split())
 ANDROID_LINE = re.compile(r"^(?P<epoch>[0-9]{9,11}\.[0-9]+)\s+.*?\bParlorP2p\s*:\s*(?P<message>seq=.*)$")
 APPLE_LINE = re.compile(r"\bParlorP2p\s+(?P<message>seq=.*)$")

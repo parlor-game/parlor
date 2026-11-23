@@ -322,6 +322,15 @@ SDK_RETRY
     (cd "$LAN_UI_DIR" && bash "verification/mobile-lan/preflight-$TARGET.sh")
     if [[ "$TARGET" == android ]]; then
       printf 'emulator-5554\n' > "$devices"
+      if [[ "${LAN_FAULTS:-0}" == 1 ]]; then
+        # Only the disposable, job-owned emulator is inspected. None of the
+        # socket identifiers or addresses enter the evidence.
+        timeout 15 adb -s emulator-5554 root >/dev/null 2>&1 || true
+        timeout 25 adb -s emulator-5554 wait-for-device
+        if [[ "$(timeout 8 adb -s emulator-5554 shell id -u | tr -d '\r')" == 0 ]]; then
+          touch "$work/parlor-listener-root"
+        fi
+      fi
     else
       cp "$work/mobile-lan-preflight/device" "$devices"
     fi
@@ -359,6 +368,9 @@ mixed_lan_probe() {
 }
 
 cleanup() {
+  if [[ -s "$work/mobile-lan/trace.pid" ]]; then
+    kill "$(cat "$work/mobile-lan/trace.pid")" 2>/dev/null || true
+  fi
   python3 "$verification" stop
   if [[ "$TARGET" == android ]]; then
     for emulator_log in "$work"/parlor-emulator-*.log; do
