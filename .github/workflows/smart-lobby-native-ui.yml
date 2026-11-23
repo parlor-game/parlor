@@ -198,6 +198,11 @@ jobs:
           path: ${{ runner.temp }}/parlor-distributed/public
           if-no-files-found: error
           retention-days: 1
+      - name: Start the authenticated hub before guest provisioning
+        if: matrix.pairing == 'distributed' && matrix.seat == 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/smart-lobby-native/distributed_lan.sh hub
       - name: Install Android emulator host libraries
         if: matrix.target == 'android'
         run: |

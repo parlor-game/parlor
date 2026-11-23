@@ -35,9 +35,10 @@ case "${1:?}" in
       exit 1
     fi
     ;;
-  attach)
+  hub|attach)
     count=$(jq 'length' <<< "$layout")
     mkdir -p "$root/identities"
+    if [[ "$1" == attach ]]; then count=1; fi
     for attempt in {1..90}; do
       missing=0
       for ((peer=1; peer<=count; peer++)); do
@@ -58,7 +59,8 @@ case "${1:?}" in
       sleep 3
     done
     hub="$root/identities/1"
-    if [[ "$seat" == 1 ]]; then
+    if [[ "$1" == hub ]]; then
+      [[ "$seat" == 1 ]]
       # Write a newline after every PEM so the bundle is unambiguous.
       for ((peer=1; peer<=count; peer++)); do
         cat "$root/identities/$peer/cert.pem"
@@ -76,7 +78,12 @@ case "${1:?}" in
         kill -0 "$(cat "$root/relay.pid")"
         sleep 1
       done
-      [[ -s "$proof/distributed-relay.json" ]]
+      if [[ ! -s "$proof/distributed-relay.json" ]]; then
+        printf 'The authenticated relay did not start
+' >&2
+        exit 1
+      fi
+      exit 0
     fi
     if [[ "$TARGET" == android ]]; then
       interface=uilan0
@@ -100,10 +107,11 @@ case "${1:?}" in
       --cert "$root/public/cert.pem" --key "$root/key.pem" --trust "$hub/relay-cert.pem" \
       --stats "$proof/distributed-edge.json" --ready "$root/ready" > "$root/edge.log" 2>&1 &
     printf '%s\n' "$!" > "$root/edge.pid"
-    for _ in {1..370}; do
+    for _ in {1..450}; do
       [[ ! -f "$root/ready" ]] || exit 0
       if ! sudo -n kill -0 "$(cat "$root/edge.pid")"; then
-        grep -E '^[a-zA-Z.]+(Error|ReadError|Exception):' "$root/edge.log" | cut -d: -f1 > "$proof/distributed-edge-error.txt" || true
+        grep -E '^(Seat setup: |[a-zA-Z.]+[A-Z][A-Za-z]+:)' "$root/edge.log" |
+          sed -nE '/^Seat setup: /p; s/^([a-zA-Z.]+[A-Z][A-Za-z]+):.*/\1/p' > "$proof/distributed-edge-error.txt" || true
         exit 1
       fi
       sleep 1

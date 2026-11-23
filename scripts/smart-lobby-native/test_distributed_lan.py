@@ -1,9 +1,12 @@
 """Check CI overlay routing without claiming native-device coverage."""
+import asyncio
+from collections import Counter
 import struct
 import unittest
+from unittest.mock import AsyncMock, Mock, patch
 
 from distributed_lan import (MDNS, MDNS_MAC, P2PKIT_SERVICE, address, aliases, candidates,
-                             destination_mac, protocol, rewrite)
+                             destination_mac, protocol, ready_link, rewrite)
 
 
 class DistributedLanTest(unittest.TestCase):
@@ -47,6 +50,22 @@ class DistributedLanTest(unittest.TestCase):
 
         local = bytes(outgoing[:6] + factory + outgoing[12:22] + factory + outgoing[28:])
         self.assertEqual(outgoing, rewrite(local, factory, aliases(2), outgoing=True))
+
+
+class RelayReadinessTest(unittest.IsolatedAsyncioTestCase):
+    async def test_recovers_from_one_closed_relay_during_boot(self):
+        early_peer = Mock(readexactly=AsyncMock(side_effect=asyncio.IncompleteReadError(b"", 2)))
+        ready_peer = Mock(readexactly=AsyncMock(return_value=b"\0\0"))
+        early_writer, ready_writer = Mock(), Mock()
+        open_link = AsyncMock(side_effect=[(early_peer, early_writer), (ready_peer, ready_writer)])
+        counts = Counter()
+        with patch("distributed_lan.asyncio.open_connection", open_link), patch(
+            "distributed_lan.asyncio.sleep", AsyncMock()
+        ):
+            self.assertEqual((ready_peer, ready_writer), await ready_link(8788, None, counts))
+        early_writer.close.assert_called_once()
+        ready_writer.close.assert_not_called()
+        self.assertEqual({"attach_retry:IncompleteReadError": 1}, counts)
 
 
 if __name__ == "__main__":

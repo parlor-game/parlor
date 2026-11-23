@@ -18,6 +18,7 @@ from bridge import (FRAME_MAX, MDNS, P2PKIT_SERVICE, WS_OPTIONS, duplex, endpoin
                     websocket_proxy)
 from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
+from websockets.exceptions import InvalidStatus
 
 PREFIX = "192.168.137."
 ETH_ARP = b"\x08\x06"
@@ -176,6 +177,29 @@ async def relay(args):
             await sample(args.stats, counts, writers)
 
 
+async def ready_link(port, context, counts):
+    """Wait for a live relay and its full-roster barrier."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 415
+    while loop.time() < deadline:
+        writer = None
+        try:
+            reader, writer = await asyncio.open_connection(
+                LOOPBACK, port, ssl=context, server_hostname="ui-mobile-lan", ssl_handshake_timeout=20)
+            if await asyncio.wait_for(reader.readexactly(2), deadline - loop.time()) != b"\0\0":
+                raise ValueError("Invalid roster signal")
+            return reader, writer
+        except ssl.SSLCertVerificationError:
+            raise
+        except (OSError, asyncio.IncompleteReadError, TimeoutError) as error:
+            if writer is not None:
+                writer.close()
+            counts[f"attach_retry:{type(error).__name__}"] += 1
+            if time_left := deadline - loop.time():
+                await asyncio.sleep(max(0, min(3, time_left)))
+    raise TimeoutError("Relay or all-seat barrier deadline elapsed")
+
+
 async def edge(args):
     counts = Counter()
     mac = bytes.fromhex(args.mac.replace(":", ""))
@@ -186,18 +210,22 @@ async def edge(args):
         try:
             async with connect(endpoint(args.origin), **WS_OPTIONS) as websocket:
                 await websocket_proxy(websocket, reader, writer)
+        except InvalidStatus as error:
+            counts[f"relay_http:{error.response.status_code}"] += 1
+        except OSError as error:
+            counts[f"relay_proxy:{type(error).__name__}"] += 1
         finally:
             writer.close()
 
     async with await asyncio.start_server(proxy, LOOPBACK, 0) as forward:
         inner_port = forward.sockets[0].getsockname()[1]
-        reader, writer = await asyncio.open_connection(
-            LOOPBACK, inner_port, ssl=tls(args, server=False), server_hostname="ui-mobile-lan",
-            ssl_handshake_timeout=20)
+        try:
+            reader, writer = await ready_link(inner_port, tls(args, server=False), counts)
+        except (OSError, ValueError, TimeoutError):
+            stats_write(args.stats, {"active_seats": [], "frames": counts})
+            raise
         process = None
         try:
-            if await asyncio.wait_for(reader.readexactly(2), 330) != b"\0\0":
-                raise ValueError("Invalid roster signal")
             process = await asyncio.create_subprocess_exec(
                 args.frame_port, args.interface, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
             if await asyncio.wait_for(process.stdout.readexactly(2), 8) != b"\0\0":
