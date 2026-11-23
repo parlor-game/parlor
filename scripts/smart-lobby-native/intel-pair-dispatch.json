@@ -1,0 +1,11 @@
+{
+  "pairing": "ios",
+  "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
+  "producer_run": 45288144327,
+  "producer_harness": "95c55561360078f60d76d041af3d067ab04d66e7",
+  "require_native_ios": true,
+  "token_digests": [
+    "c79ccadc932523eae32a28f79d9b7c79aa7e28b0cfcbffd3582abe79d905ea57",
+    "da8f32ed955d2bba1e2dc06f1956ba225c62ec9a4e2fc47bc475777cd3fb1fce"
+  ]
+}
