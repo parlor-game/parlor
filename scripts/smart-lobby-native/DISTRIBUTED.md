@@ -52,6 +52,21 @@ the overlay. TLS keys and controller bearers remain private.
    where the device lease permits. Retire the owned workflow when finished and
    verify its native artifacts are published before updating the matrix.
 
+## macOS controller checks
+
+Check the reported controller capabilities on each Mac. Simulator and
+desktop-window screenshots have different coordinate spaces. When using the
+desktop fallback, confirm the visible Simulator geometry and scroll actions
+into the viewport before tapping. A fresh disposable Mac may show the lab's
+Python Local Network prompt over the Simulator. Address that prompt before
+driving Parlor. Keep Parlor's own permissions and app behavior intact.
+
+A guest displaying approval pending proves authenticated discovery and delivery
+to the authority. A pass still requires successful approval, eligibility and
+start, game actions, and matching results. Correlate the guest's pending
+timestamp with the host's admission outcome. Allow expired requests to end
+before retrying.
+
 ## Scaling bounds
 
 - Start with Android, Android, iOS for an open three-seat Ghamza route. Scale
