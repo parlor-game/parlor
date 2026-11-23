@@ -1,9 +1,11 @@
 """Capture synchronized, allowlisted transport events from independently installed apps."""
+from collections import deque
 import datetime as dt
 import json
 import os
 from pathlib import Path
 import re
+import select
 import statistics
 import subprocess
 import sys
@@ -29,6 +31,7 @@ EVENTS = frozenset("""
     credential_invalidation_failed cleanup_started cleanup_completed cleanup_failed frame_dropped
     peer_rate_limited
 """.split())
+STREAM_EVENTS = EVENTS | {"capture_unavailable"}
 REASONS = frozenset("""
     none transport native_permission native_no_route native_refused native_timeout native_dns
     permission wrong_room wrong_game approval_expired stale_room room_full session_started
@@ -37,6 +40,7 @@ REASONS = frozenset("""
     disconnected lifecycle internal pinned_host_absent advertisement_scope_mismatch
     host_acceptor_active host_acceptor_stopped host_kit_not_running
 """.split())
+REASON_CODES = {reason: code for code, reason in enumerate(sorted(REASONS))}
 ANDROID_LINE = re.compile(r"^(?P<epoch>[0-9]{9,11}\.[0-9]+)\s+.*?\bParlorP2p\s*:\s*(?P<message>seq=.*)$")
 APPLE_LINE = re.compile(r"\bParlorP2p\s+(?P<message>seq=.*)$")
 
@@ -124,6 +128,53 @@ def read_events(platform, device):
             if (event := parse_event(line, platform)) is not None]
 
 
+def stream_events(platform, device, destination, outcome):
+    guest = guest_command(platform, device)
+    if platform == "android":
+        command = ["adb", "-s", device, "logcat", "-T", "1", "-v", "epoch", "-s", "ParlorP2p:I", "*:S"]
+    else:
+        command = guest + [
+            "log", "stream", "--style", "ndjson", "--level", "debug", "--predicate",
+            'eventMessage CONTAINS "ParlorP2p seq="',
+        ]
+    recent = deque(maxlen=80)
+    pending = b""
+    temporary = destination.with_suffix(".tmp")
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as source:
+        try:
+            while not outcome.exists():
+                if not select.select([source.stdout], [], [], 1)[0]:
+                    continue
+                data = os.read(source.stdout.fileno(), 4096)
+                if not data:
+                    if not outcome.exists():
+                        recent.append({"event": "capture_unavailable", "level": "warning"})
+                        temporary.write_text("".join(json.dumps(event) + "\n" for event in recent))
+                        temporary.replace(destination)
+                    break
+                lines = (pending + data).split(b"\n")
+                pending = lines.pop()
+                if len(pending) > 65536:
+                    pending = b""
+                added = False
+                for line in lines:
+                    if event := parse_event(line.decode(errors="replace"), platform):
+                        recent.append({"event": event["event"], "epoch_ms": event["guest_epoch_ms"],
+                                       "code": REASON_CODES[event["reason"]],
+                                       "level": "error" if event["result"] in {"failure", "timeout"} else "info"})
+                        added = True
+                if added:
+                    temporary.write_text("".join(json.dumps(event) + "\n" for event in recent))
+                    temporary.replace(destination)
+        finally:
+            if source.poll() is None:
+                source.terminate()
+                try:
+                    source.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    source.kill()
+
+
 def main(operation):
     temp = Path(os.environ["RUNNER_TEMP"])
     platform = os.environ["TARGET"]
@@ -148,6 +199,9 @@ def main(operation):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in {"clock-before", "capture"}:
-        raise SystemExit("Use clock-before or capture")
-    main(sys.argv[1])
+    if len(sys.argv) == 6 and sys.argv[1] == "stream":
+        stream_events(sys.argv[2], sys.argv[3], Path(sys.argv[4]), Path(sys.argv[5]))
+    elif len(sys.argv) == 2 and sys.argv[1] in {"clock-before", "capture"}:
+        main(sys.argv[1])
+    else:
+        raise SystemExit("Use clock-before, capture or stream")

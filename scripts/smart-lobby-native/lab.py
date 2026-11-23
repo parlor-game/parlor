@@ -13,6 +13,8 @@ import sys
 import time
 from urllib.parse import urlsplit
 
+from diagnostics import STREAM_EVENTS
+
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
 DURATION = os.environ.get("PARLOR_UI_DURATION", "80")
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
@@ -255,6 +257,12 @@ def start_one(temp, index, device, digest, pairing):
         attempt_root.mkdir(mode=0o700)
         environment.update(RUNNER_TEMP=str(attempt_root), GITHUB_OUTPUT=str(attempt_root / "output"),
                            GITHUB_STEP_SUMMARY=str(attempt_root / "summary"))
+        if pairing == "distributed":
+            events_file = attempt_root / "live-parlor-events.jsonl"
+            events_file.touch(mode=0o600)
+            environment["UI_TEST_DIAGNOSTIC_LOGS"] = json.dumps({
+                "parlor_transport": {"path": events_file.name, "events": sorted(STREAM_EVENTS)},
+            })
         logfile = attempt_root / "start.log"
         try:
             with logfile.open("wb") as log:
@@ -291,6 +299,11 @@ def start_one(temp, index, device, digest, pairing):
     safe = {key: data[key] for key in ("url", "target", "transport", "session_id", "expires_unix")}
     safe.update(device=device, device_index=index, controller_pin=CONTROLLER_PIN)
     (temp / "parlor-connections" / f"{target}-{index}.json").write_text(json.dumps(safe, indent=2))
+    if pairing == "distributed":
+        subprocess.Popen([sys.executable, str(Path(__file__).with_name("diagnostics.py")),
+                          "stream", target, device, str(events_file), str(connection.with_name("outcome"))],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
     # Start the lease immediately. The public artifact upload runs in the next step.
     environment.update(UI_TEST_CONNECTION_FILE=str(connection), UI_TEST_PUBLISH_OUTCOME="success")
     with (root / "hold.log").open("wb") as log:

@@ -67,6 +67,12 @@ start, game actions, and matching results. Correlate the guest's pending
 timestamp with the host's admission outcome. Allow expired requests to end
 before retrying.
 
+The distributed UI controller exposes a bounded `parlor_transport` source via
+`diagnostics.events`. It exports approved event names, guest timestamps and
+reason codes from `diagnostics.REASON_CODES` on the run's exact harness
+revision. Use it to diagnose admission during a live match without retiring
+the runner. The native artifact still contains the final redacted timeline.
+
 ## Scaling bounds
 
 - Start with Android, Android, iOS for an open three-seat Ghamza route. Scale
