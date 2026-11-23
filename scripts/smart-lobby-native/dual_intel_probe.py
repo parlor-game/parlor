@@ -1,0 +1,86 @@
+"""Probe the standard 14 GB Intel runner before building a separate Intel app."""
+from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+from pathlib import Path
+import platform
+import re
+import subprocess
+import time
+
+
+def run(*args, timeout=30):
+    return subprocess.run(args, capture_output=True, text=True, check=True, timeout=timeout).stdout.strip()
+
+
+def simctl(*args, timeout=30):
+    return run("/usr/bin/xcrun", "simctl", *args, timeout=timeout)
+
+
+def owned_simulator(seat, runtime):
+    device = simctl("create", f"Parlor Intel probe {seat}",
+                    "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", runtime)
+    if not re.fullmatch(r"[0-9A-Fa-f-]{36}", device):
+        raise RuntimeError("Unexpected test device identifier")
+    return device
+
+
+def springboard_pid(device):
+    table = simctl("spawn", device, "launchctl", "list")
+    match = re.search(r"^([0-9]+)\s+\S+\s+com\.apple\.SpringBoard$", table, re.M)
+    return int(match[1]) if match else None
+
+
+def boot(device):
+    started = time.monotonic()
+    try:
+        simctl("bootstatus", device, "-b", timeout=240)
+        pid = springboard_pid(device)
+        result = {"ready": pid is not None, "springboard_pid": pid}
+    except subprocess.SubprocessError as error:
+        result = {"ready": False, "error": type(error).__name__}
+        if isinstance(error, subprocess.CalledProcessError):
+            result["exit_status"] = error.returncode
+    return {**result, "elapsed_seconds": round(time.monotonic() - started, 3)}
+
+
+def main():
+    path = Path(os.environ["RUNNER_TEMP"]) / "native-intel-simulator-capacity.json"
+    summary = {"architecture": platform.machine(), "parlor_app_built": False, "seats": []}
+    devices = []
+    try:
+        if summary["architecture"] != "x86_64":
+            raise RuntimeError("Expected the independent Intel test allocation")
+        summary["physical_memory_bytes"] = int(run("sysctl", "-n", "hw.memsize"))
+        summary["xcode"] = run("xcodebuild", "-version").splitlines()
+        if "Build version 17C529" not in summary["xcode"]:
+            raise RuntimeError("The qualified Xcode build is unavailable on the candidate runner")
+        runtimes = json.loads(simctl("list", "runtimes", "-j"))["runtimes"]
+        summary["ios_runtime_versions"] = [row["version"] for row in runtimes
+                                           if row["isAvailable"] and ".iOS-" in row["identifier"]]
+        available = {row["version"]: row["identifier"] for row in runtimes
+                     if row["isAvailable"] and ".iOS-" in row["identifier"]}
+        runtime = available.get("26.3") or available.get("26.2")
+        if runtime is None:
+            raise RuntimeError("The pinned Xcode has no compatible preinstalled iOS runtime")
+        summary["runtime"] = runtime
+        for seat in (1, 2):
+            devices.append(owned_simulator(seat, runtime))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            summary["seats"] = list(pool.map(boot, devices))
+            if all(seat["ready"] for seat in summary["seats"]):
+                summary["concurrent_pids"] = list(pool.map(springboard_pid, devices))
+        observed = summary.get("concurrent_pids", [])
+        if len(set(observed)) != 2 or None in observed:
+            raise RuntimeError("Two live SpringBoards were not observed together")
+    finally:
+        path.write_text(json.dumps(summary, indent=2) + "\n")
+        for device in devices:
+            try:
+                simctl("delete", device, timeout=40)
+            except subprocess.SubprocessError:
+                pass
+
+
+if __name__ == "__main__":
+    main()

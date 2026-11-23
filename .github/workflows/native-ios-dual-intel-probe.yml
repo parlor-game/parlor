@@ -1,0 +1,28 @@
+name: Native iOS Intel dual-simulator capacity
+on:
+  push:
+    branches: [test/distributed-smart-lobby]
+    paths: [scripts/smart-lobby-native/dual_intel_probe.py]
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: macos-26-intel
+    timeout-minutes: 14
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test two owned simulator processes without rebuilding Parlor
+        run: python3 scripts/smart-lobby-native/dual_intel_probe.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-intel-simulator-capacity
+          path: ${{ runner.temp }}/native-intel-simulator-capacity.json
+          if-no-files-found: error
+          retention-days: 7
