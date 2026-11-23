@@ -483,6 +483,11 @@ PY_ADDRESS
     fi
   elif [[ "$TARGET" == android ]]; then
     boot_android_group
+  elif [[ "${PARLOR_PREBOOTED_INTEL:-0}" == 1 ]]; then
+    [[ "${PARLOR_IOS_BUILD_ARCH:-arm64}" == x86_64 && "$DEVICE_COUNT" == 2 ]]
+    [[ "$(sort -u "$devices" | wc -l | tr -d ' ')" == 2 ]]
+    jq -e '.architecture == "x86_64" and (.concurrent_pids | unique | length) == 2' \
+      "$proof/native-intel-simulator-capacity.json" >/dev/null
   else
     boot_ios_group
   fi

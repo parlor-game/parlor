@@ -19,6 +19,7 @@ jobs:
       PARLOR_IOS_BUILD_ARCH: x86_64
       PARLOR_NATIVE_DIAGNOSTICS: '1'
       PARLOR_NATIVE_CONFIG: scripts/smart-lobby-native/intel-pair-dispatch.json
+      PARLOR_PREBOOTED_INTEL: '1'
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       CANDIDATE: 0438fc6ff53780e87fa111f68352b15dd44a3ec3
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
@@ -27,6 +28,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Allocate and boot two owned simulators using the proven early Intel probe
+        run: python3 scripts/smart-lobby-native/dual_intel_probe.py --keep-booted
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ui-test-actions/ui-test-actions

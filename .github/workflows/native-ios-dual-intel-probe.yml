@@ -2,7 +2,7 @@ name: Native iOS Intel dual-simulator capacity
 on:
   push:
     branches: [test/distributed-smart-lobby]
-    paths: [scripts/smart-lobby-native/dual_intel_probe.py]
+    paths: [scripts/smart-lobby-native/intel-capacity-dispatch.json]
 
 permissions:
   contents: read

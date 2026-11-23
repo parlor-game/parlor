@@ -6,6 +6,7 @@ from pathlib import Path
 import platform
 import re
 import subprocess
+import sys
 import time
 
 
@@ -52,10 +53,17 @@ def boot(device):
 
 
 def main():
-    path = Path(os.environ["RUNNER_TEMP"]) / "native-intel-simulator-capacity.json"
+    temporary = Path(os.environ["RUNNER_TEMP"])
+    keep_booted = sys.argv[1:] == ["--keep-booted"]
+    if sys.argv[1:] and not keep_booted:
+        raise ValueError("Unknown probe argument")
+    proof = temporary / "parlor-proof" if keep_booted else temporary
+    proof.mkdir(exist_ok=True)
+    path = proof / "native-intel-simulator-capacity.json"
     summary = {"architecture": platform.machine(), "parlor_app_built": False, "seats": [],
                "strategy": "wait for the first SpringBoard before starting the second simulator"}
     devices = []
+    retained = False
     try:
         if summary["architecture"] != "x86_64":
             raise RuntimeError("Expected the independent Intel test allocation")
@@ -84,13 +92,20 @@ def main():
         observed = summary.get("concurrent_pids", [])
         if len(set(observed)) != 2 or None in observed:
             raise RuntimeError("Two live SpringBoards were not observed together")
+        if keep_booted:
+            for device in devices:
+                services = simctl("spawn", device, "launchctl", "list", timeout=12)
+                (proof / f"simulator-{device}-services.txt").write_text(services + "\n")
+            (temporary / "parlor-devices").write_text("\n".join(devices) + "\n")
+            retained = True
     finally:
         path.write_text(json.dumps(summary, indent=2) + "\n")
-        for device in devices:
-            try:
-                simctl("delete", device, timeout=40)
-            except subprocess.SubprocessError:
-                pass
+        if not retained:
+            for device in devices:
+                try:
+                    simctl("delete", device, timeout=40)
+                except subprocess.SubprocessError:
+                    pass
 
 
 if __name__ == "__main__":
