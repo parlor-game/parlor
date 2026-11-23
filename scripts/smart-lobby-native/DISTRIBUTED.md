@@ -121,6 +121,13 @@ that recovery step.
   jobs. Keep mixed rosters at or below five Macs, accounting for other running
   jobs. Six iOS seats need a proven two-Simulator Mac allocation plus four
   one-Simulator jobs, a higher allowance, or an authorized private lab.
+- The staged Intel readiness probe held two independent SpringBoards live on
+  one standard Intel runner. It creates the exact known iOS 26.2 runtime and
+  waits for the first guest before booting the second. Concurrent boot and a
+  separate runtime inventory attempt had timed out. The Intel app producer
+  builds the exact source once, archives the checked x86_64 slice, and can feed
+  the dedicated two-install test workflow. A boot receipt alone qualifies no
+  gameplay. [Staged readiness](https://github.com/parlor-game/parlor/actions/runs/45287247076/artifacts/14872356866)
 - A single Ubuntu runner previously ran two independent Android emulators
   through Last Light and five through Mafia. Those runs used Android's
   same-host Wi-Fi backend. A hybrid roster with two guests behind one edge
