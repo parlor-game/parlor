@@ -252,6 +252,9 @@ jobs:
         run: |
           bash scripts/smart-lobby-native/distributed_lan.sh attach
           bash scripts/smart-lobby-native/distributed_lan.sh verify
+          bash scripts/smart-lobby-native/distributed_lan.sh observe </dev/null \
+            > "$RUNNER_TEMP/parlor-proof/distributed-continuity.jsonl" 2>/dev/null &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/parlor-distributed/observer.pid"
       - name: Observe isolated LAN continuity during native gameplay
         if: matrix.pairing == 'mixed' && matrix.target == 'android'
         run: |

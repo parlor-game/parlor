@@ -33,10 +33,12 @@ flowchart LR
 
 1. Set the candidate app SHA and exact build producer. Use one Android APK and
    one Apple Silicon Simulator bundle from that source. The first distributed
-   experiment uses the retained products from run 45121464371. Each runner
-   verifies its installed files against its platform's original build.
+   experiment uses the retained products from run 45121464371. For a new
+   source, set `reuse_candidate: false` so the lab builds one fresh archive
+   per platform before provisioning the roster. Each runner verifies its
+   installed files against its platform's original build.
 2. On the dedicated test branch, set the dispatch payload to
-   `pairing: distributed`, `reuse_candidate: true`, and a two-to-six-entry
+   `pairing: distributed`, an exact `candidate` commit, and a two-to-six-entry
    `platforms` roster. Generate a fresh 32-byte bearer as 64 lowercase hex characters per seat. Validate that format locally and put only the
    SHA-256 digests in the dispatch file, in roster order. A push modifying that
    file schedules the targeted lab. The controller pin is recorded in proof.
@@ -96,6 +98,9 @@ The distributed UI controller exposes a bounded `parlor_transport` source via
 reason codes from `diagnostics.REASON_CODES` on the run's exact harness
 revision. Use it to diagnose admission during a live match without retiring
 the runner. The native artifact still contains the final redacted timeline.
+During gameplay, the lab also samples ICMP in both directions between the
+hub and each edge and records seat IDs, UTC seconds, and replies. Compare
+that timeline with native socket events when a player reconnects.
 
 The iOS cleanup also retains redacted native crash summaries for that job's
 specific Simulator and debug bundle when macOS produced an IPS report. The

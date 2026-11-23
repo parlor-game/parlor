@@ -15,6 +15,18 @@ if jq -e 'index("ios") != null' <<< "$layout" >/dev/null; then
   peer_wait_seconds=900
 fi
 
+probe_peer() {
+  local peer="$1" packets="$2" platform octet address
+  platform=$(jq -r ".[$((peer - 1))]" <<< "$layout")
+  if [[ "$platform" == android ]]; then octet=$((9 + peer)); else octet=$((19 + peer)); fi
+  address="192.168.137.$octet"
+  if [[ "$TARGET" == android ]]; then
+    adb -s emulator-5554 shell ping -I wlan0 -c "$packets" -W 2 "$address"
+  else
+    ping -S "192.168.137.$((19 + seat))" -c "$packets" -W 2000 "$address"
+  fi
+}
+
 case "${1:?}" in
   identity)
     umask 077
@@ -141,25 +153,35 @@ case "${1:?}" in
     count=$(jq 'length' <<< "$layout")
     for ((peer=1; peer<=count; peer++)); do
       [[ "$peer" != "$seat" ]] || continue
-      platform=$(jq -r ".[$((peer-1))]" <<< "$layout")
-      if [[ "$platform" == android ]]; then octet=$((9 + peer)); else octet=$((19 + peer)); fi
-      address="192.168.137.$octet"
-      if [[ "$TARGET" == android ]]; then
-        probe=(adb -s emulator-5554 shell ping -I wlan0 -c 3 -W 2 "$address")
-      else
-        probe=(ping -S "192.168.137.$((19 + seat))" -c 3 -W 2000 "$address")
-      fi
       record="$proof/distributed-icmp-to-$peer.txt"
       for attempt in {1..5}; do
-        if "${probe[@]}" > "$record" 2>&1 &&
+        if probe_peer "$peer" 3 > "$record" 2>&1 &&
            grep -Eq '3 (packets )?received' "$record"; then break; fi
         (( attempt != 5 )) || exit 1
         sleep 2
       done
     done
     ;;
+  observe)
+    # The hub probes each edge. Each edge probes back to the hub. Keep only
+    # job-clock timing and the outcome, with no addresses or packet data.
+    last_peer=$(jq 'length' <<< "$layout")
+    if [[ "$seat" != 1 ]]; then last_peer=1; fi
+    deadline=$((SECONDS + 85 * 60))
+    while (( SECONDS < deadline )) && [[ -f "$root/ready" ]]; do
+      for ((peer=1; peer<=last_peer; peer++)); do
+        [[ "$peer" != "$seat" ]] || continue
+        started=$(date -u +%s)
+        delivered=false
+        if probe_peer "$peer" 1 >/dev/null 2>&1; then delivered=true; fi
+        printf '{"utc_epoch_seconds":%s,"from":%s,"to":%s,"icmp_reply":%s}\n' \
+          "$started" "$seat" "$peer" "$delivered"
+      done
+      sleep 8
+    done
+    ;;
   cleanup)
-    for process in edge relay tunnel; do
+    for process in observer edge relay tunnel; do
       if [[ -s "$root/$process.pid" ]]; then
         sudo -n kill -TERM "$(cat "$root/$process.pid")" 2>/dev/null || true
       fi
