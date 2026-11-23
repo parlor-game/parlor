@@ -110,6 +110,18 @@ def current_wifi_addresses(devices):
     return addresses
 
 
+def wait_for_wifi_addresses(devices, seconds=35):
+    deadline = time.monotonic() + seconds
+    while True:
+        try:
+            return current_wifi_addresses(devices)
+        except ValueError as error:
+            # DHCP can briefly have no address after reconnecting an emulator.
+            if time.monotonic() >= deadline:
+                raise ValueError("Distinct guest Wi-Fi addresses did not settle") from error
+            time.sleep(2)
+
+
 def probe_wifi(addresses):
     probes = []
     for source in addresses:
@@ -140,7 +152,7 @@ def wifi():
     devices = (temp / "parlor-devices").read_text().splitlines()
     evidence = temp / "parlor-proof"
     for attempt in (1, 2):
-        addresses = current_wifi_addresses(devices)
+        addresses = wait_for_wifi_addresses(devices)
         probes = probe_wifi(addresses)
         missing = sorted({probe["to"] for probe in probes if probe["received"] != 3})
         report = evidence / ("shared-wifi.json" if not missing else f"shared-wifi-incomplete-{attempt}.json")
