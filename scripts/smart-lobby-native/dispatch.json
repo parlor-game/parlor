@@ -3,11 +3,19 @@
   "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
   "reuse_candidate": true,
   "platforms": [
-    "ios",
-    "ios"
+    "android",
+    "android",
+    "android",
+    "android",
+    "android",
+    "android"
   ],
   "token_digests": [
-    "b3c72f298e1268c5f260b197bdca8a21f5029052ad66660a76e0e5bc1d4effbf",
-    "8c4faf22bf87a07f81eed95bc90d894ed3b0b3a5224f4e3a894b1a609c6dca78"
+    "baaf6eb99880c0cc5396cf3d72e62d34b4f0bc170aaae7a4175d632c3ce796ce",
+    "b407136fefac85d558b803f263adbec60e6de5b0f8bd5af53ecc14485f9988ea",
+    "70aacc2cc3a21056725783d5116ee41c5ad269897e53bf268e2fa7c35d5f8513",
+    "71c48e5cadf1e534ce56f2df1771727aa15684d6e71ff62d132a2efd0630e139",
+    "8fc82876e38a57d2e84433728ba4e1d97a4345bdedefa164802c5fb5372845be",
+    "dd5b8c2ce81fb2788f1b1b953b3b304951ce373742d700b054b8f8c29e48179b"
   ]
 }
