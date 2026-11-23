@@ -77,18 +77,27 @@ case "${1:?}" in
     fi
     if [[ "$TARGET" == android ]]; then
       interface=uilan0
-      mac=$(adb -s emulator-5554 shell ip link show wlan0 | awk '/link\/ether/ {print $2}')
+      # Android 35 denies RTM_GETLINK to the unprivileged shell. Read this
+      # owned guest's MAC from the dedicated TAP's DHCP acknowledgement.
+      address="192.168.137.$((9 + seat))"
+      mac=$(awk -v address="$address" '$0 ~ /DHCPACK\(uilan0\)/ {
+        for (i = 1; i < NF; i++) if ($i == address) mac = $(i + 1)
+      } END {print mac}' "$RUNNER_TEMP/mobile-lan-preflight/dhcp.log")
     else
       interface=feth81
       mac=$(ifconfig feth80 | awk '/ether / {print $2}')
     fi
-    [[ "$mac" =~ ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$ ]]
+    if [[ ! "$mac" =~ ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$ ]]; then
+      printf 'Owned interface did not expose a valid MAC
+' > "$proof/distributed-edge-error.txt"
+      exit 1
+    fi
     sudo -n env LAN_UI_DIR="$LAN_UI_DIR" "$root/venv/bin/python" "$driver" edge --layout "$layout" --seat "$seat" \
       --interface "$interface" --mac "$mac" --frame-port "$root/frame-port" --origin "$(cat "$hub/origin")" \
       --cert "$root/public/cert.pem" --key "$root/key.pem" --trust "$hub/relay-cert.pem" \
       --stats "$proof/distributed-edge.json" --ready "$root/ready" > "$root/edge.log" 2>&1 &
     printf '%s\n' "$!" > "$root/edge.pid"
-    for _ in {1..220}; do
+    for _ in {1..370}; do
       [[ ! -f "$root/ready" ]] || exit 0
       if ! sudo -n kill -0 "$(cat "$root/edge.pid")"; then
         grep -E '^[a-zA-Z.]+(Error|ReadError|Exception):' "$root/edge.log" | cut -d: -f1 > "$proof/distributed-edge-error.txt" || true

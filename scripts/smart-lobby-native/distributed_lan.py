@@ -8,6 +8,7 @@ from ipaddress import IPv4Address
 import json
 import os
 from pathlib import Path
+import signal
 import ssl
 import sys
 
@@ -195,7 +196,7 @@ async def edge(args):
             ssl_handshake_timeout=20)
         process = None
         try:
-            if await asyncio.wait_for(reader.readexactly(2), 180) != b"\0\0":
+            if await asyncio.wait_for(reader.readexactly(2), 330) != b"\0\0":
                 raise ValueError("Invalid roster signal")
             process = await asyncio.create_subprocess_exec(
                 args.frame_port, args.interface, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
@@ -229,6 +230,16 @@ async def edge(args):
             writer.close()
 
 
+async def run(args):
+    task = asyncio.current_task()
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
+    with suppress(asyncio.CancelledError):
+        if args.role == "relay":
+            await relay(args)
+        else:
+            await edge(args)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("role", choices=("relay", "edge"))
@@ -243,7 +254,7 @@ def main():
     if not 2 <= len(layout) <= 6 or not 1 <= args.seat <= len(layout):
         raise ValueError("Invalid runner roster")
     args.roster = {seat: address(seat, platform).packed for seat, platform in enumerate(layout, 1)}
-    asyncio.run(relay(args) if args.role == "relay" else edge(args))
+    asyncio.run(run(args))
 
 
 if __name__ == "__main__":
