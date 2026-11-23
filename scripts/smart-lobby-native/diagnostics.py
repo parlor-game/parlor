@@ -116,7 +116,8 @@ def read_events(platform, device):
     if platform == "android":
         cmd = ["adb", "-s", device, "logcat", "-d", "-v", "epoch", "-s", "ParlorP2p:I", "*:S"]
     else:
-        cmd = guest_command(platform, device) + ["log", "show", "--style", "ndjson", "--last", "85m",
+        retained_minutes = int(os.environ.get("PARLOR_UI_DURATION", "80")) + 5
+        cmd = guest_command(platform, device) + ["log", "show", "--style", "ndjson", "--last", f"{retained_minutes}m",
                                                "--info", "--debug", "--predicate",
                                                'eventMessage CONTAINS "ParlorP2p seq="']
     return [event for line in shell_output(cmd, 80).splitlines()
