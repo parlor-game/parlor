@@ -19,7 +19,7 @@ def simctl(*args, timeout=30):
 
 def owned_simulator(seat, runtime):
     device = simctl("create", f"Parlor Intel probe {seat}",
-                    "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", runtime)
+                    "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", runtime, timeout=90)
     if not re.fullmatch(r"[0-9A-Fa-f-]{36}", device):
         raise RuntimeError("Unexpected test device identifier")
     return device
@@ -63,17 +63,16 @@ def main():
         summary["xcode"] = run("xcodebuild", "-version").splitlines()
         if "Build version 17C529" not in summary["xcode"]:
             raise RuntimeError("The qualified Xcode build is unavailable on the candidate runner")
-        runtimes = json.loads(simctl("list", "runtimes", "-j"))["runtimes"]
-        summary["ios_runtime_versions"] = [row["version"] for row in runtimes
-                                           if row["isAvailable"] and ".iOS-" in row["identifier"]]
-        available = {row["version"]: row["identifier"] for row in runtimes
-                     if row["isAvailable"] and ".iOS-" in row["identifier"]}
-        runtime = available.get("26.3") or available.get("26.2")
-        if runtime is None:
-            raise RuntimeError("The pinned Xcode has no compatible preinstalled iOS runtime")
+        # Run 45281706309 confirmed this runtime on the exact Xcode/runner
+        # combination. Requiring it at create avoids a second inventory pass.
+        runtime = "com.apple.CoreSimulator.SimRuntime.iOS-26-2"
         summary["runtime"] = runtime
         for seat in (1, 2):
-            device = owned_simulator(seat, runtime)
+            try:
+                device = owned_simulator(seat, runtime)
+            except subprocess.SubprocessError as error:
+                summary["seats"].append({"ready": False, "stage": "create", "error": type(error).__name__})
+                break
             devices.append(device)
             state = boot(device)
             summary["seats"].append(state)
