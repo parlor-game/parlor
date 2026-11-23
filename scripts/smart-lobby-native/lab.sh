@@ -182,6 +182,7 @@ SIMCTL
 boot_ios_group() {
   local runtime index device model=com.apple.CoreSimulator.SimDeviceType.iPhone-16
   local architecture="${PARLOR_IOS_BUILD_ARCH:-arm64}"
+  local create_timeout=90
   [[ "$(uname -m)" == "$architecture" ]]
   xcodebuild -version | tee "$proof/xcode.txt"
   grep -Fxq 'Build version 17C529' "$proof/xcode.txt"
@@ -189,6 +190,17 @@ boot_ios_group() {
     [[ "${STAGED_IOS_PAIR:-false}" == true && "$DEVICE_COUNT" == 2 ]]
     runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-2
     model=com.apple.CoreSimulator.SimDeviceType.iPhone-16e
+    # Record whether the CoreSimulator service responds before allocating a
+    # guest. A prior Intel lab stalled on its very first create request.
+    bounded_simctl 45 list devicetypes -j > "$proof/intel-device-types.json"
+    python3 - "$proof/intel-device-types.json" "$model" <<'DEVICE_TYPE'
+import json
+import sys
+
+with open(sys.argv[1]) as inventory:
+    assert any(device["identifier"] == sys.argv[2] for device in json.load(inventory)["devicetypes"])
+DEVICE_TYPE
+    create_timeout=150
   else
     [[ "$architecture" == arm64 ]]
     bounded_simctl 90 list runtimes -j > "$proof/runtime-inventory.json"
@@ -215,9 +227,13 @@ RUNTIME
   printf '%s\n' "$model" > "$proof/selected-device-model.txt"
   for ((index=0; index<DEVICE_COUNT; index++)); do
     printf 'Allocating simulator %s of %s\n' "$((index + 1))" "$DEVICE_COUNT"
-    device=$(bounded_simctl 90 create "Parlor Smart Lobby $index" "$model" "$runtime")
+    device=$(bounded_simctl "$create_timeout" create "Parlor Smart Lobby $index" "$model" "$runtime")
     printf '%s\n' "$device" >> "$devices"
-    if [[ "${STAGED_IOS_PAIR:-false}" != true ]]; then
+    if [[ "$architecture" == x86_64 ]]; then
+      # Reproduce the proven serial allocation/boot sequence for Intel.
+      bounded_simctl 75 boot "$device"
+      await_owned_springboard "$device"
+    elif [[ "${STAGED_IOS_PAIR:-false}" != true ]]; then
       bounded_simctl 240 bootstatus "$device" -b
     fi
   done
@@ -316,11 +332,13 @@ install_ios() {
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
-    if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+    if [[ "${STAGED_IOS_PAIR:-false}" == true && "${PARLOR_IOS_BUILD_ARCH:-arm64}" == arm64 ]]; then
       # Fully install and launch each SE before booting the next one. The
       # simultaneous-boot trial reached both SpringBoards but stalled the first launch.
       bounded_simctl 60 boot "$device"
       await_owned_springboard "$device"
+      launch_timeout=120
+    elif [[ "${PARLOR_IOS_BUILD_ARCH:-arm64}" == x86_64 ]]; then
       launch_timeout=120
     fi
     bounded_simctl 90 install "$device" "$app"
