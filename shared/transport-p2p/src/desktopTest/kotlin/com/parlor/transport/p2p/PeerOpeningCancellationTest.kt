@@ -43,6 +43,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PeerOpeningCancellationTest {
@@ -164,6 +165,32 @@ class PeerOpeningCancellationTest {
             fixture.assertReleased()
         } finally {
             room?.closeForRetry()
+            fixture.stopFakeIfNeeded()
+        }
+    }
+
+    @Test
+    fun resumeDialsPinnedHostAfterHeartbeatWithoutPeerListEmission() = runTest {
+        val fixture = OpeningFixture(backgroundScope, resume = true)
+        fixture.prepare()
+        val cachedHost = fixture.fake.peersFlow.value.single()
+        fixture.fake.lastSeenByPeer[cachedHost.id] = Clock.System.now().toEpochMilliseconds() - 60_000L
+        val opening = async { fixture.open() }
+        try {
+            runCurrent()
+            assertTrue(fixture.fake.callLog.contains("startDiscovery"))
+            assertEquals(0, fixture.connectCalls)
+
+            // P2pKit updates this heartbeat without emitting the unchanged peers list.
+            fixture.fake.lastSeenByPeer[cachedHost.id] = Clock.System.now().toEpochMilliseconds()
+            advanceTimeBy(2_000L)
+            runCurrent()
+
+            assertEquals(1, fixture.connectCalls)
+            assertEquals(Result.Success(Unit), assertIs<Result.Success<LocalRoom>>(opening.await()).data.closeForRetry())
+            fixture.assertReleased()
+        } finally {
+            opening.cancelAndJoin()
             fixture.stopFakeIfNeeded()
         }
     }

@@ -1340,15 +1340,15 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             diagnostics.event(P2pDiagnosticEventName.DISCOVERY_STARTED, P2pDiagnosticRole.PEER)
             withTimeoutOrNull(REJOIN_GRACE_MS) {
                 while (true) {
-                    val hostPeer = kit.peers.first { peers ->
-                        peers.any { peer ->
-                            peer.id.value == credential.hostPeerId &&
-                                peer.matchesResumeAdvertisement(kit, discoveryStartedAtEpochMillis, credential.partyId)
-                        }
-                    }.first { peer ->
-                        peer.id.value == credential.hostPeerId &&
-                            peer.matchesResumeAdvertisement(kit, discoveryStartedAtEpochMillis, credential.partyId)
-                    }
+                    // P2pKit updates lastSeen on heartbeats without emitting an unchanged peers list.
+                    val hostPeer = withTimeoutOrNull(RESUME_HEARTBEAT_RECHECK_MS) {
+                        kit.peers.mapNotNull { peers ->
+                            peers.firstOrNull { peer ->
+                                peer.id.value == credential.hostPeerId &&
+                                    peer.matchesResumeAdvertisement(kit, discoveryStartedAtEpochMillis, credential.partyId)
+                            }
+                        }.first()
+                    } ?: continue
                     val session = try {
                         diagnostics.event(
                             P2pDiagnosticEventName.DISCOVERY_ATTEMPTED,
@@ -1749,6 +1749,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         internal const val HOST_APPROVAL_TIMEOUT_MS: Long = 60_000L
         internal const val DISCOVERY_REFRESH_POLL_MS: Long = 1_000L
         internal const val ADMISSION_RETRY_MS: Long = 400L
+        private const val RESUME_HEARTBEAT_RECHECK_MS: Long = 1_000L
         internal const val ADMISSION_REJECTION_FLUSH_MS: Long = 100L
         internal const val REJOIN_GRACE_MS: Long = 120_000L
         internal const val ADMISSION_CONFIRM_TIMEOUT_MS: Long = 60_000L
