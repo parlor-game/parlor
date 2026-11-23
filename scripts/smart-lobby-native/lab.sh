@@ -181,11 +181,18 @@ SIMCTL
 
 boot_ios_group() {
   local runtime index device model=com.apple.CoreSimulator.SimDeviceType.iPhone-16
-  [[ "$(uname -m)" == arm64 ]]
+  local architecture="${PARLOR_IOS_BUILD_ARCH:-arm64}"
+  [[ "$(uname -m)" == "$architecture" ]]
   xcodebuild -version | tee "$proof/xcode.txt"
   grep -Fxq 'Build version 17C529' "$proof/xcode.txt"
-  bounded_simctl 90 list runtimes -j > "$proof/runtime-inventory.json"
-  runtime=$(python3 - "$proof/runtime-inventory.json" <<'RUNTIME'
+  if [[ "$architecture" == x86_64 ]]; then
+    [[ "${STAGED_IOS_PAIR:-false}" == true && "$DEVICE_COUNT" == 2 ]]
+    runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-2
+    model=com.apple.CoreSimulator.SimDeviceType.iPhone-16e
+  else
+    [[ "$architecture" == arm64 ]]
+    bounded_simctl 90 list runtimes -j > "$proof/runtime-inventory.json"
+    runtime=$(python3 - "$proof/runtime-inventory.json" <<'RUNTIME'
 import json
 import sys
 
@@ -198,9 +205,10 @@ pin = next((runtime for runtime in available if runtime["version"] == "26.3"), N
 selected = pin or max(available, key=lambda value: tuple(map(int, value["version"].split("."))))
 print(selected["identifier"])
 RUNTIME
-  )
+    )
+  fi
   printf '%s\n' "$runtime" > "$proof/selected-runtime.txt"
-  if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+  if [[ "$architecture" == arm64 && "${STAGED_IOS_PAIR:-false}" == true ]]; then
     [[ "$DEVICE_COUNT" == 2 ]]
     model=com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
   fi
@@ -293,6 +301,10 @@ install_android() {
 install_ios() {
   local device installed app launch_timeout=60
   (cd "$package" && shasum -a 256 -c SHA256SUMS)
+  if [[ "${PARLOR_IOS_BUILD_ARCH:-arm64}" == x86_64 ]]; then
+    [[ "$(cat "$package/simulator-architecture.txt")" == x86_64 ]]
+    cp "$package/simulator-architecture.txt" "$proof/"
+  fi
   ditto -x -k "$package/parlor-simulator.zip" "$work/parlor-extracted"
   local apps=("$work"/parlor-extracted/*.app)
   [[ ${#apps[@]} == 1 && -d "${apps[0]}" ]]

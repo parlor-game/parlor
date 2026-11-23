@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 from diagnostics import STREAM_EVENTS
 
-CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
+CONFIG = Path(os.environ.get("PARLOR_NATIVE_CONFIG", "scripts/smart-lobby-native/dispatch.json"))
 DURATION = os.environ.get("PARLOR_UI_DURATION", "80")
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
@@ -109,8 +109,10 @@ def check_ios_entitlement():
     binary = Path(sys.argv[2]).read_bytes()
     expected = sys.argv[3]
     magic, architecture, _, _, command_count, _, _, _ = struct.unpack_from("<8I", binary)
-    if (magic, architecture) != (0xfeedfacf, 0x0100000c):
-        raise ValueError("Expected an arm64 Mach-O simulator executable")
+    expected_architecture = {"arm64": 0x0100000c, "x86_64": 0x01000007}[
+        os.environ.get("PARLOR_IOS_BUILD_ARCH", "arm64")]
+    if (magic, architecture) != (0xfeedfacf, expected_architecture):
+        raise ValueError("Simulator executable architecture does not match the expected Mach-O slice")
     cursor = 32
     for _ in range(command_count):
         command, size = struct.unpack_from("<2I", binary, cursor)
@@ -219,6 +221,7 @@ def start_one(temp, index, device, digest, pairing):
     root = temp / "parlor-controllers" / f"device-{index}"
     root.mkdir(mode=0o700, parents=True)
     package = "me.parlor.android.debug" if target == "android" else "me.parlor.ios.debug"
+    diagnostic_events = pairing == "distributed" or os.environ.get("PARLOR_NATIVE_DIAGNOSTICS") == "1"
     launch = []
     if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device):
         launch = ["xcrun", "simctl", "launch"]
@@ -264,7 +267,7 @@ def start_one(temp, index, device, digest, pairing):
         attempt_root.mkdir(mode=0o700)
         environment.update(RUNNER_TEMP=str(attempt_root), GITHUB_OUTPUT=str(attempt_root / "output"),
                            GITHUB_STEP_SUMMARY=str(attempt_root / "summary"))
-        if pairing == "distributed":
+        if diagnostic_events:
             events_file = attempt_root / "live-parlor-events.jsonl"
             events_file.touch(mode=0o600)
             environment["UI_TEST_DIAGNOSTIC_LOGS"] = json.dumps({
@@ -306,7 +309,7 @@ def start_one(temp, index, device, digest, pairing):
     safe = {key: data[key] for key in ("url", "target", "transport", "session_id", "expires_unix")}
     safe.update(device=device, device_index=index, controller_pin=CONTROLLER_PIN)
     (temp / "parlor-connections" / f"{target}-{index}.json").write_text(json.dumps(safe, indent=2))
-    if pairing == "distributed":
+    if diagnostic_events:
         subprocess.Popen([sys.executable, str(Path(__file__).with_name("diagnostics.py")),
                           "stream", target, device, str(events_file), str(connection.with_name("outcome"))],
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
