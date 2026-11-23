@@ -43,6 +43,9 @@ REASONS = frozenset("""
 REASON_CODES = {reason: code for code, reason in enumerate(sorted(REASONS))}
 ANDROID_LINE = re.compile(r"^(?P<epoch>[0-9]{9,11}\.[0-9]+)\s+.*?\bParlorP2p\s*:\s*(?P<message>seq=.*)$")
 APPLE_LINE = re.compile(r"\bParlorP2p\s+(?P<message>seq=.*)$")
+IOS_DEBUG_BUNDLE = "me.parlor.ios.debug"
+CRASH_TOKEN = re.compile(r"[A-Z][A-Z0-9_]{0,47}")
+CRASH_UUID = re.compile(r"[a-fA-F0-9-]{36}")
 
 
 def parse_event(line, platform):
@@ -128,6 +131,66 @@ def read_events(platform, device):
             if (event := parse_event(line, platform)) is not None]
 
 
+def summarize_ios_crash(contents, device):
+    header, report = contents.split("\n", 1)
+    metadata = json.loads(header)
+    crash = json.loads(report)
+    if (metadata.get("bug_type") != "309" or metadata.get("platform") not in (None, 7)
+            or metadata.get("bundleID") != IOS_DEBUG_BUNDLE
+            or crash.get("bundleInfo", {}).get("CFBundleIdentifier") != IOS_DEBUG_BUNDLE
+            or f"/devices/{device.lower()}/" not in crash.get("procPath", "").lower()):
+        return None
+    output = {}
+    try:
+        stamp = re.sub(r" (?=[+-][0-9]{4}$)", "", crash["captureTime"])
+        output["capture_utc"] = dt.datetime.fromisoformat(stamp).astimezone(dt.timezone.utc).isoformat()
+    except (TypeError, ValueError, KeyError):
+        pass
+    for source, keys in (("exception", ("type", "signal")), ("termination", ("namespace", "code"))):
+        for key in keys:
+            value = crash.get(source, {}).get(key)
+            if type(value) is int or isinstance(value, str) and CRASH_TOKEN.fullmatch(value):
+                output[f"{source}_{key}"] = value
+    threads = crash.get("threads", [])
+    images = crash.get("usedImages", [])
+    thread_index = crash.get("faultingThread")
+    if type(thread_index) is int and 0 <= thread_index < len(threads):
+        frames = []
+        for frame in threads[thread_index].get("frames", [])[:24]:
+            image_index, offset = frame.get("imageIndex"), frame.get("imageOffset")
+            if type(image_index) is not int or not 0 <= image_index < len(images) or type(offset) is not int:
+                continue
+            uuid = images[image_index].get("uuid", "")
+            if isinstance(uuid, str) and CRASH_UUID.fullmatch(uuid):
+                frames.append({"image_uuid": uuid, "image_offset": offset})
+        output["faulting_frames"] = frames
+    return output
+
+
+def ios_crash_reports(device):
+    logs = Path.home() / "Library" / "Logs" / "DiagnosticReports"
+    since = time.time() - (int(os.environ.get("PARLOR_UI_DURATION", "80")) + 25) * 60
+    candidates = []
+    for path in logs.glob("*.ips"):
+        try:
+            info = path.stat()
+        except OSError:
+            continue
+        if info.st_mtime >= since and info.st_size <= 2_000_000 and not path.is_symlink():
+            candidates.append((info.st_mtime, path))
+    reports = []
+    for _, path in sorted(candidates, reverse=True)[:80]:
+        try:
+            summary = summarize_ios_crash(path.read_text(), device)
+        except (OSError, ValueError, TypeError, AttributeError, KeyError):
+            continue
+        if summary is not None:
+            reports.append(summary)
+            if len(reports) == 4:
+                break
+    return reports
+
+
 def stream_events(platform, device, destination, outcome):
     guest = guest_command(platform, device)
     if platform == "android":
@@ -188,6 +251,10 @@ def main(operation):
             result = {"error": type(error).__name__}
         (proof / f"{operation}.json").write_text(json.dumps(result, indent=2) + "\n")
         if operation == "capture":
+            if platform == "ios":
+                reports = ios_crash_reports(device)
+                (proof / "ios-process-reports.json").write_text(json.dumps(reports, indent=2) + "\n")
+                print(f"Retained {len(reports)} redacted crash summaries for this iOS debug app.")
             try:
                 events = read_events(platform, device)
             except (OSError, subprocess.SubprocessError, ValueError) as error:
