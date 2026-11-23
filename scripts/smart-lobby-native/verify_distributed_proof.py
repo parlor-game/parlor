@@ -52,18 +52,26 @@ def verify(args):
         directions = {f"{seat}->{args.host}", f"{args.host}->{seat}"}
         if not all(relay.get(f"{path}:tcp") for path in directions):
             raise ValueError(f"Missing bidirectional TCP between match host and seat {seat}")
+        if not relay.get(f"{args.host}->{seat}:p2pkit_mdns_response"):
+            raise ValueError(f"Missing native P2pKit advertisements from match host to seat {seat}")
     if len({value["tree"] for value in receipts.values()}) != 1:
         raise ValueError("The application source tree differs across devices")
-    if not any(count > 0 and key.endswith(":p2pkit_mdns_response") for key, count in relay.items()):
-        raise ValueError("No native P2pKit advertisement was counted")
     verdict = json.loads(args.result.read_text())
     winners = verdict.get("winners", verdict.get("results", []))
     if len(winners) != len(receipts) or len(set(winners)) != 1 or not winners[0]:
         raise ValueError("Each independent app must show the same winner")
-    pictures = sorted(args.result.parent.glob("*-public-result.png"))
-    if len(pictures) != len(receipts):
-        raise ValueError("Expected one public scorecard per independently controlled device")
-    proofs = {image.name: hashlib.sha256(image.read_bytes()).hexdigest() for image in pictures}
+    pictures = args.scorecard or sorted(args.result.parent.glob("*-public-result.png"))
+    picture_seats = {f"{platform}-{seat}" for seat, platform in enumerate(args.roster, 1)}
+    proofs = {}
+    for picture in pictures:
+        image = picture.read_bytes()
+        seat = "-".join(picture.stem.split("-")[:2])
+        if seat not in picture_seats or not image.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("Expected one public PNG scorecard per independently controlled device")
+        picture_seats.remove(seat)
+        proofs[picture.name] = hashlib.sha256(image).hexdigest()
+    if picture_seats:
+        raise ValueError("Missing a public scorecard for an independently controlled device")
     return {"run": args.run, "app_sha": args.app_sha, "harness_sha": args.harness_sha,
             "host_seat": args.host, "installs": receipts, "native_relay_counts": relay,
             "matched_result": verdict, "scorecard_sha256": proofs}
@@ -76,6 +84,8 @@ def main():
     parser.add_argument("--run", type=int, required=True)
     parser.add_argument("--host", type=int, required=True)
     parser.add_argument("--roster", choices=("android", "ios"), nargs="+", required=True)
+    parser.add_argument("--scorecard", type=Path, action="append",
+                        help="Public device PNG for this route, one per seat. Omit for a single-route directory.")
     for name in ("app-sha", "harness-sha", "android-hash", "ios-hash"):
         parser.add_argument(f"--{name}", required=True)
     args = parser.parse_args()

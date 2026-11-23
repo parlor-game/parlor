@@ -44,6 +44,10 @@ the overlay. TLS keys and controller bearers remain private.
    agree on every device. Connectivity by itself is only infrastructure
    evidence. Reconnect evidence needs the same match and seats before and
    after the disruption plus legal actions after recovery.
+   Pass one `--scorecard` per seat to `verify_distributed_proof.py` when
+   validating a specific game from a directory with several completed
+   routes. The verifier requires an advertisement from the match host to
+   each peer in addition to its bidirectional TCP frames.
 6. Use one controlled roster for compatible standalone and Party matches
    where the device lease permits. Retire the owned workflow when finished and
    verify its native artifacts are published before updating the matrix.
