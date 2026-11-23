@@ -24,10 +24,10 @@ the overlay. TLS keys and controller bearers remain private.
    verifies its installed files against its platform's original build.
 2. On the dedicated test branch, set the dispatch payload to
    `pairing: distributed`, `reuse_candidate: true`, and a two-to-six-entry
-   `platforms` roster. Generate a fresh private bearer per seat and put only the
+   `platforms` roster. Generate a fresh 32-byte bearer as 64 lowercase hex characters per seat. Validate that format locally and put only the
    SHA-256 digests in the dispatch file, in roster order. A push modifying that
    file schedules the targeted lab. The controller pin is recorded in proof.
-3. Wait for each seat's controller artifact. The overlay waits for every seat
+3. Wait for each seat's controller artifact. The hub starts before provisioning. The overlay waits for every seat
    certificate and TLS connection, then each guest probes every other guest
    before its controller starts. A queued or failed seat leaves the run
    unqualified. Download controller documents privately. Use the seat

@@ -57,7 +57,7 @@ def verify(args):
     if not any(count > 0 and key.endswith(":p2pkit_mdns_response") for key, count in relay.items()):
         raise ValueError("No native P2pKit advertisement was counted")
     verdict = json.loads(args.result.read_text())
-    winners = verdict["winners"]
+    winners = verdict.get("winners", verdict.get("results", []))
     if len(winners) != len(receipts) or len(set(winners)) != 1 or not winners[0]:
         raise ValueError("Each independent app must show the same winner")
     pictures = sorted(args.result.parent.glob("*-public-result.png"))
