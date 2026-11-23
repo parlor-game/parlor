@@ -17,6 +17,8 @@ CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
 DURATION = "80"
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
+DUAL_IOS_SOURCE = "0438fc6ff53780e87fa111f68352b15dd44a3ec3"
+DUAL_IOS_PRODUCER = 45121464371
 
 
 def configuration():
@@ -45,11 +47,15 @@ def plan():
     candidate = payload.get("candidate", RETAINED_CANDIDATE)
     observe_reconnect = payload.get("observe_reconnect") is True
     reuse_candidate = payload.get("reuse_candidate") is True
+    staged_ios_pair = payload.get("staged_ios_pair") is True
     if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         raise ValueError("Candidate must be an exact commit SHA")
     if observe_reconnect and (pairing != "mixed" or reuse_candidate or candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a newly built mixed pair")
-    if candidate != RETAINED_CANDIDATE and not observe_reconnect:
+    if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
+                            observe_reconnect or candidate != DUAL_IOS_SOURCE):
+        raise ValueError("The staged simulator pair requires the pinned two-iOS build")
+    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     builds = [{"target": target, "runner": runner} for target, runner in
@@ -61,6 +67,8 @@ def plan():
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
+        print(f"staged_ios_pair={str(staged_ios_pair).lower()}", file=stream)
+        print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
         print(f"candidate={candidate}", file=stream)
 
 

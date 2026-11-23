@@ -177,7 +177,7 @@ SIMCTL
 }
 
 boot_ios_group() {
-  local runtime index device
+  local runtime index device model=com.apple.CoreSimulator.SimDeviceType.iPhone-16
   [[ "$(uname -m)" == arm64 ]]
   xcodebuild -version | tee "$proof/xcode.txt"
   grep -Fxq 'Build version 17C529' "$proof/xcode.txt"
@@ -197,12 +197,37 @@ print(selected["identifier"])
 RUNTIME
   )
   printf '%s\n' "$runtime" > "$proof/selected-runtime.txt"
+  if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+    [[ "$DEVICE_COUNT" == 2 ]]
+    model=com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
+  fi
+  printf '%s\n' "$model" > "$proof/selected-device-model.txt"
   for ((index=0; index<DEVICE_COUNT; index++)); do
     printf 'Allocating simulator %s of %s\n' "$((index + 1))" "$DEVICE_COUNT"
-    device=$(bounded_simctl 90 create "Parlor Smart Lobby $index" com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$runtime")
+    device=$(bounded_simctl 90 create "Parlor Smart Lobby $index" "$model" "$runtime")
     printf '%s\n' "$device" >> "$devices"
-    bounded_simctl 240 bootstatus "$device" -b
+    if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+      bounded_simctl 60 boot "$device"
+      await_owned_springboard "$device"
+    else
+      bounded_simctl 240 bootstatus "$device" -b
+    fi
   done
+}
+
+await_owned_springboard() {
+  local device="$1" deadline=$((SECONDS + 240))
+  while (( SECONDS < deadline )); do
+    if bounded_simctl 12 spawn "$device" launchctl list > "$proof/simulator-$device-services.txt" 2>/dev/null &&
+       awk '$1 ~ /^[0-9]+$/ && $NF == "com.apple.SpringBoard" { found = 1 } END { exit !found }' \
+         "$proof/simulator-$device-services.txt"; then
+      printf 'Boot confirmed by a live SpringBoard on the owned simulator.\n'
+      return 0
+    fi
+    sleep 3
+  done
+  printf 'The owned simulator did not expose a live SpringBoard within 240 seconds.\n' >&2
+  return 1
 }
 
 install_ios_controller() {

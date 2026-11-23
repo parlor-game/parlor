@@ -1,11 +1,11 @@
 {
-  "pairing": "mixed",
+  "pairing": "ios",
   "token_digests": [
-    "bbb24fb986759c45f955d8be3f7b4a757fc39d42198d6653fdbf828968edf3d5",
-    "82c48a8871cef35896ae79c31888b8cea00ac76b9eb6d96cbdaff8e62bb20582"
+    "eae4c6811b07674aef01316c6e2d877493f0c890a75675923d1836bb611a1bac",
+    "1677063f78207a9d69a20605edc7f43c8f3c50563d60fee57b0ed652836db104"
   ],
   "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
-  "reuse_candidate": false,
+  "reuse_candidate": true,
   "require_native_ios": true,
-  "observe_reconnect": true
+  "staged_ios_pair": true
 }

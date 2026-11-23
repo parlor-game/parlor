@@ -27,6 +27,8 @@ jobs:
       lab: ${{ steps.plan.outputs.lab }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
+      staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
+      ios_retained_run: ${{ steps.plan.outputs.ios_retained_run }}
       candidate: ${{ steps.plan.outputs.candidate }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -104,6 +106,7 @@ jobs:
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       LAN_KEEP: '1'
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
+      STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
     defaults:
@@ -130,12 +133,24 @@ jobs:
           run-id: '45075164525'
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
+      - name: Check the staged iOS pair uses the exact successful build producer
+        if: needs.plan.outputs.staged_ios_pair == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/parlor-game/parlor/actions/runs/45121464371 | jq -e '
+            .id == 45121464371 and .workflow_id == 427081574 and .run_attempt == 1 and
+            .repository.full_name == "parlor-game/parlor" and .head_repository.full_name == "parlor-game/parlor" and
+            .event == "push" and .head_branch == "test/smart-lobby-native-ui" and
+            .head_sha == "7bc78e326fc7fb4831d2b267adc5a5a913a28ef2"' >/dev/null
+          gh api repos/parlor-game/parlor/actions/jobs/137516090912 | jq -e '
+            .run_id == 45121464371 and .name == "build (ios, macos-26)" and .conclusion == "success"' >/dev/null
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'ios' && needs.plan.outputs.reuse_candidate == 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
-          run-id: '45082889009'
+          run-id: ${{ needs.plan.outputs.ios_retained_run }}
           name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
