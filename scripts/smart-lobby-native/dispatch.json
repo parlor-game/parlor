@@ -1,12 +1,11 @@
 {
-  "pairing": "android",
-  "reuse_candidate": true,
+  "pairing": "mixed",
   "token_digests": [
-    "27524e7e73e319ead27433e7d3d09a3c2c90c2e00037ee39ff4670b38634d0fa",
-    "49d850a11acd56995570f58f191f510d4943d5f629d90fc0129216628b0ef08f",
-    "c4faad883adda04646415eee0d599f9bc97f9bbd68dfaac6d60b666530e8e75e",
-    "42b210a777d68f8f75e292b2a4c85e2a9d1b7fd39c4cf49a61e3d3700729ee76",
-    "e2886b3e2c708ff96a02bcc63952ba9551b7b6ac3d14519f1c58c95954eb4d55",
-    "a96a79786308c1b5c43c5666f28e9f2462a81963d1b9c63dd844f74eeb13e580"
-  ]
+    "bbb24fb986759c45f955d8be3f7b4a757fc39d42198d6653fdbf828968edf3d5",
+    "82c48a8871cef35896ae79c31888b8cea00ac76b9eb6d96cbdaff8e62bb20582"
+  ],
+  "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
+  "reuse_candidate": false,
+  "require_native_ios": true,
+  "observe_reconnect": true
 }
