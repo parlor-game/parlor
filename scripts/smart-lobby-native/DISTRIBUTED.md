@@ -27,7 +27,9 @@ the overlay. TLS keys and controller bearers remain private.
    `platforms` roster. Generate a fresh 32-byte bearer as 64 lowercase hex characters per seat. Validate that format locally and put only the
    SHA-256 digests in the dispatch file, in roster order. A push modifying that
    file schedules the targeted lab. The controller pin is recorded in proof.
-3. Wait for each seat's controller artifact. The hub starts before provisioning.
+3. Wait for each seat's controller artifact. An Android hub starts before
+   provisioning. A macOS hub provisions its own Simulator and verifies the app
+   while GitHub assigns the other jobs, then starts certificate rendezvous.
    Each roster with an iOS seat allows up to 15 minutes for certificate rendezvous.
    This covers the observed 11-minute wait for the second Mac in run 45264443120.
    The native proof records the elapsed time and any missing seat numbers.

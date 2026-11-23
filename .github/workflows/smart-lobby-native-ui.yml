@@ -199,7 +199,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - name: Start the authenticated hub before guest provisioning
-        if: matrix.pairing == 'distributed' && matrix.seat == 1
+        if: matrix.pairing == 'distributed' && matrix.seat == 1 && matrix.target == 'android'
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/smart-lobby-native/distributed_lan.sh hub
@@ -213,6 +213,11 @@ jobs:
         env:
           DEVICE_COUNT: ${{ matrix.count }}
         run: bash scripts/smart-lobby-native/lab.sh install
+      - name: Start the authenticated macOS hub after independent guest provisioning
+        if: matrix.pairing == 'distributed' && matrix.seat == 1 && matrix.target == 'ios'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/smart-lobby-native/distributed_lan.sh hub
       - name: Verify isolated cross-platform transport
         if: matrix.pairing == 'mixed'
         working-directory: ui-client
