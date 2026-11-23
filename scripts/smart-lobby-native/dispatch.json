@@ -1,22 +1,16 @@
 {
   "pairing": "distributed",
-  "candidate": "b95ef31ff2d4c575fd11f068ee4e0d1bdb2254cc",
-  "reuse_candidate": false,
+  "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
+  "reuse_candidate": true,
   "platforms": [
-    "android",
-    "android",
-    "android",
-    "android",
-    "android",
+    "ios",
+    "ios",
     "ios"
   ],
   "token_digests": [
-    "f37746c4346e3911b0a9f19f9589a132de3c887ad2c4711fd3084a518acb4670",
-    "972411a5e0f1ca7d093ecb29763ce41f5029dde2ded6a6ed9a9507cd688723fe",
-    "328b09a66e16c9895439a89255af149aad42e3df42b88593bef961ac41698e76",
-    "16fd248263ca7410c2404511d8211b0c04b6cd477daaa3cd950b9f65530db618",
-    "d097150663f1e6285b8b48c18473af4512321ac671b6a8bf8e6b505bb008d4f7",
-    "6f5dae34d7753e9f4385d3b558e35ddf34bd098ea397f9ea3e9227a8b5ee39fd"
+    "f7bd025705c6ff9585edb055c2ba67c25411ec907b39f7cdb6dfb5219021f94c",
+    "836912c90c3d705204171d6ad4eb1a7a779f935f8eb9f64552de43f2fefbfe34",
+    "9c2d87d11a1aab859e8e609f488be5af8b7a1f4acf98d28097072b50d929c7bb"
   ],
   "require_native_ios": true
 }
