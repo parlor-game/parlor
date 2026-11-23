@@ -173,7 +173,7 @@ def directories(temp):
 
 def stop(temp):
     for root in directories(temp):
-        for control in root.glob("ui-session-*"):
+        for control in root.glob("attempt-*/ui-session-*"):
             (control / "stop").touch()
 
 
@@ -184,9 +184,6 @@ def start_one(temp, index, device, digest, pairing):
     package = "me.parlor.android.debug" if target == "android" else "me.parlor.ios.debug"
     environment = {
         **os.environ,
-        "RUNNER_TEMP": str(root),
-        "GITHUB_OUTPUT": str(root / "output"),
-        "GITHUB_STEP_SUMMARY": str(root / "summary"),
         "UI_TEST_TARGET": target,
         "UI_TEST_DEVICE": device,
         "UI_TEST_TOKEN_SHA256": digest,
@@ -211,9 +208,14 @@ def start_one(temp, index, device, digest, pairing):
         "rate limit", "too many requests", "failed to fetch", "cloudflared", "device offline",
         "device not found", "no devices/emulators found", "cannot connect", "permission denied",
         "temporary failure", "address already in use", "screenshot", "http 429", "status 429",
+        "ui server exited with status", "could not confirm cleanup", "startup was cancelled",
     )
     for attempt in range(1, 3):
-        logfile = root / f"start-{attempt}.log"
+        attempt_root = root / f"attempt-{attempt}"
+        attempt_root.mkdir(mode=0o700)
+        environment.update(RUNNER_TEMP=str(attempt_root), GITHUB_OUTPUT=str(attempt_root / "output"),
+                           GITHUB_STEP_SUMMARY=str(attempt_root / "summary"))
+        logfile = attempt_root / "start.log"
         try:
             with logfile.open("wb") as log:
                 subprocess.run([sys.executable, str(lifecycle), "start"], env=environment,
@@ -224,14 +226,19 @@ def start_one(temp, index, device, digest, pairing):
             clues = ", ".join(marker for marker in markers if marker in lines)
             print(f"{target} guest {index} controller startup attempt {attempt}: "
                   f"{clues or 'no recognized diagnostic marker'}", flush=True)
-            # Never retry after a session receipt could already have been issued.
-            if attempt == 2 or any(root.glob("ui-session-*")):
+            # The upstream lifecycle creates its directory before startup.
+            # A failed attempt is retryable only after it has stopped and
+            # never published a connection document.
+            sessions = list(attempt_root.glob("ui-session-*"))
+            if attempt == 2 or any((s / "connection.json").exists() or not (s / "outcome").exists()
+                                   for s in sessions):
                 raise
-            if target == "ios" and pairing == "mixed":
-                # Verify the single mixed guest through its window if native control failed.
+            if target == "ios" and pairing == "mixed" and any(
+                marker in lines for marker in ("axe", "screen capture", "accessibility", "out of alignment")
+            ):
                 environment["UI_TEST_IOS_AXE"] = ""
             time.sleep(4 + index)
-    connection, = root.glob("ui-session-*/connection.json")
+    connection, = attempt_root.glob("ui-session-*/connection.json")
     data = json.loads(connection.read_text())
     origin = urlsplit(data["url"])
     if (data["target"] != target or data["transport"] != "cloudflare-quick"
@@ -271,7 +278,10 @@ def start():
 
 def hold():
     temp = Path(os.environ["RUNNER_TEMP"])
-    outcomes = [next(root.glob("ui-session-*")) / "outcome" for root in directories(temp)]
+    outcomes = []
+    for root in directories(temp):
+        connection, = root.glob("attempt-*/ui-session-*/connection.json")
+        outcomes.append(connection.with_name("outcome"))
     if not outcomes:
         raise ValueError("No UI controllers are available")
     deadline = time.monotonic() + int(DURATION) * 60 + 45
