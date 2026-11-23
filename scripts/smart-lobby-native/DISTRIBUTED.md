@@ -27,10 +27,12 @@ the overlay. TLS keys and controller bearers remain private.
    `platforms` roster. Generate a fresh 32-byte bearer as 64 lowercase hex characters per seat. Validate that format locally and put only the
    SHA-256 digests in the dispatch file, in roster order. A push modifying that
    file schedules the targeted lab. The controller pin is recorded in proof.
-3. Wait for each seat's controller artifact. The hub starts before provisioning. The overlay waits for every seat
-   certificate and TLS connection, then each guest probes every other guest
-   before its controller starts. A queued or failed seat leaves the run
-   unqualified. Download controller documents privately. Use the seat
+3. Wait for each seat's controller artifact. The hub starts before provisioning.
+   Each roster with an iOS seat allows up to 15 minutes for certificate rendezvous.
+   This covers the observed 11-minute wait for the second Mac in run 45264443120.
+   The native proof records the elapsed time and any missing seat numbers.
+   Each guest probes every other guest before its controller starts. A queued or
+   failed seat leaves the run unqualified. Download controller documents privately. Use the seat
    number in the artifact/filename and its matching, distinct bearer.
 4. Drive installed Parlor apps through the normal game UI, starting with host
    creation, native discovery and admission. Capture readiness and start,

@@ -10,7 +10,10 @@ layout="${LAB_LAYOUT:?}"
 [[ "$seat" =~ ^[1-6]$ ]]
 cd "$GITHUB_WORKSPACE"
 peer_wait_seconds=415
-if [[ "$(jq 'unique|length' <<< "$layout")" == 2 ]]; then peer_wait_seconds=900; fi
+if jq -e 'index("ios") != null' <<< "$layout" >/dev/null; then
+  # macOS assignment can take longer than six Android guests provisioning.
+  peer_wait_seconds=900
+fi
 
 case "${1:?}" in
   identity)
@@ -42,8 +45,9 @@ case "${1:?}" in
     mkdir -p "$root/identities"
     if [[ "$1" == attach ]]; then count=1; fi
     rendezvous_deadline=$((SECONDS + peer_wait_seconds))
+    rendezvous_receipt="$proof/distributed-$1-rendezvous.json"
     while true; do
-      missing=0
+      missing=""
       for ((peer=1; peer<=count; peer++)); do
         identity="$root/identities/$peer"
         if [[ ! -s "$identity/cert.pem" ]]; then
@@ -55,12 +59,19 @@ case "${1:?}" in
               --name "parlor-distributed-lan-$peer-$GITHUB_RUN_ATTEMPT" --dir "$identity" >/dev/null 2>&1 || true
           fi
         fi
-        [[ -s "$identity/cert.pem" ]] || missing=1
+        [[ -s "$identity/cert.pem" ]] || missing="${missing}${missing:+,}$peer"
       done
-      (( missing )) || break
+      if [[ -z "$missing" ]]; then
+        jq -n --arg stage "$1" --argjson planned "$count" \
+          --argjson elapsed "$((peer_wait_seconds - rendezvous_deadline + SECONDS))" \
+          '{stage:$stage,expected_identities:$planned,elapsed_seconds:$elapsed,missing_seats:[]}' > "$rendezvous_receipt"
+        break
+      fi
       if (( SECONDS >= rendezvous_deadline )); then
-        printf 'Seat certificate rendezvous timed out for the planned roster
-' >&2
+        jq -n --arg stage "$1" --argjson planned "$count" --argjson missing "[$missing]" \
+          --argjson elapsed "$((peer_wait_seconds - rendezvous_deadline + SECONDS))" \
+          '{stage:$stage,expected_identities:$planned,elapsed_seconds:$elapsed,missing_seats:$missing}' > "$rendezvous_receipt"
+        printf 'Seat certificate rendezvous timed out. Missing seat numbers: %s\n' "$missing" >&2
         exit 1
       fi
       sleep 3
