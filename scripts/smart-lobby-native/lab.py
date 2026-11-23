@@ -66,21 +66,24 @@ def plan():
     layout = payload.get("platforms")
     if distributed and (not isinstance(layout, list) or len(layout) != len(digests) or
                         any(platform not in ("android", "ios") for platform in layout) or
-                        layout.count("ios") > 5 or not reuse_candidate or candidate != DUAL_IOS_SOURCE):
-        raise ValueError("Distributed jobs require a supported roster and pinned exact builds")
+                        layout.count("ios") > 5 or (reuse_candidate and candidate != DUAL_IOS_SOURCE)):
+        raise ValueError("Distributed jobs require a supported roster and an exact build source")
     if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or distributed):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
+    runners = {"android": "ubuntu-24.04", "ios": "macos-26"}
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
-    builds = [{"target": target, "runner": runner} for target, runner in
-              (("android", "ubuntu-24.04"), ("ios", "macos-26")) if target in targets]
-    labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
-            for entry in builds]
     if distributed:
-        labs = [{"target": platform, "runner": "ubuntu-24.04" if platform == "android" else "macos-26",
+        targets = tuple(dict.fromkeys(layout))
+        labs = [{"target": platform, "runner": runners[platform],
                  "pairing": pairing, "count": 1, "seat": seat} for seat, platform in enumerate(layout, 1)]
+    else:
+        labs = [{"target": target, "runner": runners[target], "pairing": pairing,
+                 "count": 1 if pairing == "mixed" else len(digests)} for target in targets]
+    builds = [{"target": target, "runner": runners[target]} for target in targets
+              if distributed or observe_reconnect or target == "ios"]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"layout={json.dumps(layout, separators=(',', ':'))}", file=stream)
-        print(f"build={json.dumps([entry for entry in builds if observe_reconnect or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)

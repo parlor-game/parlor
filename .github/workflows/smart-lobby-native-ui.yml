@@ -139,7 +139,7 @@ jobs:
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Check the retained package uses the exact successful build producer
-        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true' || matrix.pairing == 'distributed'
+        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true' || (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -155,7 +155,7 @@ jobs:
               .run_id == 45121464371 and .name == "build (android, ubuntu-24.04)" and .conclusion == "success"' >/dev/null
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.extended_match == 'true' || matrix.pairing == 'distributed'
+        if: needs.plan.outputs.extended_match == 'true' || (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true')
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -171,7 +171,7 @@ jobs:
           name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_candidate != 'true' && (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios')
+        if: needs.plan.outputs.reuse_candidate != 'true' && (matrix.pairing == 'distributed' || needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios')
         with:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
