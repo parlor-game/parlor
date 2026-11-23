@@ -91,11 +91,12 @@ that recovery step.
   jobs. Keep mixed rosters at or below five Macs, accounting for other running
   jobs. Six iOS seats need a proven two-Simulator Mac allocation plus four
   one-Simulator jobs, a higher allowance, or an authorized private lab.
-- Two guests on each runner is a separate capacity experiment. Android's
-  supported same-host emulator Wi-Fi uses a different backend from the
-  existing single-guest cross-runner TAP. It must be proven with its own
-  directed and discovery preflights before relying on it. More than six
-  devices do not unlock a current roster row by themselves.
+- A single Ubuntu runner previously ran two independent Android emulators
+  through Last Light and five through Mafia. Those runs used Android's
+  same-host Wi-Fi backend. A hybrid roster with two guests behind one edge
+  still needs its own directed and discovery preflight. The second Simulator
+  in the same-Mac iOS test failed to reach SpringBoard within 240 seconds.
+  More than six devices does not add a new roster requirement today.
 - A runner VPN addresses IP connectivity. It does not demonstrate guest
   multicast discovery. An alternative self-hosted lab needs an approved
   isolated L2 segment with guest-to-guest mDNS and TCP and independent
@@ -109,3 +110,7 @@ that recovery step.
 · [Pinned two-runner proof](https://github.com/ui-test-actions/ui-test-actions/blob/0c818c5d72e8c30c59bd1287c330a40392bf8e89/docs/mobile-lan.md)
 · [Android emulator networking](https://developer.android.com/studio/run/emulator-networking-interconnect)
 · [Apple local-network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)
+
+[Two Android guests on one runner](https://github.com/parlor-game/parlor/actions/runs/45061993861)
+· [Five Android guests on one runner](https://github.com/parlor-game/parlor/actions/runs/45085087720)
+· [Two-Simulator macOS result](https://github.com/parlor-game/parlor/actions/runs/45129317164)
