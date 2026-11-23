@@ -46,6 +46,12 @@ APPLE_LINE = re.compile(r"\bParlorP2p\s+(?P<message>seq=.*)$")
 IOS_DEBUG_BUNDLE = "me.parlor.ios.debug"
 CRASH_TOKEN = re.compile(r"[A-Z][A-Z0-9_]{0,47}")
 CRASH_UUID = re.compile(r"[a-fA-F0-9-]{36}")
+KOTLIN_EXCEPTION_CLASS = r"[A-Za-z_][A-Za-z0-9_.$]{0,199}"
+UNHANDLED_KOTLIN = re.compile(
+    rf"^(?:Uncaught|Unhandled) Kotlin exception:[ \t]*({KOTLIN_EXCEPTION_CLASS})(?=$|[: \t])", re.M,
+)
+PRINTED_THROWABLE = re.compile(rf"^({KOTLIN_EXCEPTION_CLASS})(?::[^\n]*)?\n[ \t]+at ", re.M)
+PARLOR_STACK_SYMBOL = re.compile(r"\bkfun:(com\.parlor\.[A-Za-z0-9_.$]+(?:#[A-Za-z0-9_.$<>-]+)?)")
 
 
 def parse_event(line, platform):
@@ -191,6 +197,31 @@ def ios_crash_reports(device):
     return reports
 
 
+def ios_kotlin_failure(process_logs):
+    streams = {}
+    failures = []
+    for stream in ("stderr", "stdout"):
+        path = process_logs / stream
+        if not path.is_file() or path.is_symlink():
+            continue
+        with path.open("rb") as log:
+            log.seek(max(0, path.stat().st_size - 131_072))
+            streams[stream] = log.read(131_072).decode(errors="replace")
+    for stream, recent in streams.items():
+        for match in list(UNHANDLED_KOTLIN.finditer(recent))[-4:]:
+            excerpt = "\n".join(recent[match.end():].splitlines()[1:49])
+            failures.append({"exception_class": match[1], "stream": stream,
+                             "app_symbols": PARLOR_STACK_SYMBOL.findall(excerpt)[:20]})
+    # Kotlin/Native prints the exception prefix to stdout and its stack to stderr.
+    if not failures and "Uncaught Kotlin exception:" in streams.get("stdout", ""):
+        stderr = streams.get("stderr", "")
+        if match := PRINTED_THROWABLE.search(stderr):
+            excerpt = "\n".join(stderr[match.start():].splitlines()[1:49])
+            failures.append({"exception_class": match[1], "stream": "stderr",
+                             "app_symbols": PARLOR_STACK_SYMBOL.findall(excerpt)[:20]})
+    return failures
+
+
 def stream_events(platform, device, destination, outcome):
     guest = guest_command(platform, device)
     if platform == "android":
@@ -254,6 +285,8 @@ def main(operation):
             if platform == "ios":
                 reports = ios_crash_reports(device)
                 (proof / "ios-process-reports.json").write_text(json.dumps(reports, indent=2) + "\n")
+                failures = ios_kotlin_failure(temp / "parlor-process-logs" / device)
+                (proof / "ios-kotlin-failures.json").write_text(json.dumps(failures, indent=2) + "\n")
                 print(f"Retained {len(reports)} redacted crash summaries for this iOS debug app.")
             try:
                 events = read_events(platform, device)

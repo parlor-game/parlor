@@ -100,7 +100,9 @@ the runner. The native artifact still contains the final redacted timeline.
 The iOS cleanup also retains redacted native crash summaries for that job's
 specific Simulator and debug bundle when macOS produced an IPS report. The
 summary contains the exception and termination codes plus faulting binary UUIDs
-and offsets for symbolication. Exception messages, raw stack data and private
+and offsets for symbolication. The launch command routes the debug app's
+console to job-private files. Cleanup can extract an uncaught Kotlin exception
+class and Parlor method names. Exception messages, raw stack data and private
 app logs stay off the artifact.
 
 If an Android guest reports a local-network error after a passing probe, check

@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import struct
 import plistlib
@@ -218,6 +219,13 @@ def start_one(temp, index, device, digest, pairing):
     root = temp / "parlor-controllers" / f"device-{index}"
     root.mkdir(mode=0o700, parents=True)
     package = "me.parlor.android.debug" if target == "android" else "me.parlor.ios.debug"
+    launch = []
+    if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device):
+        launch = ["xcrun", "simctl", "launch"]
+        if pairing == "distributed":
+            process_logs = temp / "parlor-process-logs" / device
+            launch += [f"--{stream}={process_logs / stream}" for stream in ("stdout", "stderr")]
+        launch += [device, package]
     environment = {
         **os.environ,
         "UI_TEST_TARGET": target,
@@ -231,8 +239,7 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": (temp / "parlor-axe-path").read_text().strip()
         if target == "ios" else "",
-        "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
-        if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
+        "UI_TEST_LAUNCH": shlex.join(launch),
     }
     lifecycle = Path(os.environ["LAN_UI_DIR"]) / "lifecycle.py"
     if target == "android" and pairing == "mixed" and os.environ.get("LAN_FAULTS") == "1":

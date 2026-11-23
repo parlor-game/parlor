@@ -351,7 +351,14 @@ BUNDLE
     if [[ "$PAIRING_NAME" == mixed || "$PAIRING_NAME" == distributed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"
     fi
-    bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
+    if [[ "$PAIRING_NAME" == distributed ]]; then
+      local process_log="$work/parlor-process-logs/$device"
+      (umask 077 && mkdir -p "$process_log" && touch "$process_log/stdout" "$process_log/stderr")
+      bounded_simctl "$launch_timeout" launch --stdout="$process_log/stdout" --stderr="$process_log/stderr" \
+        "$device" "$bundle" > "$record/app-launch.txt"
+    else
+      bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
+    fi
   done 3< "$devices"
 }
 

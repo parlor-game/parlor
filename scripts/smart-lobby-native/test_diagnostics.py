@@ -1,7 +1,9 @@
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
-from diagnostics import IOS_DEBUG_BUNDLE, summarize_ios_crash
+from diagnostics import IOS_DEBUG_BUNDLE, ios_kotlin_failure, summarize_ios_crash
 
 
 class IosCrashSummaryTest(unittest.TestCase):
@@ -37,3 +39,26 @@ class IosCrashSummaryTest(unittest.TestCase):
     def test_rejects_other_apps_and_guests(self):
         self.assertIsNone(summarize_ios_crash(self.make_report(bundle="me.unrelated.app"), self.device))
         self.assertIsNone(summarize_ios_crash(self.make_report(device=self.image), self.device))
+
+    def test_process_output_keeps_only_the_kotlin_type_and_parlor_symbols(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "stderr").write_text(
+                "Uncaught Kotlin exception: kotlin.IllegalStateException: private message\n"
+                "    at ComposeApp 0x100 kfun:com.parlor.example.Flow#advance(kotlin.String) + 48\n"
+                "    at ComposeApp 0x101 kfun:kotlinx.coroutines.AbstractCoroutine#resumeWith\n"
+                "room-or-role data\n"
+            )
+            self.assertEqual([{"exception_class": "kotlin.IllegalStateException", "stream": "stderr",
+                               "app_symbols": ["com.parlor.example.Flow#advance"]}], ios_kotlin_failure(root))
+
+    def test_reads_the_split_kotlin_native_exception_output(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "stdout").write_text("Uncaught Kotlin exception: ")
+            (root / "stderr").write_text(
+                "kotlin.IndexOutOfBoundsException: private message\n"
+                "    at ComposeApp kfun:com.parlor.example.Flow#advance\n"
+            )
+            self.assertEqual([{"exception_class": "kotlin.IndexOutOfBoundsException", "stream": "stderr",
+                               "app_symbols": ["com.parlor.example.Flow#advance"]}], ios_kotlin_failure(root))
