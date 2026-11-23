@@ -26,27 +26,35 @@ def owned_simulator(seat, runtime):
 
 
 def springboard_pid(device):
-    table = simctl("spawn", device, "launchctl", "list")
+    table = simctl("spawn", device, "launchctl", "list", timeout=12)
     match = re.search(r"^([0-9]+)\s+\S+\s+com\.apple\.SpringBoard$", table, re.M)
     return int(match[1]) if match else None
 
 
 def boot(device):
     started = time.monotonic()
+    deadline = started + 210
     try:
-        simctl("bootstatus", device, "-b", timeout=240)
-        pid = springboard_pid(device)
-        result = {"ready": pid is not None, "springboard_pid": pid}
+        simctl("boot", device, timeout=75)
     except subprocess.SubprocessError as error:
-        result = {"ready": False, "error": type(error).__name__}
-        if isinstance(error, subprocess.CalledProcessError):
-            result["exit_status"] = error.returncode
-    return {**result, "elapsed_seconds": round(time.monotonic() - started, 3)}
+        return {"ready": False, "stage": "boot_request", "error": type(error).__name__,
+                "elapsed_seconds": round(time.monotonic() - started, 3)}
+    while time.monotonic() < deadline:
+        try:
+            pid = springboard_pid(device)
+        except subprocess.SubprocessError:
+            pid = None
+        if pid is not None:
+            return {"ready": True, "springboard_pid": pid,
+                    "elapsed_seconds": round(time.monotonic() - started, 3)}
+        time.sleep(3)
+    return {"ready": False, "stage": "springboard", "elapsed_seconds": round(time.monotonic() - started, 3)}
 
 
 def main():
     path = Path(os.environ["RUNNER_TEMP"]) / "native-intel-simulator-capacity.json"
-    summary = {"architecture": platform.machine(), "parlor_app_built": False, "seats": []}
+    summary = {"architecture": platform.machine(), "parlor_app_built": False, "seats": [],
+               "strategy": "wait for the first SpringBoard before starting the second simulator"}
     devices = []
     try:
         if summary["architecture"] != "x86_64":
@@ -65,10 +73,14 @@ def main():
             raise RuntimeError("The pinned Xcode has no compatible preinstalled iOS runtime")
         summary["runtime"] = runtime
         for seat in (1, 2):
-            devices.append(owned_simulator(seat, runtime))
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            summary["seats"] = list(pool.map(boot, devices))
-            if all(seat["ready"] for seat in summary["seats"]):
+            device = owned_simulator(seat, runtime)
+            devices.append(device)
+            state = boot(device)
+            summary["seats"].append(state)
+            if not state["ready"]:
+                break
+        if len(summary["seats"]) == 2 and all(seat["ready"] for seat in summary["seats"]):
+            with ThreadPoolExecutor(max_workers=2) as pool:
                 summary["concurrent_pids"] = list(pool.map(springboard_pid, devices))
         observed = summary.get("concurrent_pids", [])
         if len(set(observed)) != 2 or None in observed:
