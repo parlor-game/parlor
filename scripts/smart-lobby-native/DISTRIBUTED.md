@@ -16,6 +16,19 @@ reuse across runner images cannot collapse independently provisioned seats.
 DHCP, default routes, runner interfaces, and unrelated traffic stay outside
 the overlay. TLS keys and controller bearers remain private.
 
+```mermaid
+flowchart LR
+    Build[Exact Android APK and iOS Simulator archive] --> A
+    Build --> I
+    A[Android emulator per Ubuntu job] <-->|Guest Ethernet through TAP| Relay[Isolated TLS relay]
+    I[iOS Simulator per macOS job] <-->|Guest Ethernet through paired feth| Relay
+    Driver[UI Test Actions operator] -->|Independent authenticated controller| A
+    Driver -->|Independent authenticated controller| I
+    A --> Evidence[Native install receipts and public per-seat results]
+    I --> Evidence
+    Relay --> Evidence
+```
+
 ## Run a qualification
 
 1. Set the candidate app SHA and exact build producer. Use one Android APK and
@@ -106,6 +119,11 @@ that recovery step.
   test VLAN.
 - Simulator qualification does not cover physical camera pairing, local
   network privacy prompts, actual hotspots, or signed Store acceptance.
+
+Hosted runs have exercised six players in one room and fourteen independent
+controllers across three concurrent labs. Each lab confines discovery and
+gameplay to its own roster. The larger simultaneous count measures runner
+availability across separate rooms.
 
 [GitHub Actions limits](https://docs.github.com/en/actions/reference/limits)
 · [GitHub private networking](https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/connect-to-a-private-network)
