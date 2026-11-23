@@ -11,6 +11,7 @@ from pathlib import Path
 import signal
 import ssl
 import sys
+import time
 
 # Reuse the proven two-runner frame allowlist, WSS carrier and native port.
 sys.path.insert(0, str(Path(os.environ["LAN_UI_DIR"]) / "verification/mobile-lan"))
@@ -158,6 +159,7 @@ async def relay(args):
         except (ValueError, OSError, asyncio.IncompleteReadError, TimeoutError):
             counts[f"closed_{seat}"] += 1
         finally:
+            counts[f"last_departure_epoch_{seat}"] = int(time.time())
             writers.pop(seat, None)
             writer.close()
 
@@ -200,6 +202,58 @@ async def ready_link(port, context, counts):
     raise TimeoutError("Relay or all-seat barrier deadline elapsed")
 
 
+async def attached_edge(args, port, context, mac, counts):
+    reader, writer = await ready_link(port, context, counts)
+    process = None
+    try:
+        process = await asyncio.create_subprocess_exec(
+            args.frame_port, args.interface, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+        if await asyncio.wait_for(process.stdout.readexactly(2), 8) != b"\0\0":
+            raise RuntimeError("Native frame port not ready")
+        counts["edge_sessions"] += 1
+        args.ready.touch()
+        own = aliases(args.seat)
+
+        async def outbound():
+            async for frame in records(process.stdout):
+                if frame[6:12] == mac and candidates(frame, args.seat, args.roster):
+                    await write_frame(writer, rewrite(frame, mac, own, outgoing=True))
+                    counts[f"sent:{protocol(frame)}"] += 1
+
+        async def inbound():
+            async for frame in records(reader):
+                source = frame[6:12][-1]
+                if (source in args.roster and frame[6:12] == aliases(source)
+                        and args.seat in candidates(frame, source, args.roster)
+                        and destination_mac(frame, args.seat)):
+                    await write_frame(process.stdin, rewrite(frame, own, mac, outgoing=False))
+                    counts[f"received:{protocol(frame)}"] += 1
+
+        await duplex(inbound(), outbound())
+    finally:
+        args.ready.unlink(missing_ok=True)
+        if process and process.returncode is None:
+            with suppress(ProcessLookupError):
+                process.terminate()
+            await process.wait()
+        writer.close()
+        with suppress(OSError, TimeoutError):
+            await asyncio.wait_for(writer.wait_closed(), 2)
+
+
+async def supervise_edge(args, port, context, mac, counts):
+    for _ in range(12):
+        try:
+            await attached_edge(args, port, context, mac, counts)
+        except ssl.SSLCertVerificationError:
+            raise
+        except (ConnectionError, asyncio.IncompleteReadError, TimeoutError) as error:
+            counts[f"edge_disconnect:{type(error).__name__}"] += 1
+            counts["last_disconnect_epoch"] = int(time.time())
+            await asyncio.sleep(2)
+    raise RuntimeError("The isolated LAN seat exceeded its bounded reconnect attempts")
+
+
 async def edge(args):
     counts = Counter()
     mac = bytes.fromhex(args.mac.replace(":", ""))
@@ -218,44 +272,9 @@ async def edge(args):
             writer.close()
 
     async with await asyncio.start_server(proxy, LOOPBACK, 0) as forward:
-        inner_port = forward.sockets[0].getsockname()[1]
-        try:
-            reader, writer = await ready_link(inner_port, tls(args, server=False), counts)
-        except (OSError, ValueError, TimeoutError):
-            stats_write(args.stats, {"active_seats": [], "frames": counts})
-            raise
-        process = None
-        try:
-            process = await asyncio.create_subprocess_exec(
-                args.frame_port, args.interface, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
-            if await asyncio.wait_for(process.stdout.readexactly(2), 8) != b"\0\0":
-                raise RuntimeError("Native frame port not ready")
-            args.ready.touch()
-            own = aliases(args.seat)
-
-            async def outbound():
-                async for frame in records(process.stdout):
-                    if frame[6:12] == mac and candidates(frame, args.seat, args.roster):
-                        await write_frame(writer, rewrite(frame, mac, own, outgoing=True))
-                        counts[f"sent:{protocol(frame)}"] += 1
-
-            async def inbound():
-                async for frame in records(reader):
-                    source = frame[6:12][-1]
-                    if (source in args.roster and frame[6:12] == aliases(source)
-                            and args.seat in candidates(frame, source, args.roster)
-                            and destination_mac(frame, args.seat)):
-                        await write_frame(process.stdin, rewrite(frame, own, mac, outgoing=False))
-                        counts[f"received:{protocol(frame)}"] += 1
-
-            await duplex(duplex(inbound(), outbound()), sample(args.stats, counts, [args.seat]))
-        finally:
-            args.ready.unlink(missing_ok=True)
-            if process and process.returncode is None:
-                with suppress(ProcessLookupError):
-                    process.terminate()
-                await process.wait()
-            writer.close()
+        port = forward.sockets[0].getsockname()[1]
+        await duplex(supervise_edge(args, port, tls(args, server=False), mac, counts),
+                     sample(args.stats, counts, [args.seat]))
 
 
 async def run(args):

@@ -1,12 +1,13 @@
 """Check CI overlay routing without claiming native-device coverage."""
 import asyncio
 from collections import Counter
+import ssl
 import struct
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from distributed_lan import (MDNS, MDNS_MAC, P2PKIT_SERVICE, address, aliases, candidates,
-                             destination_mac, protocol, ready_link, rewrite)
+                             destination_mac, protocol, ready_link, rewrite, supervise_edge)
 
 
 class DistributedLanTest(unittest.TestCase):
@@ -66,6 +67,16 @@ class RelayReadinessTest(unittest.IsolatedAsyncioTestCase):
         early_writer.close.assert_called_once()
         ready_writer.close.assert_not_called()
         self.assertEqual({"attach_retry:IncompleteReadError": 1}, counts)
+
+    async def test_established_stream_reconnects_but_rejects_bad_certificate(self):
+        counts = Counter()
+        cert_error = ssl.SSLCertVerificationError("Rejected identity")
+        attach = AsyncMock(side_effect=[ConnectionResetError(), cert_error])
+        with patch("distributed_lan.attached_edge", attach), patch("distributed_lan.asyncio.sleep", AsyncMock()):
+            with self.assertRaises(ssl.SSLCertVerificationError):
+                await supervise_edge(None, 8788, None, b"", counts)
+        self.assertEqual(2, attach.await_count)
+        self.assertEqual(1, counts["edge_disconnect:ConnectionResetError"])
 
 
 if __name__ == "__main__":
