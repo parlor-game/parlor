@@ -23,7 +23,10 @@ build() {
     "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"
     "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$package/parlor.apk" > "$package/signature.txt"
   else
-    [[ "$(uname -m)" == arm64 ]]
+    local architecture="${PARLOR_IOS_BUILD_ARCH:-arm64}"
+    [[ "$architecture" == arm64 || "$architecture" == x86_64 ]]
+    [[ "$(uname -m)" == "$architecture" ]]
+    printf '%s\n' "$architecture" > "$package/simulator-architecture.txt"
     xcodebuild -version | tee "$package/xcode.txt"
     grep -Fxq 'Build version 17C529' "$package/xcode.txt"
     local identity="UITEST0001.$bundle" entitlements="$work/parlor-lab.entitlements"
@@ -36,7 +39,7 @@ PYPLIST
     xcodebuild -quiet -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
       -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
       -derivedDataPath "$work/parlor-xcode" \
-      ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
+      ARCHS="$architecture" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
       CODE_SIGN_STYLE=Manual CODE_SIGN_ENTITLEMENTS="$entitlements" build
     app="$work/parlor-xcode/Build/Products/Debug-iphonesimulator/Parlor.app"
     if [[ ! -d "$app" ]]; then
