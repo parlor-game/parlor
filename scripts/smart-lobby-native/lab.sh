@@ -206,10 +206,7 @@ RUNTIME
     printf 'Allocating simulator %s of %s\n' "$((index + 1))" "$DEVICE_COUNT"
     device=$(bounded_simctl 90 create "Parlor Smart Lobby $index" "$model" "$runtime")
     printf '%s\n' "$device" >> "$devices"
-    if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
-      bounded_simctl 60 boot "$device"
-      await_owned_springboard "$device"
-    else
+    if [[ "${STAGED_IOS_PAIR:-false}" != true ]]; then
       bounded_simctl 240 bootstatus "$device" -b
     fi
   done
@@ -290,7 +287,7 @@ install_android() {
 }
 
 install_ios() {
-  local device installed app
+  local device installed app launch_timeout=60
   (cd "$package" && shasum -a 256 -c SHA256SUMS)
   ditto -x -k "$package/parlor-simulator.zip" "$work/parlor-extracted"
   local apps=("$work"/parlor-extracted/*.app)
@@ -303,6 +300,13 @@ install_ios() {
   while IFS= read -r device <&3; do
     local record="$proof/$device"
     mkdir -p "$record"
+    if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+      # Fully install and launch each SE before booting the next one. The
+      # simultaneous-boot trial reached both SpringBoards but stalled the first launch.
+      bounded_simctl 60 boot "$device"
+      await_owned_springboard "$device"
+      launch_timeout=120
+    fi
     bounded_simctl 90 install "$device" "$app"
     if installed=$(bounded_simctl 45 get_app_container "$device" "$bundle" app); then
       printf 'simctl\n' > "$record/installed-app-location-source.txt"
@@ -338,11 +342,15 @@ BUNDLE
     fi
     python3 "$verification" manifest "$installed" > "$record/installed-app-manifest.json"
     cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
-    bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
+    if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
+      cp "$proof/simulator-$device-services.txt" "$record/runtime-processes.txt"
+    else
+      bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
+    fi
     if [[ "$PAIRING_NAME" == mixed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"
     fi
-    bounded_simctl 60 launch "$device" "$bundle" > "$record/app-launch.txt"
+    bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
   done 3< "$devices"
 }
 
