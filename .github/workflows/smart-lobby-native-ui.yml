@@ -12,7 +12,7 @@ on:
         type: string
         required: true
   push:
-    branches: [test/smart-lobby-native-ui]
+    branches: [test/smart-lobby-native-ui, test/distributed-smart-lobby]
     paths: [scripts/smart-lobby-native/dispatch.json]
 
 permissions:
@@ -23,6 +23,7 @@ jobs:
   plan:
     runs-on: ubuntu-24.04
     outputs:
+      layout: ${{ steps.plan.outputs.layout }}
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
@@ -101,6 +102,8 @@ jobs:
     timeout-minutes: ${{ needs.plan.outputs.extended_match == 'true' && 170 || 100 }}
     env:
       TARGET: ${{ matrix.target }}
+      LAB_SEAT: ${{ matrix.seat }}
+      LAB_LAYOUT: ${{ needs.plan.outputs.layout }}
       PAIRING: ${{ inputs.pairing }}
       DIGESTS: ${{ inputs.token_digests }}
       CANDIDATE: ${{ needs.plan.outputs.candidate }}
@@ -128,7 +131,7 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android'
+        if: matrix.pairing != 'distributed' && needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -136,7 +139,7 @@ jobs:
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Check the retained package uses the exact successful build producer
-        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true'
+        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true' || matrix.pairing == 'distributed'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -152,7 +155,7 @@ jobs:
               .run_id == 45121464371 and .name == "build (android, ubuntu-24.04)" and .conclusion == "success"' >/dev/null
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.extended_match == 'true'
+        if: needs.plan.outputs.extended_match == 'true' || matrix.pairing == 'distributed'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -160,7 +163,7 @@ jobs:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'ios' && needs.plan.outputs.reuse_candidate == 'true'
+        if: matrix.pairing != 'distributed' && needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'ios' && needs.plan.outputs.reuse_candidate == 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -183,6 +186,16 @@ jobs:
         with:
           name: lan-${{ matrix.target }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/mobile-lan/public
+          if-no-files-found: error
+          retention-days: 1
+      - name: Prepare a unique distributed seat identity
+        if: matrix.pairing == 'distributed'
+        run: bash scripts/smart-lobby-native/distributed_lan.sh identity
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: matrix.pairing == 'distributed'
+        with:
+          name: parlor-distributed-lan-${{ matrix.seat }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parlor-distributed/public
           if-no-files-found: error
           retention-days: 1
       - name: Install Android emulator host libraries
@@ -222,6 +235,13 @@ jobs:
           PY
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
+      - name: Attach distributed seats and verify every directed peer path
+        if: matrix.pairing == 'distributed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/smart-lobby-native/distributed_lan.sh attach
+          bash scripts/smart-lobby-native/distributed_lan.sh verify
       - name: Observe isolated LAN continuity during native gameplay
         if: matrix.pairing == 'mixed' && matrix.target == 'android'
         run: |
@@ -240,7 +260,7 @@ jobs:
         run: python3 scripts/smart-lobby-native/lab.py start
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: parlor-ui-${{ matrix.target }}-${{ github.run_attempt }}
+          name: parlor-ui-${{ matrix.target }}${{ matrix.seat }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/parlor-connections
           if-no-files-found: error
           retention-days: 1
@@ -253,11 +273,13 @@ jobs:
         if: always()
         env:
           LAB_PAIRING: ${{ matrix.pairing }}
-        run: bash scripts/smart-lobby-native/lab.sh cleanup
+        run: |
+          if [[ "$LAB_PAIRING" == distributed ]]; then bash scripts/smart-lobby-native/distributed_lan.sh cleanup; fi
+          bash scripts/smart-lobby-native/lab.sh cleanup
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: parlor-native-proof-${{ matrix.target }}-${{ github.run_attempt }}
+          name: parlor-native-proof-${{ matrix.target }}${{ matrix.seat }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/parlor-proof
             ${{ runner.temp }}/mobile-lan-preflight/traffic.json

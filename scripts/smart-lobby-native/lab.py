@@ -28,9 +28,9 @@ def configuration():
     else:
         pairing = os.environ["PAIRING"]
         digests = json.loads(os.environ["DIGESTS"])
-    if pairing not in {"android", "ios", "mixed"} or not isinstance(digests, list):
+    if pairing not in {"android", "ios", "mixed", "distributed"} or not isinstance(digests, list):
         raise ValueError("Invalid pairing or credential digest array")
-    counts = {2} if pairing == "mixed" else {2, 3, 5, 6}
+    counts = {"mixed": {2}, "distributed": set(range(2, 7))}.get(pairing, {2, 3, 5, 6})
     if (
         len(digests) not in counts
         or any(not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
@@ -59,14 +59,24 @@ def plan():
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
-    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair):
+    distributed = pairing == "distributed"
+    layout = payload.get("platforms")
+    if distributed and (not isinstance(layout, list) or len(layout) != len(digests) or
+                        any(platform not in ("android", "ios") for platform in layout) or
+                        layout.count("ios") > 5 or not reuse_candidate or candidate != DUAL_IOS_SOURCE):
+        raise ValueError("Distributed jobs require a supported roster and pinned exact builds")
+    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or distributed):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     builds = [{"target": target, "runner": runner} for target, runner in
               (("android", "ubuntu-24.04"), ("ios", "macos-26")) if target in targets]
     labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
             for entry in builds]
+    if distributed:
+        labs = [{"target": platform, "runner": "ubuntu-24.04" if platform == "android" else "macos-26",
+                 "pairing": pairing, "count": 1, "seat": seat} for seat, platform in enumerate(layout, 1)]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
+        print(f"layout={json.dumps(layout, separators=(',', ':'))}", file=stream)
         print(f"build={json.dumps([entry for entry in builds if observe_reconnect or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
@@ -263,7 +273,7 @@ def start_one(temp, index, device, digest, pairing):
             if attempt == 2 or any((s / "connection.json").exists() or not (s / "outcome").exists()
                                    for s in sessions):
                 raise
-            if target == "ios" and pairing == "mixed" and visual_fallback and any(
+            if target == "ios" and pairing in ("mixed", "distributed") and visual_fallback and any(
                 marker in lines for marker in ("axe", "screen capture", "accessibility", "out of alignment")
             ):
                 environment["UI_TEST_IOS_AXE"] = ""
@@ -295,12 +305,18 @@ def start():
     devices = (temp / "parlor-devices").read_text().splitlines()
     if pairing == "mixed":
         digests = [digests[0 if target == "android" else 1]]
+    offset = 1
+    if pairing == "distributed":
+        offset = int(os.environ["LAB_SEAT"])
+        if not 1 <= offset <= len(digests):
+            raise ValueError("Invalid distributed seat")
+        digests = [digests[offset - 1]]
     if len(devices) != len(digests) or len(set(devices)) != len(devices):
         raise ValueError("Independent device allocations do not match the operator roster")
     (temp / "parlor-connections").mkdir()
     with ThreadPoolExecutor(max_workers=1 if pairing == "ios" else min(2, len(devices))) as pool:
         jobs = [pool.submit(start_one, temp, index, device, digest, pairing)
-                for index, (device, digest) in enumerate(zip(devices, digests), 1)]
+                for index, (device, digest) in enumerate(zip(devices, digests), offset)]
         for job in jobs:
             job.result()
     print(f"Opened {len(devices)} independent {target} UI controllers", flush=True)

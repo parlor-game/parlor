@@ -347,7 +347,7 @@ BUNDLE
     else
       bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
     fi
-    if [[ "$PAIRING_NAME" == mixed ]]; then
+    if [[ "$PAIRING_NAME" == mixed || "$PAIRING_NAME" == distributed ]]; then
       open -a Simulator --args -CurrentDeviceUDID "$device"
     fi
     bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
@@ -362,7 +362,7 @@ install() {
   git rev-parse HEAD > "$proof/harness-sha.txt"
   git -C "$LAN_UI_DIR" rev-parse HEAD > "$proof/controller-sha.txt"
   printf '%s\t%s\t%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" > "$proof/workflow-run.tsv"
-  if [[ "$PAIRING_NAME" == mixed ]]; then
+  if [[ "$PAIRING_NAME" == mixed || "$PAIRING_NAME" == distributed ]]; then
     if [[ "$TARGET" == android ]]; then
       python3 - "$LAN_UI_DIR/verification/mobile-lan/preflight-android.sh" <<'SDK_RETRY'
 from pathlib import Path
@@ -385,6 +385,34 @@ if text.count(command) != 1:
     raise SystemExit("The pinned upstream SDK setup changed")
 path.write_text(text.replace(command, retry))
 SDK_RETRY
+    fi
+    if [[ "$PAIRING_NAME" == distributed ]]; then
+      [[ "$LAB_SEAT" =~ ^[1-6]$ ]]
+      if [[ "$TARGET" == android ]]; then
+        python3 - "$LAN_UI_DIR/verification/mobile-lan/preflight-android.sh" "$LAB_SEAT" <<'PY_ADDRESS'
+from pathlib import Path
+import sys
+
+path, seat = Path(sys.argv[1]), int(sys.argv[2])
+script = path.read_text()
+lease = "192.168.137.10,192.168.137.10"
+old_check = r"192\.168\.137\.(1[0-9]|20)"
+assert script.count(lease) == 1 and script.count(old_check) == 2
+address = f"192.168.137.{9 + seat}"
+path.write_text(script.replace(lease, f"{address},{address}").replace(old_check, address.replace(".", r"\.")))
+PY_ADDRESS
+      else
+        sudo scutil --set LocalHostName "parlor-lab-$GITHUB_RUN_ID-$LAB_SEAT"
+        python3 - "$LAN_UI_DIR/verification/mobile-lan/preflight-ios.sh" "$LAB_SEAT" <<'PY_ADDRESS'
+from pathlib import Path
+import sys
+
+path, seat = Path(sys.argv[1]), int(sys.argv[2])
+script = path.read_text()
+assert script.count("192.168.137.2 netmask") == 1
+path.write_text(script.replace("192.168.137.2 netmask", f"192.168.137.{19 + seat} netmask"))
+PY_ADDRESS
+      fi
     fi
     (cd "$LAN_UI_DIR" && bash "verification/mobile-lan/preflight-$TARGET.sh")
     if [[ "$TARGET" == android ]]; then
@@ -445,7 +473,7 @@ cleanup() {
       grep -Ei '(^|: )(ERROR|PANIC|FATAL)( |:)' "$emulator_log" | tail -50         > "$proof/${emulator_log##*/}.errors.txt" || true
     done
   fi
-  if [[ "$LAB_PAIRING" == mixed ]]; then
+  if [[ "$LAB_PAIRING" == mixed || "$LAB_PAIRING" == distributed ]]; then
     (cd "$LAN_UI_DIR" && bash verification/mobile-lan/trial.sh cleanup "$TARGET")
   elif [[ -f "$devices" ]]; then
     while IFS= read -r device <&3; do
