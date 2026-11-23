@@ -245,7 +245,38 @@ install_ios() {
     local record="$proof/$device"
     mkdir -p "$record"
     bounded_simctl 90 install "$device" "$app"
-    installed=$(bounded_simctl 45 get_app_container "$device" "$bundle" app)
+    if installed=$(bounded_simctl 45 get_app_container "$device" "$bundle" app); then
+      printf 'simctl\n' > "$record/installed-app-location-source.txt"
+    else
+      # After a successful install, a stalled container query can be replaced
+      # by a unique bundle lookup under this disposable device's data directory.
+      # The same byte-for-byte manifest check still follows.
+      installed=$(python3 - "$device" "$bundle" <<'BUNDLE'
+from pathlib import Path
+import plistlib
+import re
+import sys
+
+device, expected_bundle = sys.argv[1:]
+uuid = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+if not uuid.fullmatch(device):
+    raise SystemExit("Invalid owned Simulator ID")
+root = Path.home() / "Library/Developer/CoreSimulator/Devices" / device / "data/Containers/Bundle/Application"
+matches = []
+for app in root.glob("*/*.app"):
+    if not uuid.fullmatch(app.parent.name) or app.is_symlink() or app.parent.is_symlink():
+        continue
+    with (app / "Info.plist").open("rb") as stream:
+        info = plistlib.load(stream)
+    if info.get("CFBundleIdentifier") == expected_bundle:
+        matches.append(app)
+if len(matches) != 1:
+    raise SystemExit("No unique installed app in the owned Simulator")
+print(matches[0])
+BUNDLE
+      )
+      printf 'verified-owned-simulator-bundle\n' > "$record/installed-app-location-source.txt"
+    fi
     python3 "$verification" manifest "$installed" > "$record/installed-app-manifest.json"
     cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
     bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
