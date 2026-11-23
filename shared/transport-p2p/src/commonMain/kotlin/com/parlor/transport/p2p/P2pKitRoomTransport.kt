@@ -55,11 +55,13 @@ import com.parlor.networking.security.SecureIds
 import com.parlor.storage.secure.SecureStorage
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
+import dev.p2pkit.core.FeatureState
 import dev.p2pkit.core.NetworkPathStatus
 import dev.p2pkit.core.P2pKit
 import dev.p2pkit.core.P2pError
 import dev.p2pkit.core.P2pMessage
 import dev.p2pkit.core.P2pSession
+import dev.p2pkit.core.P2pState
 import dev.p2pkit.core.Peer
 import dev.p2pkit.core.PeerFingerprint
 import dev.p2pkit.core.PeerId
@@ -91,6 +93,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -1335,6 +1338,21 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             )
         }
         val discoveryStartedAtEpochMillis = nowMillis()
+        val observation = scope.launch {
+            while (isActive) {
+                val visible = kit.peers.value
+                val pinned = visible.firstOrNull { it.id.value == credential.hostPeerId }
+                diagnostics.event(
+                    P2pDiagnosticEventName.RECONNECT_BROWSE_SAMPLE,
+                    P2pDiagnosticRole.PEER,
+                    result = kit.discoveryState.value.diagnosticResult(),
+                    reason = pinned?.resumeAdvertisementRejection(kit, discoveryStartedAtEpochMillis, credential.partyId)
+                        ?: P2pDiagnosticReason.PINNED_HOST_ABSENT,
+                    count = diagnosticCount(visible.size),
+                )
+                delay(2_000)
+            }
+        }
         return try {
             kit.startDiscovery()
             diagnostics.event(P2pDiagnosticEventName.DISCOVERY_STARTED, P2pDiagnosticRole.PEER)
@@ -1410,6 +1428,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                 ),
             )
         } finally {
+            observation.cancel()
             withContext(NonCancellable) {
                 attemptCleanup(
                     diagnostics,
@@ -1627,14 +1646,24 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         kit: P2pKit,
         discoveryStartedAtEpochMillis: Long,
         partyId: PartyId?,
-    ): Boolean {
+    ): Boolean = resumeAdvertisementRejection(kit, discoveryStartedAtEpochMillis, partyId) == P2pDiagnosticReason.NONE
+
+    private fun Peer.resumeAdvertisementRejection(
+        kit: P2pKit,
+        discoveryStartedAtEpochMillis: Long,
+        partyId: PartyId?,
+    ): P2pDiagnosticReason {
         val entry = LobbyAdvertisement.parse(name)
         val scopeMatches = if (partyId != null) {
             entry is LobbyAdvertisement.Entry.PartyRoom && entry.protocol == PARTY_WIRE_VERSION
         } else {
             entry is LobbyAdvertisement.Entry.GameRoom || entry == LobbyAdvertisement.Entry.Legacy
         }
-        return scopeMatches && hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis)
+        return when {
+            !scopeMatches -> P2pDiagnosticReason.ADVERTISEMENT_SCOPE_MISMATCH
+            !hasFreshAdvertisement(kit, discoveryStartedAtEpochMillis) -> P2pDiagnosticReason.STALE_ROOM
+            else -> P2pDiagnosticReason.NONE
+        }
     }
 
     private fun JoinInvitation.matches(config: JoinConfig): Boolean =
@@ -2075,6 +2104,13 @@ private fun DiscoveryFinalError.toNetError(): NetError = when (this) {
 // ============================================================================ Host room ==
 
 @Suppress("LargeClass") // Single mutex owner for host membership/admission/resume transaction state.
+private fun FeatureState.diagnosticResult(): P2pDiagnosticResult = when (this) {
+    FeatureState.Active -> P2pDiagnosticResult.SUCCESS
+    is FeatureState.Failed, is FeatureState.Unsupported -> P2pDiagnosticResult.FAILURE
+    is FeatureState.PermissionRequired -> P2pDiagnosticResult.REJECTED
+    else -> P2pDiagnosticResult.NONE
+}
+
 internal class HostP2pRoom(
     private val kit: P2pKit,
     private val roomCode: String,
@@ -2283,9 +2319,26 @@ internal class HostP2pRoom(
 
     init {
         sessionScope.launch { reapExpiredApprovals() }
-        sessionScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        val acceptor = sessionScope.launch(start = CoroutineStart.UNDISPATCHED) {
             kit.incomingSessions.collect { session ->
                 handleIncomingSession(session)
+            }
+        }
+        sessionScope.launch {
+            while (isActive) {
+                val listening = when {
+                    !acceptor.isActive -> P2pDiagnosticReason.HOST_ACCEPTOR_STOPPED
+                    kit.state.value != P2pState.Running -> P2pDiagnosticReason.HOST_KIT_NOT_RUNNING
+                    else -> P2pDiagnosticReason.HOST_ACCEPTOR_ACTIVE
+                }
+                diagnostics.event(
+                    P2pDiagnosticEventName.HOST_ADVERTISEMENT_SAMPLE,
+                    P2pDiagnosticRole.HOST,
+                    result = kit.advertisingState.value.diagnosticResult(),
+                    reason = listening,
+                    count = diagnosticCount(kit.sessions.value.count { it.state.value == ConnectionState.Connected }),
+                )
+                delay(2_000)
             }
         }
     }
