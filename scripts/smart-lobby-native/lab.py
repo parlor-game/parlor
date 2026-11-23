@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlsplit
 
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
-DURATION = "55"
+DURATION = "80"
 CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 
 
