@@ -265,6 +265,29 @@ install() {
   git -C "$LAN_UI_DIR" rev-parse HEAD > "$proof/controller-sha.txt"
   printf '%s\t%s\t%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" > "$proof/workflow-run.tsv"
   if [[ "$PAIRING_NAME" == mixed ]]; then
+    if [[ "$TARGET" == android ]]; then
+      python3 - "$LAN_UI_DIR/verification/mobile-lan/preflight-android.sh" <<'SDK_RETRY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+command = '"$sdk/cmdline-tools/latest/bin/sdkmanager" \'platform-tools\' "$image"'
+retry = """download_sdk() {
+  local sdk_state
+  sdk_state=$(mktemp -d "$out/sdk-state.XXXXXX")
+  ANDROID_USER_HOME="$sdk_state" "$sdk/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' "$image"
+}
+if ! download_sdk 2>&1 | tee "$out/sdk-install-1.log"; then
+  grep -Fq 'Error on ZipFile' "$out/sdk-install-1.log"
+  printf 'Retrying the corrupted SDK download once using fresh job-owned cache.\n'
+  download_sdk
+fi"""
+if text.count(command) != 1:
+    raise SystemExit("The pinned upstream SDK setup changed")
+path.write_text(text.replace(command, retry))
+SDK_RETRY
+    fi
     (cd "$LAN_UI_DIR" && bash "verification/mobile-lan/preflight-$TARGET.sh")
     if [[ "$TARGET" == android ]]; then
       printf 'emulator-5554\n' > "$devices"
