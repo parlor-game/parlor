@@ -71,7 +71,7 @@ boot_android_group() {
   "$emulator" -version > "$proof/emulator-version.txt"
   IFS=. read -r major minor _ < <(sed -n 's/^Pkg.Revision *= *//p' "$ANDROID_HOME/emulator/source.properties")
   (( major > 36 || (major == 36 && minor >= 5) ))
-  local memory_mib=2048 cpu_cores=2
+  local memory_mib=2048 cpu_cores=2 gpu=swiftshader_indirect
   local display=()
   if (( DEVICE_COUNT > 3 )); then
     # Bound guest CPU pressure on the four-core Linux runner. The last
@@ -79,6 +79,12 @@ boot_android_group() {
     memory_mib=1536
     cpu_cores=1
     display=(-skin 720x1280)
+  fi
+  if (( DEVICE_COUNT == 6 )); then
+    # Keep 360 dp while reducing the six software-rendered framebuffers.
+    display=()
+    gpu=swiftshader
+    printf 'seat\tphase\tavailable_kib\tcgroup_current_bytes\n' > "$proof/six-seat-boot-memory.tsv"
   fi
   awk -v count="$DEVICE_COUNT" -v memory="$memory_mib" '
     /^MemAvailable:/ {
@@ -93,8 +99,22 @@ boot_android_group() {
     serial="emulator-$port"
     if adb -s "$serial" get-state >/dev/null 2>&1; then return 1; fi
     echo no | "$sdk/avdmanager" create avd --name "parlor-$index" --package "$image" --device pixel_4
+    if (( DEVICE_COUNT == 6 )); then
+      python3 - "$ANDROID_AVD_HOME/parlor-$index.avd/config.ini" <<'DISPLAY'
+from pathlib import Path
+import sys
+
+config = Path(sys.argv[1])
+updates = {"hw.lcd.width": "540", "hw.lcd.height": "960", "hw.lcd.density": "240"}
+remaining = [line for line in config.read_text().splitlines()
+             if line.partition("=")[0].strip() not in {*updates, "skin.path", "skin.name"}]
+remaining.extend(f"{key}={value}" for key, value in updates.items())
+config.write_text("\n".join(remaining) + "\n")
+DISPLAY
+      six_seat_boot_memory "$index" before >> "$proof/six-seat-boot-memory.tsv"
+    fi
     "$emulator" -avd "parlor-$index" -port "$port" -no-window -no-audio -no-snapshot \
-      -no-boot-anim -memory "$memory_mib" -cores "$cpu_cores" -gpu swiftshader_indirect "${display[@]}" \
+      -no-boot-anim -memory "$memory_mib" -cores "$cpu_cores" -gpu "$gpu" "${display[@]}" \
       > "$work/parlor-emulator-$port.log" 2>&1 &
     guest_pid=$!
     printf '%s\n' "$guest_pid" >> "$work/parlor-emulator-pids"
@@ -110,8 +130,22 @@ boot_android_group() {
     adb -s "$serial" shell settings put global window_animation_scale 0
     adb -s "$serial" shell settings put global transition_animation_scale 0
     adb -s "$serial" shell settings put global animator_duration_scale 0
+    if (( DEVICE_COUNT == 6 )); then
+      adb -s "$serial" shell wm size > "$proof/$serial-display-size.txt"
+      adb -s "$serial" shell wm density > "$proof/$serial-display-density.txt"
+      six_seat_boot_memory "$index" after >> "$proof/six-seat-boot-memory.tsv"
+    fi
     printf '%s completed boot\n' "$serial"
   done
+}
+
+six_seat_boot_memory() {
+  local group current=unavailable
+  group=$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup)
+  if [[ -r "/sys/fs/cgroup$group/memory.current" ]]; then
+    read -r current < "/sys/fs/cgroup$group/memory.current"
+  fi
+  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)" "$current"
 }
 
 # Keep a wedged CoreSimulator request from consuming the entire device lease.
