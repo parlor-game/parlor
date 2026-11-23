@@ -86,6 +86,11 @@ start, game actions, and matching results. Correlate the guest's pending
 timestamp with the host's admission outcome. Allow expired requests to end
 before retrying.
 
+The iOS accessibility tree can report an approval that sits behind the fixed
+lobby footer. Scroll within the roster body until the named physical button
+appears above the footer. Require an authority commit and the guest's admitted
+screen after the tap. [Five-seat iOS host run](https://github.com/parlor-game/parlor/actions/runs/45274208947)
+
 The distributed UI controller exposes a bounded `parlor_transport` source via
 `diagnostics.events`. It exports approved event names, guest timestamps and
 reason codes from `diagnostics.REASON_CODES` on the run's exact harness
