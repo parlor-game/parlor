@@ -179,10 +179,10 @@ async def relay(args):
             await sample(args.stats, counts, writers)
 
 
-async def ready_link(port, context, counts):
+async def ready_link(port, context, counts, timeout=415):
     """Wait for a live relay and its full-roster barrier."""
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + 415
+    deadline = loop.time() + timeout
     while loop.time() < deadline:
         writer = None
         try:
@@ -203,7 +203,7 @@ async def ready_link(port, context, counts):
 
 
 async def attached_edge(args, port, context, mac, counts):
-    reader, writer = await ready_link(port, context, counts)
+    reader, writer = await ready_link(port, context, counts, args.wait)
     process = None
     try:
         process = await asyncio.create_subprocess_exec(
@@ -300,6 +300,7 @@ def main():
     layout = json.loads(args.layout)
     if not 2 <= len(layout) <= 6 or not 1 <= args.seat <= len(layout):
         raise ValueError("Invalid runner roster")
+    args.wait = 900 if len(set(layout)) > 1 else 415
     args.roster = {seat: address(seat, platform).packed for seat, platform in enumerate(layout, 1)}
     asyncio.run(run(args))
 

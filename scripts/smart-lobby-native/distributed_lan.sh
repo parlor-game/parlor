@@ -9,6 +9,8 @@ seat="${LAB_SEAT:?}"
 layout="${LAB_LAYOUT:?}"
 [[ "$seat" =~ ^[1-6]$ ]]
 cd "$GITHUB_WORKSPACE"
+peer_wait_seconds=415
+if [[ "$(jq 'unique|length' <<< "$layout")" == 2 ]]; then peer_wait_seconds=900; fi
 
 case "${1:?}" in
   identity)
@@ -39,7 +41,8 @@ case "${1:?}" in
     count=$(jq 'length' <<< "$layout")
     mkdir -p "$root/identities"
     if [[ "$1" == attach ]]; then count=1; fi
-    for attempt in {1..90}; do
+    rendezvous_deadline=$((SECONDS + peer_wait_seconds))
+    while true; do
       missing=0
       for ((peer=1; peer<=count; peer++)); do
         identity="$root/identities/$peer"
@@ -55,7 +58,11 @@ case "${1:?}" in
         [[ -s "$identity/cert.pem" ]] || missing=1
       done
       (( missing )) || break
-      (( attempt != 90 )) || exit 1
+      if (( SECONDS >= rendezvous_deadline )); then
+        printf 'Seat certificate rendezvous timed out for the planned roster
+' >&2
+        exit 1
+      fi
       sleep 3
     done
     hub="$root/identities/1"
@@ -107,7 +114,8 @@ case "${1:?}" in
       --cert "$root/public/cert.pem" --key "$root/key.pem" --trust "$hub/relay-cert.pem" \
       --stats "$proof/distributed-edge.json" --ready "$root/ready" > "$root/edge.log" 2>&1 &
     printf '%s\n' "$!" > "$root/edge.pid"
-    for _ in {1..450}; do
+    edge_deadline=$((SECONDS + peer_wait_seconds + 30))
+    while (( SECONDS < edge_deadline )); do
       [[ ! -f "$root/ready" ]] || exit 0
       if ! sudo -n kill -0 "$(cat "$root/edge.pid")"; then
         grep -E '^(Seat setup: |[a-zA-Z.]+[A-Z][A-Za-z]+:)' "$root/edge.log" |
