@@ -439,6 +439,9 @@ mixed_lan_probe() {
 }
 
 cleanup() {
+  if [[ -s "$work/parlor-ios-diagnostics.pid" ]]; then
+    kill "$(cat "$work/parlor-ios-diagnostics.pid")" 2>/dev/null || true
+  fi
   if [[ -s "$work/mobile-lan/trace.pid" ]]; then
     kill "$(cat "$work/mobile-lan/trace.pid")" 2>/dev/null || true
   fi

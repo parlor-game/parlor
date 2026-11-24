@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import statistics
 import subprocess
 import sys
@@ -39,6 +40,8 @@ REASONS = frozenset("""
 """.split())
 ANDROID_LINE = re.compile(r"^(?P<epoch>[0-9]{9,11}\.[0-9]+)\s+.*?\bParlorP2p\s*:\s*(?P<message>seq=.*)$")
 APPLE_LINE = re.compile(r"\bParlorP2p\s+(?P<message>seq=.*)$")
+APPLE_PREDICATE = 'eventMessage CONTAINS "ParlorP2p seq="'
+IOS_STREAM_EVENT_LIMIT = 20_000
 
 
 def parse_event(line, platform):
@@ -119,9 +122,36 @@ def read_events(platform, device):
         retained_minutes = int(os.environ.get("PARLOR_UI_DURATION", "80")) + 5
         cmd = guest_command(platform, device) + ["log", "show", "--style", "ndjson", "--last", f"{retained_minutes}m",
                                                "--info", "--debug", "--predicate",
-                                               'eventMessage CONTAINS "ParlorP2p seq="']
+                                               APPLE_PREDICATE]
     return [event for line in shell_output(cmd, 80).splitlines()
             if (event := parse_event(line, platform)) is not None]
+
+
+def stop_stream(signum, frame):
+    raise SystemExit(0)
+
+
+def stream_ios_events(device, proof):
+    command = guest_command("ios", device) + ["log", "stream", "--style", "ndjson", "--level", "debug",
+                                              "--predicate", APPLE_PREDICATE]
+    signal.signal(signal.SIGTERM, stop_stream)
+    destination = proof / "diagnostics-live.jsonl"
+    with destination.open("w", buffering=1) as output, subprocess.Popen(
+        command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        text=True, encoding="utf-8", errors="replace",
+    ) as child:
+        try:
+            event_count = 0
+            for line in child.stdout:
+                event = parse_event(line, "ios")
+                if event is not None:
+                    output.write(json.dumps(event) + "\n")
+                    event_count += 1
+                    if event_count == IOS_STREAM_EVENT_LIMIT:
+                        break
+        finally:
+            if child.poll() is None:
+                child.kill()
 
 
 def main(operation):
@@ -131,23 +161,35 @@ def main(operation):
     for device in devices:
         proof = temp / "parlor-proof" / device
         proof.mkdir(exist_ok=True)
+        if operation == "stream-ios":
+            if platform != "ios" or len(devices) != 1:
+                raise ValueError("Live diagnostics require a single job-owned iOS guest")
+            stream_ios_events(device, proof)
+            return
         try:
             result = clock(platform, device)
         except (OSError, subprocess.SubprocessError, ValueError) as error:
             result = {"error": type(error).__name__}
         (proof / f"{operation}.json").write_text(json.dumps(result, indent=2) + "\n")
         if operation == "capture":
+            live_proof = proof / "diagnostics-live.jsonl"
+            live_lines = live_proof.read_bytes().splitlines(keepends=True) if live_proof.is_file() else []
+            events = [json.loads(line) for line in live_lines if line.endswith(b"\n")]
+            source = "stream" if events else "history"
             try:
-                events = read_events(platform, device)
+                if not events:
+                    events = read_events(platform, device)
             except (OSError, subprocess.SubprocessError, ValueError) as error:
                 (proof / "diagnostics-status.json").write_text(json.dumps({"error": type(error).__name__}) + "\n")
                 continue
             (proof / "diagnostics.jsonl").write_text("".join(json.dumps(event) + "\n" for event in events))
-            (proof / "diagnostics-status.json").write_text(json.dumps({"event_count": len(events)}) + "\n")
+            status = {"event_count": len(events), "source": source,
+                      "stream_limit_reached": source == "stream" and len(events) == IOS_STREAM_EVENT_LIMIT}
+            (proof / "diagnostics-status.json").write_text(json.dumps(status) + "\n")
             print(f"Retained {len(events)} bounded ParlorP2p events on {platform}.")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in {"clock-before", "capture"}:
-        raise SystemExit("Use clock-before or capture")
+    if len(sys.argv) != 2 or sys.argv[1] not in {"clock-before", "capture", "stream-ios"}:
+        raise SystemExit("Use clock-before, capture, or stream-ios")
     main(sys.argv[1])

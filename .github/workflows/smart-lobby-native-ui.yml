@@ -350,6 +350,11 @@ jobs:
           printf '%s\n' "$!" > "$RUNNER_TEMP/mobile-lan/trace.pid"
       - name: Measure guest clock offset before UI actions
         run: python3 scripts/smart-lobby-native/diagnostics.py clock-before
+      - name: Stream redacted transport events before starting the iOS UI controller
+        if: needs.plan.outputs.observe_reconnect == 'true' && matrix.pairing == 'mixed' && matrix.target == 'ios'
+        run: |
+          nohup python3 scripts/smart-lobby-native/diagnostics.py stream-ios </dev/null >/dev/null 2>&1 &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/parlor-ios-diagnostics.pid"
       - name: Open independent UI controllers
         id: controllers
         run: python3 scripts/smart-lobby-native/lab.py start
@@ -370,7 +375,12 @@ jobs:
         run: python3 scripts/smart-lobby-native/lab.py hold
       - name: Collect redacted diagnostics before tearing down guests
         if: always() && steps.controllers.outcome == 'success'
-        run: python3 scripts/smart-lobby-native/diagnostics.py capture
+        run: |
+          if [[ -s "$RUNNER_TEMP/parlor-ios-diagnostics.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/parlor-ios-diagnostics.pid")" 2>/dev/null || true
+            rm "$RUNNER_TEMP/parlor-ios-diagnostics.pid"
+          fi
+          python3 scripts/smart-lobby-native/diagnostics.py capture
       - name: Retire job-owned devices and sessions
         if: always()
         env:
