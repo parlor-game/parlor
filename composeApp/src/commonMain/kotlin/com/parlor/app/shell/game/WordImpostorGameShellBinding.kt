@@ -43,6 +43,8 @@ internal class WordImpostorGameShellBinding(override val definition: WordImposto
         WordImpostorAuthority.allowed(action, actor, host, state)
     override fun disconnected(state: WordImpostorState) = state.public.disconnected
     override fun isAborted(state: WordImpostorState) = state.phase == WordImpostorPhase.Aborted
+    override fun isCompleted(state: WordImpostorState) = state.phase == WordImpostorPhase.MatchResult
+    override fun isRematch(action: WordImpostorAction) = action is WordImpostorAction.Rematch
     override fun disconnectedAction(id: PlayerId) = WordImpostorAction.Disconnected(id)
     override fun reconnectedAction(id: PlayerId) = WordImpostorAction.Reconnected(id)
     override fun encodeAction(action: WordImpostorAction) = WordImpostorCodec.encodeAction(action)

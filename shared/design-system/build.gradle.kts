@@ -5,6 +5,7 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.qrcode.kotlin)
             api(project(":shared:core"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

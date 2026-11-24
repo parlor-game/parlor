@@ -233,7 +233,7 @@ class ResumableCredentialAvailabilityTest {
     )
 
     private companion object {
-        const val STORAGE_KEY = "p2p-resumable-session-v1"
+        const val STORAGE_KEY = "p2p-resumable-session-v2"
         val unavailable = Result.Failure(CredentialStoreError.Unavailable)
         val storageError = DataError.IoError("synthetic_unavailable")
     }

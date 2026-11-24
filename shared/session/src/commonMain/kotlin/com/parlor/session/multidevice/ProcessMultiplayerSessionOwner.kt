@@ -2,12 +2,16 @@ package com.parlor.session.multidevice
 
 import com.parlor.core.ids.GameId
 import com.parlor.core.result.Result
+import com.parlor.engine.state.Player
 import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.networking.invitation.JoinInvitation
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.room.RoomMember
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.ResumableSessionSelection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -50,9 +54,32 @@ class MultiplayerSessionRoute private constructor(
     val contentId: String?,
     val modeId: String?,
     val resumeSelection: ResumableSessionSelection?,
+    private val joinTarget: JoinTarget?,
 ) {
+    private sealed interface JoinTarget {
+        data class Nearby(val selection: DiscoveredRoomSelection) : JoinTarget
+        data class Pinned(val link: JoinInvitation) : JoinTarget
+    }
+
+    val discoveredRoom: DiscoveredRoomSelection? get() = (joinTarget as? JoinTarget.Nearby)?.selection
+    val invitation: JoinInvitation? get() = (joinTarget as? JoinTarget.Pinned)?.link
+
     init {
         require(gameId.raw.isNotBlank()) { "gameId must not be blank" }
+        if (discoveredRoom != null) {
+            require(role == MultiplayerSessionRole.Peer && !resumeExistingSession) {
+                "Only a new peer join may carry a discovered room"
+            }
+        }
+        val invite = invitation
+        if (invite != null) {
+            require(role == MultiplayerSessionRole.Peer && !resumeExistingSession) {
+                "Only a new invite join can carry a pinned invitation"
+            }
+            require(invite.game.gameId == gameId && invite.code == roomCode) {
+                "Invite route must preserve the exact game and code"
+            }
+        }
         when (role) {
             MultiplayerSessionRole.Host -> {
                 requireCanonicalDisplayName(displayName)
@@ -86,7 +113,8 @@ class MultiplayerSessionRoute private constructor(
             resumeExistingSession == other.resumeExistingSession &&
             contentId == other.contentId &&
             modeId == other.modeId &&
-            resumeSelection == other.resumeSelection
+            resumeSelection == other.resumeSelection &&
+            joinTarget == other.joinTarget
 
     override fun hashCode(): Int {
         var result = gameId.hashCode()
@@ -97,6 +125,7 @@ class MultiplayerSessionRoute private constructor(
         result = 31 * result + (contentId?.hashCode() ?: 0)
         result = 31 * result + (modeId?.hashCode() ?: 0)
         result = 31 * result + (resumeSelection?.hashCode() ?: 0)
+        result = 31 * result + (joinTarget?.hashCode() ?: 0)
         return result
     }
 
@@ -131,6 +160,7 @@ class MultiplayerSessionRoute private constructor(
             contentId = contentId,
             modeId = modeId,
             resumeSelection = null,
+            joinTarget = null,
         )
 
         fun peer(
@@ -139,16 +169,27 @@ class MultiplayerSessionRoute private constructor(
             roomCode: String,
             resumeExistingSession: Boolean = false,
             resumeSelection: ResumableSessionSelection? = null,
-        ): MultiplayerSessionRoute = MultiplayerSessionRoute(
-            gameId = gameId,
-            role = MultiplayerSessionRole.Peer,
-            displayName = displayName,
-            roomCode = roomCode.takeUnless(String::isBlank),
-            resumeExistingSession = resumeExistingSession,
-            contentId = null,
-            modeId = null,
-            resumeSelection = resumeSelection,
-        )
+            discoveredRoom: DiscoveredRoomSelection? = null,
+            invitation: JoinInvitation? = null,
+        ): MultiplayerSessionRoute {
+            require(discoveredRoom == null || invitation == null) { "A join can have only one target" }
+            val target = when {
+                invitation != null -> JoinTarget.Pinned(invitation)
+                discoveredRoom != null -> JoinTarget.Nearby(discoveredRoom)
+                else -> null
+            }
+            return MultiplayerSessionRoute(
+                gameId = gameId,
+                role = MultiplayerSessionRole.Peer,
+                displayName = displayName,
+                roomCode = roomCode.takeUnless(String::isBlank),
+                resumeExistingSession = resumeExistingSession,
+                contentId = null,
+                modeId = null,
+                resumeSelection = resumeSelection,
+                joinTarget = target,
+            )
+        }
     }
 }
 
@@ -192,7 +233,10 @@ sealed interface ProcessMultiplayerState {
     data class Opening(
         val route: MultiplayerSessionRoute,
         val mode: MultiplayerOpenMode,
-    ) : ProcessMultiplayerState
+    ) : ProcessMultiplayerState {
+        internal val currentApproval = MutableStateFlow<ApprovalWait?>(null)
+        val approval: StateFlow<ApprovalWait?> = currentApproval.asStateFlow()
+    }
 
     data class Active(val session: ProcessMultiplayerSession) : ProcessMultiplayerState
 
@@ -220,6 +264,12 @@ val ProcessMultiplayerState.routeOrNull: MultiplayerSessionRoute?
         is ProcessMultiplayerState.Closing -> route
     }
 
+private val noApproval = MutableStateFlow<ApprovalWait?>(null).asStateFlow()
+
+/** Only the opening attempt belonging to this exact route can expose host approval details. */
+fun ProcessMultiplayerState.approvalFor(route: MultiplayerSessionRoute): StateFlow<ApprovalWait?> =
+    (this as? ProcessMultiplayerState.Opening)?.takeIf { it.route == route }?.approval ?: noApproval
+
 /**
  * One physical room plus every runtime object that must survive UI recreation.
  * Instances are created only by [ProcessMultiplayerSessionOwner].
@@ -229,13 +279,14 @@ class ProcessMultiplayerSession internal constructor(
     val room: LocalRoom,
     val hostSeed: Long?,
     private val parentScope: CoroutineScope,
+    initialRoster: List<RoomMember>? = null,
 ) {
     private val sessionJob = SupervisorJob(parentScope.coroutineContext[Job])
     val scope: CoroutineScope = CoroutineScope(parentScope.coroutineContext + sessionJob)
 
     private val startMutex = Mutex()
     private var freezeAttempt: Deferred<Result<List<RoomMember>, NetError>>? = null
-    private val _frozenRoster = MutableStateFlow<List<RoomMember>?>(null)
+    private val _frozenRoster = MutableStateFlow(initialRoster?.toList())
     val frozenRoster: StateFlow<List<RoomMember>?> = _frozenRoster.asStateFlow()
 
     private val retainedMutex = Mutex()
@@ -262,6 +313,15 @@ class ProcessMultiplayerSession internal constructor(
             }.also { lifecycleWatcher = it }
         }
         watcher.start()
+    }
+
+    /** Returns the already-frozen party start roster with the authoritative host first. */
+    fun partyHostPlayers(): List<Player> {
+        require(room.isHost && room.matchProtocol != null)
+        val host = room.info.value
+        val peers = checkNotNull(frozenRoster.value)
+        return listOf(Player(host.hostPlayerId, host.hostDisplayName, 0)) +
+            peers.mapIndexed { index, member -> Player(member.playerId, member.displayName, index + 1) }
     }
 
     /** Admission closure is process-owned and exactly-once, even across UI cancellation. */
@@ -429,6 +489,14 @@ class ProcessMultiplayerSessionOwner(
     private var opening: OpeningAttempt? = null
     private var retainedRetryRoom: RetainedRetryRoom? = null
     private var closing: ClosingAttempt? = null
+
+    /** Captures just this opening attempt, so its last frame can never update a later retry. */
+    fun approvalReporter(route: MultiplayerSessionRoute): ((ApprovalWait) -> Unit)? {
+        val opening = (_state.value as? ProcessMultiplayerState.Opening)?.takeIf {
+            it.route == route && it.mode == MultiplayerOpenMode.Join
+        } ?: return null
+        return { opening.currentApproval.value = it }
+    }
 
     /**
      * Reattaches a matching live/in-flight room. UI entry uses [retryFailedOpen] = false;

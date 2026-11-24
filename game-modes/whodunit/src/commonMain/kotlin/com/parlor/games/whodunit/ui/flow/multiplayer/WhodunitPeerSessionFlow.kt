@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import com.parlor.designsystem.components.AdmissionWaiting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -73,11 +74,16 @@ import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.content.WhodunitCase
 import com.parlor.games.whodunit.content.matches
 import com.parlor.games.whodunit.domain.rules.WhodunitRules
+import com.parlor.games.whodunit.ui.flow.WhodunitMultiplayerHostFlow
 import com.parlor.games.whodunit.ui.flow.WhodunitMultiplayerPeerFlow
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.NetError
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
@@ -86,6 +92,7 @@ import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.multidevice.awaitAuthoritativeSessionStart
 import com.parlor.session.multidevice.asNetError
 import com.parlor.session.multidevice.MultiplayerOpenMode
+import com.parlor.session.multidevice.approvalFor
 import com.parlor.session.multidevice.MultiplayerSessionRoute
 import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
@@ -133,21 +140,26 @@ fun WhodunitPeerSessionFlow(
     onOpenNetworkSettings: (() -> Unit)? = null,
     backRequestId: Long = 0L,
     modifier: Modifier = Modifier,
+    discoveredRoom: DiscoveredRoomSelection? = null,
+    invitation: JoinInvitation? = null,
 ) {
     val repository: CaseRepository = koinInject()
     val payloadValidator: PayloadValidator<WhodunitCase> =
         koinInject(qualifier = named("whodunit"))
     val sessionOwner: ProcessMultiplayerSessionOwner = koinInject()
-    val route = remember(code, peerName, resumeExistingSession, resumeSelection) {
+    val route = remember(code, peerName, resumeExistingSession, resumeSelection, discoveredRoom, invitation) {
         MultiplayerSessionRoute.peer(
             gameId = WhodunitIds.GameId,
             displayName = peerName,
             roomCode = code,
             resumeExistingSession = resumeExistingSession,
             resumeSelection = resumeSelection,
+            discoveredRoom = discoveredRoom,
+            invitation = invitation,
         )
     }
     val ownerState by sessionOwner.state.collectAsState()
+    val approval by ownerState.approvalFor(route).collectAsState()
     val ownedSession = (ownerState as? ProcessMultiplayerState.Active)
         ?.session
         ?.takeIf { it.route == route }
@@ -211,6 +223,9 @@ fun WhodunitPeerSessionFlow(
                     code = code,
                     displayName = peerName,
                     expectedGameProtocol = HostedGameProtocol(WhodunitIds.GameId, WhodunitHostRoomBridge.GAME_VERSION),
+                    discoveredRoom = route.discoveredRoom,
+                    invitation = route.invitation,
+                    onApprovalPending = sessionOwner.approvalReporter(route),
                 ))
                 MultiplayerOpenMode.Host -> error("Peer route requested host acquisition")
             }
@@ -384,6 +399,7 @@ fun WhodunitPeerSessionFlow(
                                 onLeave = finalBackToLibrary,
                                 leaveEnabled = !finalLeaveInFlight,
                                 leaveInFlight = finalLeaveInFlight,
+                                approval = approval,
                                 modifier = Modifier.fillMaxSize(),
                             )
                             start == null -> PeerWaitingForHostStart(
@@ -455,6 +471,7 @@ private fun PeerConnectingState(
     leaveEnabled: Boolean,
     leaveInFlight: Boolean,
     modifier: Modifier = Modifier,
+    approval: ApprovalWait? = null,
 ) {
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
@@ -468,16 +485,20 @@ private fun PeerConnectingState(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             CandleFlame(size = androidx.compose.ui.unit.Dp(LOADING_FLAME_SIZE_DP))
-            Text(
-                text = if (resuming) {
-                    stringResource(Res.string.party_reconnecting_overlay_title)
-                } else {
-                    stringResource(Res.string.peer_connecting_format, code)
-                },
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            )
+            if (approval == null) {
+                Text(
+                    text = if (resuming) {
+                        stringResource(Res.string.party_reconnecting_overlay_title)
+                    } else {
+                        stringResource(Res.string.peer_connecting_format, code)
+                    },
+                    style = ParlorTheme.typography.displayMedium,
+                    color = ParlorTheme.colors.textPrimary,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                AdmissionWaiting(approval.lobby.hostDisplayName, approval.deadline)
+            }
             ParlorButton(
                 label = stringResource(Res.string.peer_leave),
                 contentDescription = stringResource(Res.string.peer_leave_description),
@@ -628,6 +649,111 @@ private fun PeerErrorState(
 private const val WHODUNIT_START_CHECKPOINT_KIND = "whodunit/start/v1"
 
 /** Process-owned start transaction; it survives loss of every UI collector. */
+/** Reuses the regular case validation, handshake and player projections inside a party match. */
+@Composable
+fun WhodunitPartyMatch(
+    session: ProcessMultiplayerSession,
+    onEndHostMatch: (SessionEndReason) -> Unit,
+    onReturnToParty: () -> Unit,
+    onHostStarted: suspend () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    check(session.room.matchProtocol?.gameId == WhodunitIds.GameId)
+    val repository: CaseRepository = koinInject()
+    val validator: PayloadValidator<WhodunitCase> = koinInject(qualifier = named("whodunit"))
+    if (session.room.isHost) {
+        val players = remember(session) { session.partyHostPlayers() }
+        val case by produceState<Pair<Boolean, ValidatedCase<WhodunitCase>?>>(false to null, session) {
+            value = true to loadPartyCase(repository, validator, players.size)
+        }
+        val (resolved, loaded) = case
+        if (loaded == null) {
+            WhodunitPartyWaiting({ onEndHostMatch(SessionEndReason.Cancelled) }, modifier, error = resolved)
+        } else {
+            WhodunitMultiplayerHostFlow(
+                case = loaded,
+                modeId = WhodunitIds.ClassicVoteModeId,
+                players = players,
+                ownedSession = session,
+                sessionOwner = null,
+                onBackToLibrary = onReturnToParty,
+                onRetryStart = onReturnToParty,
+                modifier = modifier,
+                onPartyEnd = onEndHostMatch,
+                onStarted = onHostStarted,
+            )
+        }
+    } else {
+        WhodunitPartyPeer(session, repository, validator, onReturnToParty, modifier)
+    }
+}
+
+private suspend fun loadPartyCase(
+    repository: CaseRepository,
+    validator: PayloadValidator<WhodunitCase>,
+    players: Int,
+): ValidatedCase<WhodunitCase>? {
+    val summary = (repository.listCases(WhodunitIds.GameId) as? Result.Success)?.data ?: return null
+    val classic = WhodunitIds.ClassicVoteModeId
+    for (choice in summary) {
+        if (classic.raw !in choice.supportedModes || players !in choice.supportedPlayerCounts.toIntRange()) continue
+        val loaded = (repository.loadCase(CaseId(choice.caseId), validator) as? Result.Success)?.data ?: continue
+        val supported = WhodunitRules.supportedPlayerCountsForCase(
+            modeId = classic,
+            casePlayerCounts = loaded.envelope.supportedPlayerCounts.toIntRange(),
+            availableCharacters = loaded.payload.characters.size,
+        )
+        if (supported != null && players in supported) return loaded
+    }
+    return null
+}
+
+@Composable
+private fun WhodunitPartyPeer(
+    session: ProcessMultiplayerSession,
+    repository: CaseRepository,
+    validator: PayloadValidator<WhodunitCase>,
+    onReturnToParty: () -> Unit,
+    modifier: Modifier,
+) {
+    val lookup by produceState<RetainedValueResult<*>?>(null, session) {
+        value = session.getOrCreateCheckpoint(WHODUNIT_START_CHECKPOINT_KIND) { WhodunitStartCheckpoint() }
+    }
+    val checkpoint = (lookup as? RetainedValueResult.Ready<*>)?.value as? WhodunitStartCheckpoint
+    if (checkpoint == null) {
+        WhodunitPartyWaiting(onReturnToParty, modifier, error = lookup != null)
+        return
+    }
+    LaunchedEffect(session, checkpoint) {
+        checkpoint.start(session.scope, { WhodunitStartCheckpointState.Failed(NetError.Timeout) }) {
+            runWhodunitStartHandshake(session, repository, validator)
+        }
+    }
+    val state by checkpoint.state.collectAsState()
+    when (val start = state) {
+        WhodunitStartCheckpointState.Waiting -> WhodunitPartyWaiting(onReturnToParty, modifier)
+        is WhodunitStartCheckpointState.Failed -> WhodunitPartyWaiting(onReturnToParty, modifier, error = true)
+        is WhodunitStartCheckpointState.Started -> PeerSessionWithCase(
+            room = session.room,
+            ownedSession = session,
+            start = start.start,
+            onBackToLibrary = onReturnToParty,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun WhodunitPartyWaiting(onExit: () -> Unit, modifier: Modifier, error: Boolean = false) {
+    ReconnectingOverlay(
+        title = stringResource(if (error) Res.string.peer_error_title else Res.string.peer_waiting_for_start),
+        leaveLabel = stringResource(Res.string.peer_leave),
+        leaveContentDescription = stringResource(Res.string.peer_leave_description),
+        onLeave = onExit,
+        modifier = modifier,
+    )
+}
+
 private class WhodunitStartCheckpoint : RetainedMultiplayerCheckpoint {
     override val checkpointKind: String = WHODUNIT_START_CHECKPOINT_KIND
     private val operation = RetainedSessionOperation<WhodunitStartCheckpointState>(

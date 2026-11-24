@@ -97,9 +97,11 @@ internal fun homeCatalogItemKeys(
     hasResumableMultiplayer: Boolean,
     recoveryLoading: Boolean,
     recoveryUnavailable: Boolean,
+    hasPartyEntry: Boolean = false,
 ): List<String> = buildList {
     add("home-top-bar")
     add("home-lead")
+    if (hasPartyEntry) add("party-entry")
     when {
         recoveryLoading -> add("recovery-loading")
         recoveryUnavailable -> add("recovery-unavailable")

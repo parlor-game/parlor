@@ -88,7 +88,7 @@ class P2pKitRoomTransportLoopbackTest {
 
         val hostTransport = deviceTransport(appId, "host-device")
         val hostResult = withTimeout(15.seconds) {
-            hostTransport.host(HostConfig(hostDisplayName = "Test Room"))
+            hostTransport.host(HostConfig(hostDisplayName = "Test Room", gameProtocol = loopbackGameProtocol))
         }
         assertThat(hostResult).isInstanceOf(Result.Success::class)
         val hostRoom = (hostResult as Result.Success).data
@@ -111,7 +111,7 @@ class P2pKitRoomTransportLoopbackTest {
 
         val hostRoom = (
             withTimeout(15.seconds) {
-                hostTransport.host(HostConfig(hostDisplayName = "Test Room"))
+                hostTransport.host(HostConfig(hostDisplayName = "Test Room", gameProtocol = loopbackGameProtocol))
             } as Result.Success
             ).data
         rooms += hostRoom
@@ -138,7 +138,7 @@ class P2pKitRoomTransportLoopbackTest {
 
         val hostRoom = (
             withTimeout(15.seconds) {
-                hostTransport.host(HostConfig(hostDisplayName = "Test Room"))
+                hostTransport.host(HostConfig(hostDisplayName = "Test Room", gameProtocol = loopbackGameProtocol))
             } as Result.Success
             ).data
         rooms += hostRoom
@@ -185,7 +185,7 @@ class P2pKitRoomTransportLoopbackTest {
 
         val hostRoom = (
             withTimeout(15.seconds) {
-                hostTransport.host(HostConfig(hostDisplayName = "Test Room"))
+                hostTransport.host(HostConfig(hostDisplayName = "Test Room", gameProtocol = loopbackGameProtocol))
             } as Result.Success
             ).data
         rooms += hostRoom

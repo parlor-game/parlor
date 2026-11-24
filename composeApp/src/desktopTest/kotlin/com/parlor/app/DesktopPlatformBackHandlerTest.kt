@@ -100,7 +100,7 @@ class DesktopPlatformBackHandlerTest {
             CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner) {
                 PlatformBackHandler(
                     enabled = action == AppBackAction.NavigateGames ||
-                        action == AppBackAction.DelegateToGame,
+                        action == AppBackAction.DelegateToFlow,
                 ) {
                     handledActions += action
                 }
@@ -118,7 +118,7 @@ class DesktopPlatformBackHandlerTest {
         runOnIdle { input.backCompleted() }
 
         assertEquals(
-            listOf(AppBackAction.NavigateGames, AppBackAction.DelegateToGame),
+            listOf(AppBackAction.NavigateGames, AppBackAction.DelegateToFlow),
             handledActions,
         )
     }

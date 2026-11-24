@@ -1,9 +1,13 @@
 package com.parlor.networking.protocol
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.state.Player
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -24,10 +28,11 @@ sealed interface RoomMessage
 // and adds an actionable duplicate-name admission result. v4.2 carries the
 // host's next expected client-command sequence in every player snapshot so a
 // recreated peer runtime can resume without sacrificing its first action to a
-// false duplicate rejection. Exact compatibility keeps any of these schemas
+// false duplicate rejection. v4.3 checks the selected game before host
+// approval. Exact compatibility keeps any of these schemas
 // from decoding another version's required fields or enum values.
 const val PARLOR_PROTOCOL_MAJOR: Int = 4
-const val PARLOR_PROTOCOL_MINOR: Int = 2
+const val PARLOR_PROTOCOL_MINOR: Int = 3
 const val MAX_COMMAND_PAYLOAD_BYTES: Int = 32 * 1024
 const val MAX_SNAPSHOT_PAYLOAD_BYTES: Int = 256 * 1024
 const val MAX_CONTROL_PAYLOAD_BYTES: Int = 8 * 1024
@@ -61,11 +66,36 @@ data class SessionEnvelopeHeader(
      * room/session ownership generation rather than by rotating this field.
      */
     val connectionEpoch: Long = 1L,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val partyId: PartyId? = null,
+)
+
+/** Game context claimed by a peer. The host validates it before publishing an approval. */
+@Serializable
+data class GameProtocolRef(val gameId: GameId, val gameVersion: Int) {
+    fun isValid(): Boolean = GameId.isCanonical(gameId.raw) && gameVersion > 0
+}
+
+/** Stable room identity and public lobby information, only sent after code validation. */
+@Serializable
+data class AdmissionLobbyInfo(
+    val roomId: RoomId,
+    val game: GameProtocolRef,
+    val hostDisplayName: String,
+    val seatsTaken: Int,
+    val seatLimit: Int,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val partyId: PartyId? = null,
 )
 
 @Serializable
 enum class AdmissionRejection {
     WrongCode,
+    WrongGame,
+    ApprovalExpired,
+    StaleRoom,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -91,6 +121,12 @@ data class ResumableCredentialOffer(
     val expiresAtEpochMillis: Long,
     val gameId: String? = null,
     val gameVersion: Int? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val roomId: RoomId? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val partyId: PartyId? = null,
 )
 
 @Serializable
@@ -134,6 +170,23 @@ sealed interface HostMessage : RoomMessage {
         val rejoinToken: String,
     ) : HostMessage
 
+    @Serializable
+    data class PartySnapshot(
+        val header: PartyProtocolHeader,
+        val revision: Long,
+        val nextExpectedClientSequence: Long,
+        val lobby: PublicPartyLobby,
+    ) : HostMessage
+
+    @Serializable
+    data class PartyCommandResult(
+        val header: PartyProtocolHeader,
+        val commandMessageId: String,
+        val status: CommandStatus,
+        val revision: Long,
+        val nextExpectedClientSequence: Long,
+    ) : HostMessage
+
     /** Initial host approval; the peer must durably stage [offer] before confirming. */
     @Serializable
     data class AdmissionOffered(
@@ -143,7 +196,15 @@ sealed interface HostMessage : RoomMessage {
 
     /** Valid room request is waiting for an explicit host decision. */
     @Serializable
-    data class AdmissionPending(val playerId: PlayerId) : HostMessage
+    data class AdmissionPending(
+        val playerId: PlayerId,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val lobby: AdmissionLobbyInfo? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val approvalWindowMillis: Long? = null,
+    ) : HostMessage
 
     /** Initial admission is authoritative and the staged credential may be promoted. */
     @Serializable
@@ -253,12 +314,31 @@ sealed interface PeerMessage : RoomMessage {
      * [actor] is overwritten by the transport with the authenticated peer id.
      */
     @Serializable
+    data class PartySetReady(
+        val header: PartyProtocolHeader,
+        val actor: PlayerId,
+        val clientSequence: Long,
+        val expectedRevision: Long,
+        val ready: Boolean,
+    ) : PeerMessage
+
+    @Serializable
     data class AdmissionRequest(
         val protocol: ProtocolVersion,
         val actor: PlayerId,
         val roomCode: String,
         val displayName: String,
         val rejoinToken: String? = null,
+        // Absent for legacy frames and unscoped fixtures. Game rooms require an exact match.
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val expectedGame: GameProtocolRef? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val expectedRoomId: RoomId? = null,
+        @OptIn(ExperimentalSerializationApi::class)
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val party: PartyAdmissionContext? = null,
     ) : PeerMessage
 
     /** Confirms that the initial credential offer is durably staged. */
@@ -294,6 +374,9 @@ sealed interface PeerMessage : RoomMessage {
         val displayName: String,
         val secret: String,
         val generation: Long,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val roomId: RoomId? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val game: GameProtocolRef? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val partyId: PartyId? = null,
     ) : PeerMessage
 
     /** Confirms durable staging of the rotated resume offer. */

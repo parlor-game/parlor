@@ -85,16 +85,27 @@ import org.koin.compose.koinInject
 fun MafiaMultiDeviceHostFlow(
     players: List<Player>,
     ownedSession: ProcessMultiplayerSession,
-    sessionOwner: ProcessMultiplayerSessionOwner,
+    sessionOwner: ProcessMultiplayerSessionOwner?,
     onBackToHome: () -> Unit,
     onRetryStart: () -> Unit,
     modifier: Modifier = Modifier,
+    onPartyEnd: ((SessionEndReason) -> Unit)? = null,
+    onStarted: suspend () -> Unit = {},
 ) {
+    require((sessionOwner == null) == (onPartyEnd != null))
     val clock: Clock = koinInject()
     val definition: MafiaDefinition = koinInject()
     val uiScope = rememberCoroutineScope()
     val seed = requireNotNull(ownedSession.hostSeed) {
         "Mafia host session is missing its private reducer seed"
+    }
+    val endMatch: (SessionEndReason) -> Unit = { reason ->
+        if (onPartyEnd == null) {
+            uiScope.launch {
+                checkNotNull(sessionOwner).finalLeave(ownedSession, reason)
+                onBackToHome()
+            }
+        } else onPartyEnd(reason)
     }
     val runtimeLookup by produceState<RetainedValueResult<*>?>(
         initialValue = null,
@@ -123,12 +134,7 @@ fun MafiaMultiDeviceHostFlow(
             ),
             leaveLabel = stringResource(Res.string.md_host_start_cancel),
             leaveContentDescription = stringResource(Res.string.md_host_start_cancel_description),
-            onLeave = {
-                uiScope.launch {
-                    sessionOwner.finalLeave(ownedSession, SessionEndReason.Cancelled)
-                    onBackToHome()
-                }
-            },
+            onLeave = { endMatch(SessionEndReason.Cancelled) },
             modifier = modifier.fillMaxSize(),
         )
         return
@@ -139,24 +145,26 @@ fun MafiaMultiDeviceHostFlow(
     val session = runtime.session
     val bridge = runtime.bridge
     val startGate by runtime.startGate.collectAsState()
+    LaunchedEffect(runtime, startGate) { if (startGate == HostStartGateState.Started) onStarted() }
 
     var terminalExitInFlight by remember(runtime) { mutableStateOf(false) }
     val exitToHome: (SessionEndReason) -> Unit = { reason ->
-        if (!terminalExitInFlight) {
+        if (onPartyEnd != null) {
+            onPartyEnd(reason)
+        } else if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
-            uiScope.launch {
-                sessionOwner.finalLeave(ownedSession, reason)
-                onBackToHome()
-            }
+            endMatch(reason)
         }
     }
     val retryStartAfterTerminal: () -> Unit = {
-        if (!terminalExitInFlight) {
+        if (onPartyEnd != null) {
+            onPartyEnd(SessionEndReason.Cancelled)
+        } else if (!terminalExitInFlight) {
             terminalExitInFlight = true
             runtime.beginExit()
             uiScope.launch {
-                sessionOwner.prepareHostRetry(ownedSession)
+                checkNotNull(sessionOwner).prepareHostRetry(ownedSession)
                 onRetryStart()
             }
         }
@@ -251,8 +259,14 @@ fun MafiaMultiDeviceHostFlow(
                     isHost = true,
                     session = session,
                     scope = scope,
-                    onBackToHome = { exitToHome(SessionEndReason.HostLeft) },
+                    onBackToHome = {
+                        val reason = if (onPartyEnd != null && state.phase == MafiaPhase.PostGame) {
+                            SessionEndReason.Completed
+                        } else SessionEndReason.HostLeft
+                        exitToHome(reason)
+                    },
                     modifier = modifier.fillMaxSize(),
+                    returnToParty = ownedSession.room.matchProtocol?.partyId != null,
                 )
             }
         }

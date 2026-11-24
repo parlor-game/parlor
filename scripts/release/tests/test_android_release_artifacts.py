@@ -259,7 +259,7 @@ class AndroidReleaseArtifactsTest(unittest.TestCase):
             with patch.object(artifacts, "run_tool", side_effect=synthetic_tool):
                 value = artifacts.inspect(root, aab, bundletool, dexdump)
             self.assertEqual("PASS", value["status"])
-            self.assertEqual(26, value["notices"]["package"]["resource_count"])
+            self.assertEqual(27, value["notices"]["package"]["resource_count"])
             self.assertEqual(4, len(value["native_images"]))
             self.assertEqual(19, len(value["raw_resources"]))
             self.assertEqual(3, len(calls))

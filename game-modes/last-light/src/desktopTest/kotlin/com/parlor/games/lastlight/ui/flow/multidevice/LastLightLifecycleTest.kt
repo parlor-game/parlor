@@ -7,6 +7,7 @@ import com.parlor.games.lastlight.domain.action.LastLightAction
 import com.parlor.games.lastlight.domain.model.CardRank
 import com.parlor.games.lastlight.domain.model.GamePhase
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.SendTarget
@@ -44,8 +45,7 @@ class LastLightLifecycleTest {
         offers.forEach {
             assertEquals(LastLightIds.GameId, it.header.gameId)
             assertEquals(1, it.header.gameVersion)
-            assertEquals(4, it.header.protocol.major)
-            assertEquals(2, it.header.protocol.minor)
+            assertEquals(ProtocolVersion(), it.header.protocol)
             assertEquals(LastLightIds.StandardModeId.raw, it.modeId)
             assertEquals(LastLightIds.CaseId.raw, it.caseId)
         }

@@ -2,6 +2,8 @@ package com.parlor.app.shell.game
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.definition.GameDefinition
@@ -9,6 +11,7 @@ import com.parlor.engine.definition.GameMetadata
 import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.session.PlayMode
+import com.parlor.networking.invitation.JoinInvitation
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.session.multidevice.MultiplayerSessionRole
 import com.parlor.session.multidevice.MultiplayerSessionRoute
@@ -61,7 +64,7 @@ internal data class GameShellMultiplayerContract(
     val supportedPlayerCounts: IntRange,
 ) {
     init {
-        require(gameId.raw.isNotBlank()) { "Multiplayer game id must not be blank" }
+        gameId.requireCanonical()
         require(gameVersion > 0) { "Multiplayer game version must be positive" }
         require(!supportedPlayerCounts.isEmpty()) {
             "Multiplayer player bounds must not be empty"
@@ -123,6 +126,10 @@ internal sealed interface GameShellLaunch {
         override val gameId: GameId,
     ) : GameShellLaunch
 
+    data class JoinByInvitation(val invitation: JoinInvitation) : GameShellLaunch {
+        override val gameId: GameId get() = invitation.game.gameId
+    }
+
     data class ResumeLocal(
         override val gameId: GameId,
         val sessionId: SessionId,
@@ -143,6 +150,14 @@ internal sealed interface GameShellLaunch {
     }
 }
 
+/** The invite stays in process-local navigation, including after an ownership restore. */
+internal val GameShellLaunch.joinInvitation: JoinInvitation?
+    get() = when (this) {
+        is GameShellLaunch.JoinByInvitation -> invitation
+        is GameShellLaunch.RestoreOwnedMultiplayer -> route.invitation
+        else -> null
+    }
+
 /** Compose-aware adapter contributed once per shipping game at the app root. */
 internal interface GameShellBinding {
     val definition: GameDefinition<*, *, *>
@@ -158,6 +173,20 @@ internal interface GameShellBinding {
         onExit: () -> Unit,
         backRequest: GameShellBackRequest = GameShellBackRequest.Initial,
         modifier: Modifier = Modifier,
+    )
+}
+
+internal interface PartyGameShell {
+    @Composable
+    fun PartyRules(playerCount: Int)
+
+    @Composable
+    fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
     )
 }
 
@@ -183,6 +212,7 @@ internal class DefaultGameShellRegistry(
             "Duplicate game shell ids are not allowed: ${duplicateIds.joinToString { it.raw }}"
         }
         all.forEach { binding ->
+            binding.definition.id.requireCanonical()
             require(!binding.definition.supportedPlayerCounts.isEmpty()) {
                 "Game '${binding.definition.id.raw}' has no supported player counts"
             }
@@ -227,6 +257,9 @@ internal class GameShellRouter(
     fun newGame(gameId: GameId): GameShellLaunch.New? =
         registry.byId(gameId)?.let { GameShellLaunch.New(gameId) }
 
+    fun joinByInvitation(invitation: JoinInvitation): GameShellLaunch.JoinByInvitation? =
+        GameShellLaunch.JoinByInvitation(invitation).takeIf { bindingFor(it) != null }
+
     fun resumeLocal(gameId: GameId, sessionId: SessionId): GameShellLaunch.ResumeLocal? =
         registry.byId(gameId)
             ?.takeIf { binding ->
@@ -261,6 +294,9 @@ internal class GameShellRouter(
         ?.takeIf { binding ->
             when (launch) {
                 is GameShellLaunch.New -> true
+                is GameShellLaunch.JoinByInvitation ->
+                    binding.capabilities.supports(GameEntryMode.Join) &&
+                        binding.multiplayerContract?.gameVersion == launch.invitation.game.gameVersion
                 is GameShellLaunch.ResumeLocal ->
                     binding.capabilities.supports(GameEntryMode.Solo) ||
                         binding.capabilities.supports(GameEntryMode.PassAndPlay)

@@ -64,7 +64,7 @@ the Apple tasks on macOS.
   transport, storage, or game module. Konsist in `:shared:engine:desktopTest`.
 - `:shared:session` — local + host/peer authority. UI talks to
   `SessionController`.
-- `:shared:networking` — transport-independent protocol (exact 4.2).
+- `:shared:networking` — transport-independent protocol (exact 4.3).
 - `:shared:transport-p2p` — the only P2pKit import. Always in the graph.
 - `:shared:content` / `:shared:storage` — bundled cases; authenticated
   snapshots and rejoin credentials (distinct stores).

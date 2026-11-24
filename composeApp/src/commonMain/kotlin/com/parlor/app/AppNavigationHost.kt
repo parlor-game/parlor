@@ -37,7 +37,9 @@ internal fun AppNavDisplay(
     gameContent: @Composable (AppRoute.Game) -> Unit,
     onBack: (AppRoute) -> Unit,
     modifier: Modifier = Modifier,
+    partyContent: @Composable () -> Unit = {},
 ) {
+    val latestPartyContent = rememberUpdatedState(partyContent)
     val latestHomeContent = rememberUpdatedState(homeContent)
     val latestSettingsContent = rememberUpdatedState(settingsContent)
     val latestRecoveryContent = rememberUpdatedState(recoveryContent)
@@ -46,6 +48,7 @@ internal fun AppNavDisplay(
         entryProvider<AppRoute> {
             entry<AppRoute.Home> { latestHomeContent.value() }
             entry<AppRoute.Settings> { latestSettingsContent.value() }
+            entry<AppRoute.Party> { latestPartyContent.value() }
             entry<AppRoute.LocalResumeFailure> { route ->
                 latestRecoveryContent.value(route)
             }

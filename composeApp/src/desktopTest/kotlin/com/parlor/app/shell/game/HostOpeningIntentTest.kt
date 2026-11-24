@@ -35,6 +35,7 @@ import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.MultiplayerSessionRoute
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
 import com.parlor.session.multidevice.ProcessMultiplayerState
 import com.parlor.storage.settings.InMemorySettingsStore
 import com.parlor.storage.snapshot.InMemorySnapshotStore
@@ -98,6 +99,7 @@ class HostOpeningIntentTest {
                                 single { Json { encodeDefaults = true } }
                                 single<RoomTransport> { transport }
                                 single { owner }
+                                single { ProcessPartySessionOwner(transport, CoroutineScope(job + dispatcher)) }
                                 single { StartupMultiplayerRecoveryGate() }
                                 single<SnapshotStore> { InMemorySnapshotStore() }
                                 single { AppLifecycleCoordinator(transport).apply { notifyActive() } }

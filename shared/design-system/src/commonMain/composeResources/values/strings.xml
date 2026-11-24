@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="lobby_room_tag">Nearby room %1$s</string>
     <string name="session_exit_affordance">Leave</string>
     <string name="session_exit_affordance_description">Open options to leave this game.</string>
     <string name="session_exit_stay">Stay in game</string>
@@ -16,4 +17,12 @@
     <string name="session_exit_peer_body">Your membership and rejoin credential will be permanently deleted. You cannot rejoin this session after leaving.</string>
     <string name="session_exit_peer_confirm">Leave room</string>
     <string name="session_exit_peer_confirm_description">Permanently leave this multiplayer room and return home.</string>
+    <string name="lobby_invite_players">Invite players</string>
+    <string name="lobby_invite_qr">Room QR code</string>
+    <string name="lobby_invite_help">Everyone must be on the same reachable Wi-Fi. Players still need host approval.</string>
+    <string name="lobby_invite_share">Share invitation</string>
+    <string name="lobby_invite_close">Close</string>
+    <string name="lobby_invite_unavailable">This room is no longer accepting invitations.</string>
+    <string name="admission_countdown">Request expires in %1$d s</string>
+    <string name="admission_waiting_for_host">Waiting for approval from %1$s</string>
 </resources>

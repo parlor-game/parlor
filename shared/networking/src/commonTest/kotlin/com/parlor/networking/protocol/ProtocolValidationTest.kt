@@ -1,6 +1,7 @@
 package com.parlor.networking.protocol
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.state.Player
@@ -54,6 +55,17 @@ class ProtocolValidationTest {
     }
 
     @Test
+    fun `validates party identity independently from game and match ids`() {
+        val partyId = PartyId("a".repeat(32))
+        val match = session.copy(protocol = PARTY_WIRE_VERSION, partyId = partyId)
+        val correct = header(protocol = PARTY_WIRE_VERSION).copy(partyId = partyId)
+        assertEquals(ProtocolValidation.Valid, correct.validateFor(match))
+        assertEquals(ProtocolValidation.WrongSession, correct.copy(partyId = null).validateFor(match))
+        assertEquals(ProtocolValidation.WrongSession, correct.copy(partyId = PartyId("b".repeat(32))).validateFor(match))
+        assertEquals(ProtocolValidation.WrongSession, header().copy(partyId = partyId).validateFor(session))
+    }
+
+    @Test
     fun `rejects unsafe wire identities even when an initial peer trusts the supplied session`() {
         listOf(
             "session\nspoof",
@@ -69,11 +81,13 @@ class ProtocolValidationTest {
             )
         }
 
-        val unsafeGame = session.copy(gameId = GameId("game\nspoof"))
-        assertEquals(
-            ProtocolValidation.InvalidSessionIdentity,
-            header(gameId = unsafeGame.gameId).validateFor(unsafeGame),
-        )
+        listOf("game\nspoof", "Other-Game", "game_id", "party", "parlor-room", "a".repeat(33)).forEach { raw ->
+            val unsafeGame = session.copy(gameId = GameId(raw))
+            assertEquals(
+                ProtocolValidation.InvalidSessionIdentity,
+                header(gameId = unsafeGame.gameId).validateFor(unsafeGame),
+            )
+        }
     }
 
     @Test

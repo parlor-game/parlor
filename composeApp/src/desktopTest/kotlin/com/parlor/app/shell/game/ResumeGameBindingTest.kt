@@ -39,6 +39,7 @@ import com.parlor.networking.transport.ResumableSessionInfo
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
 import com.parlor.storage.settings.InMemorySettingsStore
 import com.parlor.storage.snapshot.InMemorySnapshotStore
 import com.parlor.storage.snapshot.SnapshotStore
@@ -126,6 +127,7 @@ class ResumeGameBindingTest {
                                 single { Json { encodeDefaults = true } }
                                 single<RoomTransport> { transport }
                                 single { owner }
+                                single { ProcessPartySessionOwner(transport, CoroutineScope(job + dispatcher)) }
                                 single {
                                     StartupMultiplayerRecoveryGate().apply {
                                         // Manual coverage represents Home after the process's first lookup.

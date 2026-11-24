@@ -68,6 +68,7 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.DataError
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.CandleFlame
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
@@ -75,6 +76,8 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.InviteToLobbyButton
+import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorToastSeverity
@@ -442,6 +445,8 @@ private fun HostLobbyContent(
                                 accent = false,
                             )
                             RoomCodeText(code = info.code)
+                            LobbyRoomTag(info.roomTag)
+                            if (info.roomTag != null) InviteToLobbyButton(room::createJoinLink)
                             Text(
                                 text = stringResource(Res.string.host_hosting_as_format, hostName),
                                 style = ParlorTheme.typography.bodyMedium,
@@ -493,6 +498,7 @@ private fun HostLobbyContent(
                                         style = ParlorTheme.typography.bodyLarge,
                                         color = ParlorTheme.colors.textPrimary,
                                     )
+                                    AdmissionCountdown(admission.approvalDeadline)
                                     ParlorButton(
                                         label = stringResource(Res.string.host_approve),
                                         contentDescription = stringResource(

@@ -1,5 +1,6 @@
 package com.parlor.app
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -14,6 +15,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import com.parlor.app.lifecycle.AppLifecycleCoordinator
+import com.parlor.app.shell.multiplayer.IncomingJoinLinks
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.storage.settings.SettingsStore
 import kotlinx.coroutines.CoroutineDispatcher
@@ -34,8 +36,18 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        acceptInvitation(intent)
+    }
+
+    private fun acceptInvitation(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let(IncomingJoinLinks::accept)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) acceptInvitation(intent)
         // Roles and private actions are visible in the app. Android 13 added a
         // dedicated Recents-thumbnail control, which preserves the player's
         // ability to capture an intentional screenshot. Older supported

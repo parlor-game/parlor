@@ -2,6 +2,7 @@ package com.parlor.games.lastlight.ui.flow.multidevice
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.produceState
@@ -36,6 +37,7 @@ internal fun LastLightMultiDeviceHostFlow(
     operationInFlight: Boolean,
     onRequestLeave: () -> Unit,
     modifier: Modifier = Modifier,
+    onStarted: suspend () -> Unit = {},
 ) {
     val clock: Clock = koinInject()
     val definition: LastLightDefinition = koinInject()
@@ -60,6 +62,7 @@ internal fun LastLightMultiDeviceHostFlow(
         return
     }
     val startGate by runtime.startGate.collectAsState()
+    LaunchedEffect(runtime, startGate) { if (startGate == HostStartGateState.Started) onStarted() }
     val terminalReason by runtime.bridge.terminalReason.collectAsState()
     val recoveryEpoch by runtime.bridge.recoveryEpoch.collectAsState()
     val lifecycle by runtime.room.lifecycle.collectAsState()

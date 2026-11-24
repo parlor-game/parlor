@@ -109,6 +109,7 @@ internal fun MafiaMultiDevicePhaseRouter(
     scope: CoroutineScope,
     onBackToHome: () -> Unit,
     modifier: Modifier = Modifier,
+    returnToParty: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         val phase = state.phase
@@ -190,6 +191,7 @@ internal fun MafiaMultiDevicePhaseRouter(
                 finalRoles = finalRoles(state),
                 onExit = onBackToHome,
                 modifier = Modifier.fillMaxSize(),
+                returnToParty = returnToParty,
             )
         }
     }

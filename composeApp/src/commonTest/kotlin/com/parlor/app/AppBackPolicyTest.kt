@@ -44,6 +44,6 @@ class AppBackPolicyTest {
     fun registered_game_content_receives_back_and_owns_transactional_cleanup() {
         val game = AppRoute.Game(GameId("fixture"), entryId = 1L)
 
-        assertEquals(AppBackAction.DelegateToGame, appBackAction(game))
+        assertEquals(AppBackAction.DelegateToFlow, appBackAction(game))
     }
 }

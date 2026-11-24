@@ -52,7 +52,7 @@ delete the save, or pretend old and new content have the same identity. Retired
 Solo and other unsupported local-mode records are likewise rejected before
 payload decoding and kept until explicit discard, not migrated to Pass-and-Play.
 Players in a room must use matching content. Protocol compatibility remains
-exact 4.2.
+exact 4.3.
 
 See [Whodunit testing-content decisions](WHODUNIT_TEST_CONTENT.md) for the
 individual corrections, versions and editorial reasoning. All testing stories

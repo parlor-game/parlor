@@ -58,6 +58,7 @@ gameplay, long-session, battery/thermal or RPC-comparison qualification**.
 
 ```bash
 python3 scripts/verification/real-kit-lan/processes.py --allow-local-lan --scenario resume
+python3 scripts/verification/real-kit-lan/processes.py --allow-local-lan --scenario party-invite-resume --iterations 1
 ```
 
 This separate opt-in scenario joins the registered synthetic game/version, freezes

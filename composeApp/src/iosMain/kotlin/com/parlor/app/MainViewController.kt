@@ -3,6 +3,7 @@ package com.parlor.app
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.ui.uikit.OnFocusBehavior
 import com.parlor.app.lifecycle.AppLifecycleCoordinator
+import com.parlor.app.shell.multiplayer.IncomingJoinLinks
 import com.parlor.app.di.allModules
 import kotlin.concurrent.Volatile
 import org.koin.core.context.startKoin
@@ -58,3 +59,8 @@ fun NotifyAppInactive() {
 
 private fun lifecycleCoordinator(): AppLifecycleCoordinator =
     KoinPlatform.getKoin().get()
+
+@Suppress("FunctionName", "Unused")
+fun AcceptJoinLink(url: String) {
+    IncomingJoinLinks.accept(url)
+}

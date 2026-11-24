@@ -17,4 +17,10 @@ data class DiscoveredRoom(
     val displayName: String,
     /** The host's own player id, if the transport surfaces it. */
     val hostPlayerId: PlayerId? = null,
+    /** Public visual tag, independent of the private code. */
+    val roomTag: String? = null,
+    /** Opaque transport-owned candidate for a subsequent code-based join. */
+    val selection: DiscoveredRoomSelection? = null,
 )
+
+interface DiscoveredRoomSelection

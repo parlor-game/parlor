@@ -1,7 +1,10 @@
 package com.parlor.transport.p2p
 
-import com.parlor.core.serialization.requireBoundedJsonNesting
+import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.core.serialization.requireBoundedJsonNesting
 import com.parlor.networking.room.RoomInputPolicy
 import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.storage.secure.SecureStorage
@@ -24,13 +27,7 @@ import kotlinx.serialization.json.Json
 internal data class ResumableSessionCredential(
     val schemaVersion: Int = CREDENTIAL_SCHEMA_VERSION,
     val offerId: String,
-    /**
-     * Stable local identity for one logical membership across credential rotations.
-     *
-     * Older schema-v1 records did not persist this field. Defaulting it to the
-     * loaded offer id gives those records a safe upgrade identity; every later
-     * rotation is produced with `copy`, so it preserves that identity.
-     */
+    /** Starts at the first offer and stays stable across credential rotations. */
     val membershipId: String = offerId,
     val roomCode: String,
     val displayName: String,
@@ -43,6 +40,8 @@ internal data class ResumableSessionCredential(
     val expiresAtEpochMillis: Long,
     val gameId: String? = null,
     val gameVersion: Int? = null,
+    val roomId: RoomId? = null,
+    val partyId: PartyId? = null,
 ) {
     fun requireValid(): ResumableSessionCredential = apply {
         require(schemaVersion == CREDENTIAL_SCHEMA_VERSION)
@@ -59,9 +58,10 @@ internal data class ResumableSessionCredential(
         require(generation > 0L)
         require(issuedAtEpochMillis > 0L)
         require(expiresAtEpochMillis > issuedAtEpochMillis)
-        require(gameId == null || gameId.isSafeIdentifier())
+        require(gameId == null || GameId.isCanonical(gameId))
         require((gameId == null) == (gameVersion == null))
         require(gameVersion == null || gameVersion > 0)
+        require(partyId == null || (roomId != null && gameId == null))
     }
 }
 
@@ -129,6 +129,8 @@ internal fun ResumableSessionCredential.ownsSameMembershipAs(
 ): Boolean =
     membershipId == other.membershipId &&
         roomCode == other.roomCode &&
+        roomId == other.roomId &&
+        partyId == other.partyId &&
         playerId == other.playerId &&
         hostPeerId == other.hostPeerId &&
         hostFingerprint == other.hostFingerprint
@@ -376,7 +378,7 @@ internal class ResumableCredentialStore(
     private suspend fun loadRecord(): Result<StoredCredentialRecord?, CredentialStoreError> {
         val bytes = when (val loaded = storage.get(STORAGE_KEY)) {
             is Result.Failure -> return Result.Failure(CredentialStoreError.Unavailable)
-            is Result.Success -> loaded.data ?: return Result.Success(null)
+            is Result.Success -> loaded.data ?: return discardObsoleteCredential()
         }
         return try {
             if (bytes.size !in 1..MAX_RECORD_BYTES) {
@@ -395,6 +397,18 @@ internal class ResumableCredentialStore(
             Result.Failure(CredentialStoreError.Corrupted)
         } finally {
             bytes.fill(0)
+        }
+    }
+
+    /** Called under the store lock. A v1 membership has no room instance. */
+    private suspend fun discardObsoleteCredential(): Result<Nothing?, CredentialStoreError> {
+        when (val legacy = storage.get(OBSOLETE_STORAGE_KEY)) {
+            is Result.Failure -> return Result.Failure(CredentialStoreError.Unavailable)
+            is Result.Success -> legacy.data?.fill(0) ?: return Result.Success(null)
+        }
+        return when (storage.remove(OBSOLETE_STORAGE_KEY)) {
+            is Result.Success -> Result.Success(null)
+            is Result.Failure -> Result.Failure(CredentialStoreError.Unavailable)
         }
     }
 
@@ -423,7 +437,8 @@ internal class ResumableCredentialStore(
     }
 
     private companion object {
-        const val STORAGE_KEY = "p2p-resumable-session-v1"
+        const val STORAGE_KEY = "p2p-resumable-session-v2"
+        const val OBSOLETE_STORAGE_KEY = "p2p-resumable-session-v1"
         const val MAX_RECORD_BYTES = 8 * 1024
     }
 }
@@ -456,7 +471,7 @@ private fun ResumableSessionCredential.validOrNull(): ResumableSessionCredential
         null
     }
 
-private const val CREDENTIAL_SCHEMA_VERSION = 1
+private const val CREDENTIAL_SCHEMA_VERSION = 2
 private const val SECRET_HEX_LENGTH = 64
 private const val HOST_FINGERPRINT_PREFIX = "p2f1-"
 private const val HOST_FINGERPRINT_LENGTH = 57
