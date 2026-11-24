@@ -17,6 +17,7 @@ import androidx.compose.ui.test.runComposeUiTest
 import com.parlor.designsystem.localization.AppLanguage
 import com.parlor.designsystem.localization.ProvideAppLanguage
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.games.whodunit.domain.event.KillerWinCause
 import com.parlor.games.whodunit.domain.event.Verdict
 import com.parlor.games.whodunit.ui.components.TimerRibbon
 import com.parlor.games.whodunit.ui.screens.reveal.RevealStageScreen
@@ -123,6 +124,46 @@ class WhodunitAccessibilitySemanticsTest {
 
         onNode(hasText(KILLER_NAME) and hasLiveRegion(LiveRegionMode.Assertive)).assertExists()
         onNode(hasText(NARRATIVE) and hasLiveRegion(LiveRegionMode.Polite)).assertExists()
+    }
+
+    @Test
+    fun reveal_headline_and_subtitle_follow_the_same_verdict_after_recomposition() = runComposeUiTest {
+        val original = Verdict.PlayersWin("killer")
+        val verdict = mutableStateOf<Verdict>(original)
+        setContent {
+            EnglishParlorTheme(reducedMotion = true) {
+                RevealStageScreen(
+                    verdict = verdict.value,
+                    killerDisplayName = KILLER_NAME,
+                    revealNarrative = NARRATIVE,
+                    onAcknowledge = {},
+                )
+            }
+        }
+
+        val winSubtitle = "The room has chosen correctly."
+        val lossCopy = mapOf(
+            KillerWinCause.InnocentAccused to "An innocent has been condemned.",
+            KillerWinCause.TieUnresolved to "Indecision. The killer escapes.",
+            KillerWinCause.SurvivedToFinalTwo to "The killer has survived to the final two.",
+            KillerWinCause.GameEndedEarly to "The session ended before a verdict was reached.",
+        )
+        onNode(hasText("YES.")).assertExists()
+        onNode(hasText(winSubtitle)).assertExists()
+
+        for ((cause, subtitle) in lossCopy) {
+            runOnIdle { verdict.value = Verdict.KillerWins("killer", cause) }
+            onNode(hasText("NO.")).assertExists()
+            onNode(hasText(subtitle)).assertExists()
+            onNode(hasText("YES.")).assertDoesNotExist()
+            onNode(hasText(winSubtitle)).assertDoesNotExist()
+        }
+
+        runOnIdle { verdict.value = original }
+        onNode(hasText("YES.")).assertExists()
+        onNode(hasText(winSubtitle)).assertExists()
+        onNode(hasText("NO.")).assertDoesNotExist()
+        onNode(hasText(lossCopy.getValue(KillerWinCause.GameEndedEarly))).assertDoesNotExist()
     }
 
     @Test
