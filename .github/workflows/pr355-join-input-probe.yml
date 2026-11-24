@@ -1,18 +1,18 @@
-name: PR 355 installed Join input comparison
+name: PR 355 ARM64 first-responder comparison
 
 on:
   push:
     branches: [diagnostic/pr355-arabic-join]
     paths:
       - .github/workflows/pr355-join-input-probe.yml
-      - scripts/verification/ios-input-boundaries/pr355_join_overlay.py
+      - scripts/verification/ios-input-boundaries/pr355_arm_focus_overlay.py
 
 permissions:
   contents: read
 
 jobs:
   probe:
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 75
     env:
       APP_SOURCE: d2a55eb5f4880798b6e07377df249e370dd2ff11
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uname -m | grep -Fx x86_64
+          uname -m | grep -Fx arm64
           out="$RUNNER_TEMP/join-evidence"
           mkdir "$out"
           git worktree add --detach "$RUNNER_TEMP/join-source" "$APP_SOURCE"
@@ -44,14 +44,13 @@ jobs:
           grep -Fx 'Build version 17C529' "$out/xcode.txt"
           xcrun simctl list --json runtimes > "$out/runtimes.json"
           jq -e '.runtimes[] | select(.isAvailable and .identifier=="com.apple.CoreSimulator.SimRuntime.iOS-18-5")' "$out/runtimes.json" >/dev/null
-          test_file=iosApp/iosAppUITests/IOSAppLaunchUITests.swift
-          python3 "$GITHUB_WORKSPACE/scripts/verification/ios-input-boundaries/pr355_join_overlay.py" "$test_file"
-          test "$(git diff --name-only)" = "$test_file"
-          git diff -- "$test_file" > "$out/test-only.patch"
+          python3 "$GITHUB_WORKSPACE/scripts/verification/ios-input-boundaries/pr355_arm_focus_overlay.py" .
+          test "$(git diff --name-only)" = "$(printf '%s\n' iosApp/iosApp/ComposeContainerViewController.swift iosApp/iosAppUITests/IOSAppLaunchUITests.swift)"
+          git diff > "$out/instrumentation.patch"
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' ARCHS=x86_64 -derivedDataPath "$RUNNER_TEMP/join-build" \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 -derivedDataPath "$RUNNER_TEMP/join-build" \
             -parallel-testing-enabled NO build-for-testing | tee "$out/build.log"
-      - name: Complete both comparison controls on fresh iOS 18.5 profiles
+      - name: Replay original and already-focused Arabic Join on independent profiles
         shell: bash
         run: |
           set -euo pipefail
@@ -59,7 +58,13 @@ jobs:
           out="$RUNNER_TEMP/join-evidence"
           status=0
           udid=
+          stream_pid=
           cleanup() {
+            if [[ -n "$stream_pid" ]]; then
+              kill "$stream_pid" 2>/dev/null || true
+              wait "$stream_pid" 2>/dev/null || true
+              stream_pid=
+            fi
             if [[ -n "$udid" ]]; then
               xcrun simctl shutdown "$udid" || true
               xcrun simctl delete "$udid"
@@ -69,16 +74,20 @@ jobs:
           trap cleanup EXIT
           bundle="$(find "$RUNNER_TEMP/join-build/Build/Products" -maxdepth 1 -name '*.xctestrun' -print)"
           test -f "$bundle"
-          for route in ArabicDirectJoin EnglishHostBackJoin; do
+          for route in Original AlreadyFocused; do
             udid="$(xcrun simctl create "Parlor-join-$GITHUB_RUN_ID-$route" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
             printf '%s\t%s\n' "$route" "$udid" | tee -a "$out/simulators.tsv"
             result="$out/$route.xcresult"
             xcrun simctl boot "$udid"
             /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], timeout=240, check=True)' "$udid" \
               | tee "$out/$route-boot.log"
+            predicate='(process == "Parlor" AND (eventMessage BEGINSWITH "ParlorFocusReplay" OR eventMessage BEGINSWITH "Keyboard receives keyEvent" OR eventMessage == "Keyboard inserts text")) OR (process == "kbd" AND eventMessage CONTAINS "Initializing new input manager") OR (process == "launchd_sim" AND eventMessage BEGINSWITH "Successfully spawned kbd[")'
+            xcrun simctl spawn "$udid" log stream --style compact --level debug --predicate "$predicate" \
+              > "$out/$route-native.log" 2> "$out/$route-native-stderr.log" &
+            stream_pid=$!
             if xcodebuild -xctestrun "$bundle" -destination "platform=iOS Simulator,id=$udid" \
-              -parallel-testing-enabled NO -destination-timeout 120 -test-iterations 2 \
-              -only-testing:"iosAppUITests/IOSAppLaunchUITests/testProbe$route" \
+              -parallel-testing-enabled NO -destination-timeout 120 \
+              -only-testing:"iosAppUITests/IOSAppLaunchUITests/testFocusReplay$route" \
               -resultBundlePath "$result" test-without-building | tee "$out/$route.log"; then
               echo "$route PASS" | tee -a "$out/outcomes.txt"
             else
@@ -86,7 +95,7 @@ jobs:
               status=1
             fi
             if [[ -d "$result" ]]; then
-              xcrun xcresulttool export attachments --path "$result" --output-path "$out/$route-attachments"
+              xcrun xcresulttool export attachments --path "$result" --output-path "$out/$route-attachments" || status=1
             fi
             cleanup
           done
@@ -95,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: pr355-join-input-comparison
+          name: pr355-arm-focus-replay
           path: ${{ runner.temp }}/join-evidence/
           if-no-files-found: error
           retention-days: 14
