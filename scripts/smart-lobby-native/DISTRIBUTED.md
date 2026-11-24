@@ -37,6 +37,14 @@ flowchart LR
    source, set `reuse_candidate: false` so the lab builds one fresh archive
    per platform before provisioning the roster. Each runner verifies its
    installed files against its platform's original build.
+   Set `reuse_candidate: true` and an `external_producers` entry for each
+   platform to reuse a verified build from another run. Each entry specifies
+   the numeric `run` and exact `harness_sha`. The workflow checks the owning
+   repository, branch, producer workflow, successful build job, and artifact
+   before the install step verifies the package against the candidate source.
+   The Android-only macOS producer is available when hosted Ubuntu fails to
+   resolve dependencies. The six Android/iOS guest jobs can consume both
+   retained packages without rebuilding the app.
 2. On the dedicated test branch, set the dispatch payload to
    `pairing: distributed`, an exact `candidate` commit, and a two-to-six-entry
    `platforms` roster. Generate a fresh 32-byte bearer as 64 lowercase hex characters per seat. Validate that format locally and put only the
@@ -49,7 +57,10 @@ flowchart LR
    This covers the observed 11-minute wait for the second Mac in run 45264443120.
    The native proof records the elapsed time and any missing seat numbers.
    iOS jobs also record separate timings for inventory, boot, and simulator
-   process readiness. The boot command has a four-minute deadline.
+   process readiness. The boot command has a four-minute deadline. On a
+   disposable hosted runner, a timed-out first inventory request can get one
+   retry after a user-domain CoreSimulator restart, before the job claims a
+   Simulator. A real SpringBoard PID and verified app install remain required.
    Each guest probes every other guest before its controller starts. A queued or
    failed seat leaves the run unqualified. Download controller documents privately. Use the seat
    number in the artifact/filename and its matching, distinct bearer.
