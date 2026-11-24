@@ -40,7 +40,7 @@ def label(node):
     return " ".join((node.get("text", ""), node.get("content-desc", ""))).strip().casefold()
 
 
-def find(target, *, width, height, scroll=False, click=False):
+def find(target, *, width, height, scroll=False, click=False, max_tap_y=None):
     target = target.casefold()
     for _ in range(8):
         root = tree()
@@ -62,7 +62,10 @@ def find(target, *, width, height, scroll=False, click=False):
                 left, top, right, bottom = bounds
                 if right <= left or bottom <= top:
                     continue
-                adb("shell", "input", "tap", str((left + right) // 2), str((top + bottom) // 2))
+                center_y = (top + bottom) // 2
+                if max_tap_y is not None and center_y >= max_tap_y:
+                    continue
+                adb("shell", "input", "tap", str((left + right) // 2), str(center_y))
                 time.sleep(0.5)
                 return True
         if scroll:
@@ -94,8 +97,8 @@ def profile(output, arabic, only_game=None):
     adb("shell", "pm", "clear", PACKAGE)
     launch()
 
-    def tap(target, scroll=False):
-        if not find(target, width=width, height=height, scroll=scroll, click=True):
+    def tap(target, scroll=False, max_tap_y=None):
+        if not find(target, width=width, height=height, scroll=scroll, click=True, max_tap_y=max_tap_y):
             raise RuntimeError(f"Expected enabled native control: {target}")
 
     def expect(target, scroll=False):
@@ -115,9 +118,16 @@ def profile(output, arabic, only_game=None):
             continue
         print(f"Capturing {name} / {slug}", flush=True)
         try:
-            launch()
-            catalog_label = "لعبة الإمبوستر" if arabic and slug == "word-impostor" else arabic_title
-            tap(catalog_label if arabic else english, scroll=True)
+            if only_game is None:
+                launch()
+            catalog_label = {
+                "whodunit": "افتح من القاتل واختر طريقة اللعب.",
+                "word-impostor": "لعبة الإمبوستر",
+            }.get(slug, arabic_title)
+            # The enlarged catalog can expose only part of the first card above
+            # fixed navigation. Scroll until its center is inside the catalog.
+            safe_catalog_bottom = 3 * height // 4 if arabic else None
+            tap(catalog_label if arabic else english, scroll=True, max_tap_y=safe_catalog_bottom)
             expect(back_label)
             expect(arabic_title if arabic else english)
             screenshot(output / f"{name}-{slug}-picker.png")
@@ -125,6 +135,9 @@ def profile(output, arabic, only_game=None):
                 tap("ابدأ جلسة تمرير ولعب" if arabic else "Start a pass-and-play", scroll=True)
                 if any(back_label in node.get("content-desc", "") for node in tree().iter("node")):
                     raise RuntimeError("Local mode tap left the game picker visible")
+                if arabic and slug == "whodunit":
+                    expect("اختر لغز الليلة.")
+                    expect("English")
                 screenshot(output / f"{name}-{slug}-local-entry.png")
             else:
                 expect("افتح غرفة" if arabic else "Open a room", scroll=True)
@@ -132,6 +145,7 @@ def profile(output, arabic, only_game=None):
             rows.append({"game": slug, "picker": True, "local_entry_checked": local})
         except (RuntimeError, subprocess.SubprocessError) as exc:
             rows.append({"game": slug, "failure": str(exc)})
+            screenshot(output / f"{name}-{slug}-failure.png")
     return {"profile": name, "pixels": [width, height], "density": density, "font_scale": scale, "routes": rows}
 
 
