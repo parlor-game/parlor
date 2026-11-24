@@ -1,0 +1,98 @@
+name: PR 355 installed Join input comparison
+
+on:
+  push:
+    branches: [diagnostic/pr355-arabic-join]
+    paths:
+      - .github/workflows/pr355-join-input-probe.yml
+      - scripts/verification/ios-input-boundaries/pr355_join_overlay.py
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 55
+    env:
+      APP_SOURCE: d2a55eb5f4880798b6e07377df249e370dd2ff11
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Build the pinned app and diagnostic XCTest target once
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          out="$RUNNER_TEMP/join-evidence"
+          mkdir "$out"
+          git worktree add --detach "$RUNNER_TEMP/join-source" "$APP_SOURCE"
+          cd "$RUNNER_TEMP/join-source"
+          test "$(git rev-parse HEAD)" = "$APP_SOURCE"
+          git rev-parse HEAD 'HEAD^{tree}' > "$out/source.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$out/harness.txt"
+          xcodebuild -version | tee "$out/xcode.txt"
+          grep -Fx 'Build version 17C529' "$out/xcode.txt"
+          xcrun simctl list --json runtimes > "$out/runtimes.json"
+          jq -e '.runtimes[] | select(.isAvailable and .identifier=="com.apple.CoreSimulator.SimRuntime.iOS-18-5")' "$out/runtimes.json" >/dev/null
+          test_file=iosApp/iosAppUITests/IOSAppLaunchUITests.swift
+          python3 "$GITHUB_WORKSPACE/scripts/verification/ios-input-boundaries/pr355_join_overlay.py" "$test_file"
+          test "$(git diff --name-only)" = "$test_file"
+          git diff -- "$test_file" > "$out/test-only.patch"
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/join-build" \
+            -parallel-testing-enabled NO build-for-testing | tee "$out/build.log"
+      - name: Compare three installed routes on fresh iOS 18.5 profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/join-source"
+          out="$RUNNER_TEMP/join-evidence"
+          status=0
+          udid=
+          cleanup() {
+            if [[ -n "$udid" ]]; then
+              xcrun simctl shutdown "$udid" || true
+              xcrun simctl delete "$udid"
+              udid=
+            fi
+          }
+          trap cleanup EXIT
+          bundle="$(find "$RUNNER_TEMP/join-build/Build/Products" -maxdepth 1 -name '*.xctestrun' -print)"
+          test -f "$bundle"
+          for route in ArabicHostBackJoin ArabicDirectJoin EnglishHostBackJoin; do
+            udid="$(xcrun simctl create "Parlor-join-$GITHUB_RUN_ID-$route" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
+            printf '%s\t%s\n' "$route" "$udid" | tee -a "$out/simulators.tsv"
+            result="$out/$route.xcresult"
+            if xcodebuild -xctestrun "$bundle" -destination "platform=iOS Simulator,id=$udid" \
+              -parallel-testing-enabled NO -destination-timeout 120 -test-iterations 2 \
+              -only-testing:"iosAppUITests/IOSAppLaunchUITests/testProbe$route" \
+              -resultBundlePath "$result" test-without-building | tee "$out/$route.log"; then
+              echo "$route PASS" | tee -a "$out/outcomes.txt"
+            else
+              echo "$route FAIL" | tee -a "$out/outcomes.txt"
+              status=1
+            fi
+            if [[ -d "$result" ]]; then
+              xcrun xcresulttool export attachments --path "$result" --output-path "$out/$route-attachments"
+            fi
+            cleanup
+          done
+          exit "$status"
+      - name: Retain comparative results and screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pr355-join-input-comparison
+          path: ${{ runner.temp }}/join-evidence/
+          if-no-files-found: error
+          retention-days: 14
