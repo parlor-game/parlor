@@ -26,11 +26,13 @@ import com.parlor.engine.state.GameState
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.needsRecoveryGuidance
 import com.parlor.session.multidevice.MultiplayerOpenMode
+import com.parlor.session.multidevice.approvalFor
 import com.parlor.session.multidevice.MultiplayerSessionRoute
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
 import com.parlor.session.multidevice.ProcessMultiplayerState
@@ -47,6 +49,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
 ) {
     val owner: ProcessMultiplayerSessionOwner = koinInject()
     val ownerState by owner.state.collectAsState()
+    val approval by ownerState.approvalFor(route).collectAsState()
     val session = (ownerState as? ProcessMultiplayerState.Active)?.session?.takeIf { it.route == route }
     val ownerError = ownerState.peerRouteError(route)
     val scope = rememberCoroutineScope()
@@ -56,13 +59,12 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
     var busy by remember(route) { mutableStateOf(false) }
     var confirm by remember(route) { mutableStateOf(false) }
     var hasStarted by remember(route) { mutableStateOf(false) }
-    val awaitingApproval = remember(route, attempt) { mutableStateOf(false) }
     val access by transport.localNetworkAccess.collectAsState()
     LaunchedEffect(transport, route, attempt) {
         error = null
         val protocol = HostedGameProtocol(spec.definition.id, spec.version)
         when (val result = owner.acquire(route, retryFailedOpen = attempt > 0) { mode ->
-            transport.openPeerRoom(route, mode, protocol) { awaitingApproval.value = true }
+            transport.openPeerRoom(route, mode, protocol, owner.approvalReporter(route))
         }) {
             is Result.Success -> Unit
             is Result.Failure -> error = result.error
@@ -122,8 +124,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> PeerGameLobby(
             )
             session == null -> RoomOpeningStatus(
                 presentation,
-                if (awaitingApproval.value) RoomOpeningPhase.Approval else RoomOpeningPhase.Discovering,
-                leave, modifier, enabled = statusActionsEnabled,
+                if (approval != null) RoomOpeningPhase.Approval else RoomOpeningPhase.Discovering,
+                leave, modifier, enabled = statusActionsEnabled, approval = approval,
             )
             accepted == null -> RoomOpeningStatus(
                 presentation, RoomOpeningPhase.Admitted, leave, modifier,
@@ -138,13 +140,15 @@ private suspend fun RoomTransport.openPeerRoom(
     route: MultiplayerSessionRoute,
     mode: MultiplayerOpenMode,
     protocol: HostedGameProtocol,
-    onAwaitingApproval: () -> Unit,
+    onApprovalPending: ((ApprovalWait) -> Unit)?,
 ): Result<LocalRoom, NetError> = when (mode) {
     MultiplayerOpenMode.Join -> join(JoinConfig(
         code = checkNotNull(route.roomCode),
         displayName = route.displayName,
         expectedGameProtocol = protocol,
-        onAwaitingHostApproval = onAwaitingApproval,
+        discoveredRoom = route.discoveredRoom,
+        invitation = route.invitation,
+        onApprovalPending = onApprovalPending,
     ))
     MultiplayerOpenMode.Resume -> route.resumeSelection?.let { resumeLastSession(protocol, it) }
         ?: resumeLastSession(protocol)

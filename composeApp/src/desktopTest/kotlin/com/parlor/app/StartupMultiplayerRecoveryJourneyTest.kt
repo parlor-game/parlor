@@ -56,6 +56,7 @@ import com.parlor.networking.transport.ResumableSessionSelection
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
 import com.parlor.storage.settings.InMemorySettingsStore
 import com.parlor.storage.settings.SettingsStore
 import com.parlor.storage.snapshot.InMemorySnapshotStore
@@ -260,6 +261,7 @@ class StartupMultiplayerRecoveryJourneyTest {
                     single<SnapshotStore> { fixture.snapshots }
                     single<RoomTransport> { fixture.transport }
                     single { fixture.owner }
+                    single { fixture.partyOwner }
                     single { fixture.lifecycle }
                     single { fixture.gate }
                     single<GameShellRegistry> { DefaultGameShellRegistry(listOf(fixture.binding)) }
@@ -343,6 +345,7 @@ private class StartupJourneyFixture(
     private val job = SupervisorJob()
     private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     val owner = ProcessMultiplayerSessionOwner(CoroutineScope(job + dispatcher))
+    val partyOwner = ProcessPartySessionOwner(transport, CoroutineScope(job + dispatcher))
 
     override fun close() {
         try {

@@ -15,12 +15,14 @@ import com.parlor.app.shell.game.GameShellCapabilities
 import com.parlor.app.shell.game.GameShellLaunch
 import com.parlor.app.shell.game.InvalidGameRouteFallback
 import com.parlor.app.shell.game.P2pPermissionRoute
+import com.parlor.app.shell.game.joinInvitation
 import com.parlor.app.shell.multiplayer.JoinPromptScreen
 import com.parlor.app.shell.multiplayer.NameInputScreen
 import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.MultiplayerSessionRole
 import com.parlor.session.multidevice.MultiplayerSessionRoute
@@ -41,14 +43,17 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
     val transport: RoomTransport = koinInject()
     val gate = rememberP2pPermissionGate(transport.localNetworkAccess)
     val owned = (launch as? GameShellLaunch.RestoreOwnedMultiplayer)?.route
+    val invitation = launch.joinInvitation
     val resumeSelection = owned?.resumeSelection ?: (launch as? GameShellLaunch.ResumeMultiplayer)?.selection
     var name by remember(launch) {
         mutableStateOf(owned?.displayName ?: (launch as? GameShellLaunch.ResumeMultiplayer)?.displayName.orEmpty())
     }
-    var code by remember(launch) { mutableStateOf(owned?.roomCode.orEmpty()) }
+    var code by remember(launch) { mutableStateOf(owned?.roomCode ?: invitation?.code.orEmpty()) }
+    var discoveredRoom by remember(launch) { mutableStateOf(owned?.discoveredRoom) }
     var step by remember(launch) {
         mutableStateOf(when {
             launch is GameShellLaunch.ResumeMultiplayer -> ShellStep.ResumePermission
+            launch is GameShellLaunch.JoinByInvitation -> ShellStep.JoinPermission
             owned?.role == MultiplayerSessionRole.Host -> ShellStep.Host
             owned?.resumeExistingSession == true -> ShellStep.Resume
             owned != null -> ShellStep.Peer
@@ -101,7 +106,14 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
                     if (step == nameStep) {
                         name = it
                         if (nameStep == ShellStep.HostName) roomActionsReady = false
-                        step = if (nameStep == ShellStep.HostName) ShellStep.Host else ShellStep.JoinCode
+                        step = when {
+                            nameStep == ShellStep.HostName -> ShellStep.Host
+                            invitation != null -> {
+                                roomActionsReady = false
+                                ShellStep.Peer
+                            }
+                            else -> ShellStep.JoinCode
+                        }
                     }
                 },
                 onBack = onExit, modifier = modifier,
@@ -111,11 +123,14 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             gameTitle = presentation.title,
             seatName = name,
             onChangeName = { if (step == ShellStep.JoinCode) step = ShellStep.JoinName },
-            onConfirm = {
+            transport = transport,
+            game = HostedGameProtocol(spec.definition.id, spec.version),
+            onConfirm = { entered, selection ->
                 // Once accepted, late editor/activation callbacks cannot select
                 // a different room or move an owned peer back into setup.
                 if (step == ShellStep.JoinCode) {
-                    code = it
+                    code = entered
+                    discoveredRoom = selection
                     roomActionsReady = false
                     step = ShellStep.Peer
                 }
@@ -128,8 +143,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             InvalidGameRouteFallback(onExit)
         } else {
             val resume = step == ShellStep.Resume
-            val route = remember(spec.definition.id, code, name, resume, resumeSelection) {
-                MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection)
+            val route = remember(spec.definition.id, code, name, resume, resumeSelection, discoveredRoom, invitation) {
+                MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection, discoveredRoom, invitation)
             }
             PeerGameLobby(spec, transport, route, onExit, settings, activeBack, modifier, presentation, roomActionsReady)
         }

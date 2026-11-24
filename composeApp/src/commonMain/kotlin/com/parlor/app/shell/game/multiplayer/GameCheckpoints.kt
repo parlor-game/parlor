@@ -62,7 +62,7 @@ internal class GamePeerStartCheckpoint(override val checkpointKind: String) : Re
     val state = operation.state
 
     suspend fun <S : GameState, A : GameAction, E : GameEvent> start(
-        spec: MultiplayerGameSpec<S, A, E>, session: ProcessMultiplayerSession, owner: ProcessMultiplayerSessionOwner,
+        spec: MultiplayerGameSpec<S, A, E>, session: ProcessMultiplayerSession, owner: ProcessMultiplayerSessionOwner?,
     ) = operation.start(
         session.scope,
         onUnexpectedFailure = { GameStartState.Failed(NetError.TransportFailure("session start failed")) },
@@ -73,7 +73,7 @@ internal class GamePeerStartCheckpoint(override val checkpointKind: String) : Re
             is Result.Success -> GameStartState.Started(result.data)
             is Result.Failure -> {
                 val error = result.error.asNetError()
-                owner.preparePeerRetry(session, error)
+                owner?.preparePeerRetry(session, error)
                 GameStartState.Failed(error)
             }
         }

@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.NavKey
 import com.parlor.app.shell.game.GameShellLaunch
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
+import com.parlor.networking.invitation.PartyJoinInvitation
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -51,12 +52,17 @@ internal sealed interface AppRoute : NavKey {
     data object Profile : AppRoute
 
     @Serializable
+    @SerialName("party")
+    data object Party : AppRoute
+
+    @Serializable
     @SerialName("settings")
     data object Settings : AppRoute
 }
 
 internal fun AppRoute.owner(): AppTopLevelDestination = when (this) {
     AppRoute.Home,
+    AppRoute.Party,
     is AppRoute.Game,
     is AppRoute.LocalResumeFailure,
     -> AppTopLevelDestination.Games
@@ -85,7 +91,7 @@ internal enum class AppNavigationMutation {
  * or the transport's validated rejoin ownership; private launch/session
  * objects are never serialized into Navigation 3 state.
  */
-internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
+internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreParty: Boolean = false) {
     private val gamesBackStack = NavBackStack<AppRoute>(AppRoute.Home)
     private val profileBackStack = NavBackStack<AppRoute>(AppRoute.Profile)
     private val settingsBackStack = NavBackStack<AppRoute>(AppRoute.Settings)
@@ -98,9 +104,12 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
         get() = !startupNavigationInteracted && currentRoute == AppRoute.Home
 
     private var activeGameLaunch: Pair<AppRoute.Game, GameShellLaunch>? = null
+    var partyInvitation: PartyJoinInvitation? = null
+        private set
 
     init {
-        initialGameLaunch?.let(::openGame)
+        if (initialGameLaunch != null) openGame(initialGameLaunch)
+        else if (restoreParty) openParty()
     }
 
     val selectedDestination: AppTopLevelDestination
@@ -136,6 +145,15 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
         return route
     }
 
+    fun openParty(invitation: PartyJoinInvitation? = null) {
+        if (currentRoute != AppRoute.Home) return
+        startupNavigationInteracted = true
+        resetGamesStack()
+        selectedState = AppTopLevelDestination.Games
+        partyInvitation = invitation
+        gamesBackStack += AppRoute.Party
+    }
+
     fun showLocalResumeFailure(sessionId: SessionId) {
         startupNavigationInteracted = true
         resetGamesStack()
@@ -155,7 +173,7 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
     /** Handles only unguarded shell Back and rejects callbacks from stale entries. */
     fun navigateBack(expectedRoute: AppRoute): AppNavigationMutation {
         if (currentRoute != expectedRoute) return AppNavigationMutation.RejectedStaleRoute
-        if (currentRoute is AppRoute.Game) return AppNavigationMutation.RejectedActiveFlow
+        if (currentRoute is AppRoute.Game || currentRoute == AppRoute.Party) return AppNavigationMutation.RejectedActiveFlow
         val active = mutableBackStack(selectedState)
         if (active.size > 1) {
             // removeLast can bind to the API 35 java.util.List member on Android.
@@ -176,6 +194,7 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null) {
         // Keep indexed removal here too: NavBackStack must work below Android API 35.
         while (gamesBackStack.size > 1) gamesBackStack.removeAt(gamesBackStack.lastIndex)
         activeGameLaunch = null
+        partyInvitation = null
     }
 
     private fun mutableBackStack(destination: AppTopLevelDestination): NavBackStack<AppRoute> =

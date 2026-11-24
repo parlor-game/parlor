@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.CandleFlame
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.EyebrowLabel
@@ -32,6 +33,8 @@ import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.RoomCodeWithCopy
+import com.parlor.designsystem.components.InviteToLobbyButton
+import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.designsystem.components.SessionExitBackAction
@@ -386,6 +389,8 @@ private fun LastLightHostLobbyContent(
                         Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
                             EyebrowLabel(text = stringResource(Res.string.md_host_room_code), accent = false)
                             RoomCodeWithCopy(code = info.code)
+                            LobbyRoomTag(info.roomTag)
+                            if (info.roomTag != null) InviteToLobbyButton(room::createJoinLink)
                             Text(
                                 text = stringResource(Res.string.md_host_hosting_as_format, hostName),
                                 style = ParlorTheme.typography.bodyMedium,
@@ -434,6 +439,7 @@ private fun LastLightHostLobbyContent(
                                         style = ParlorTheme.typography.bodyLarge,
                                         color = ParlorTheme.colors.textPrimary,
                                     )
+                                    AdmissionCountdown(admission.approvalDeadline)
                                     ParlorButton(
                                         label = stringResource(Res.string.md_host_approve),
                                         contentDescription = stringResource(

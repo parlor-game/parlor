@@ -97,6 +97,7 @@ internal fun homeCatalogItemKeys(
     hasResumableMultiplayer: Boolean,
     recoveryLoading: Boolean,
     recoveryUnavailable: Boolean,
+    hasPartyEntry: Boolean = false,
 ): List<String> = buildList {
     add("home-top-bar")
     if (unfinishedSessions.isNotEmpty() || hasResumableMultiplayer) {
@@ -104,6 +105,7 @@ internal fun homeCatalogItemKeys(
         unfinishedSessions.forEach { add("local:${it.sessionId.raw}") }
         if (hasResumableMultiplayer) add("multiplayer-resume")
     }
+    if (hasPartyEntry) add("party-entry")
     add("home-lead")
     when {
         recoveryLoading -> add("recovery-loading")

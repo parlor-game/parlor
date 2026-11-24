@@ -7,6 +7,7 @@ import com.parlor.games.lastlight.domain.model.CardRank
 import com.parlor.games.lastlight.domain.model.GamePhase
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.PeerMessage
+import com.parlor.networking.protocol.PARLOR_PROTOCOL_MINOR
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.room.RoomLifecycleState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -131,7 +132,8 @@ class LastLightAuthorityAndOrderingTest {
         val before = fresh.session.currentState()
         assertNotEquals(old.host.protocol.sessionId, fresh.host.protocol.sessionId)
         assertEquals(CommandStatus.IncompatibleVersion, fresh.send(testAliceId, oldCommand).status)
-        listOf(ProtocolVersion(4, 1), ProtocolVersion(4, 3)).forEach { version ->
+        listOf(PARLOR_PROTOCOL_MINOR - 1, PARLOR_PROTOCOL_MINOR + 1).forEach { minor ->
+            val version = ProtocolVersion(minor = minor)
             val command = fresh.command(action, testAliceId)
             assertEquals(
                 CommandStatus.IncompatibleVersion,

@@ -32,6 +32,7 @@ import com.parlor.app.AppNavigationBar
 import com.parlor.app.AppTopLevelDestination
 import com.parlor.app.shell.fullTextLayout
 import com.parlor.app.shell.game.DominoGameShellBinding
+import com.parlor.app.shell.game.GameShellBinding
 import com.parlor.app.shell.game.GhamzaGameShellBinding
 import com.parlor.app.shell.game.LastLightGameShellBinding
 import com.parlor.app.shell.game.MafiaGameShellBinding
@@ -104,7 +105,7 @@ class HomeCatalogVisualEvidenceTest {
         }
     }
 
-    private fun catalogBindings() = listOf(
+    private fun catalogBindings(): List<GameShellBinding> = listOf(
         WhodunitGameShellBinding(WhodunitDefinition(Json.Default)),
         MafiaGameShellBinding(MafiaDefinition(Json.Default)),
         LastLightGameShellBinding(LastLightDefinition()),
@@ -228,6 +229,7 @@ class HomeCatalogVisualEvidenceTest {
                                         LocalRecoveryEntry(SessionId("synthetic-public-fixture"), games.first().definition.id),
                                     ) else emptyList(),
                                     hasResumableMultiplayer = recovery,
+                                    onParty = if (recovery) ({}) else null,
                                     resumableMultiplayerGameId = games.getOrNull(3)?.definition?.id.takeIf { recovery },
                                 )
                             } else {

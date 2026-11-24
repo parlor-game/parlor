@@ -11,6 +11,8 @@ precedence over prose; archived plans are not current requirements.
 - [Adding a game](HOW_TO_ADD_A_GAME.md)
 - [Last Light rules and integration map](LAST_LIGHT_INTEGRATION.md)
 - [Egyptian Dominoes, Ghamza and Word Impostor](THREE_GAMES_INTEGRATION.md)
+- [Smart LAN lobby plan](planning/SMART_LOBBY.md) — unimplemented proposal,
+  not a behavior contract.
 - [iOS setup](IOS_SETUP.md)
 - [Pre-release compatibility](PRE_RELEASE_COMPATIBILITY.md)
 - [Mafia rules](MAFIA_RULES.md) and [Whodunit discussion timing](WHODUNIT_DISCUSSION_TIMING.md)

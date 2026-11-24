@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game
 
 import com.parlor.designsystem.icons.ParlorArtwork
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -17,6 +18,7 @@ import com.parlor.games.lastlight.ui.LocalLastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightVisibilityReader
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.catalog_genre_last_light
+import com.parlor.app.resources.party_rules_last_light
 import com.parlor.app.resources.home_lastlight_open
 import com.parlor.app.resources.home_lastlight_open_description
 import com.parlor.app.resources.home_lastlight_kicker
@@ -29,11 +31,16 @@ import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.designsystem.theme.ParlorAccentScope
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.lastlight.LastLightDefinition
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostLobbyFlow
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightHostRoomBridge
 import com.parlor.games.lastlight.ui.flow.multidevice.LastLightPeerLobbyFlow
 import com.parlor.games.lastlight.ui.flow.passandplay.LastLightGameFlow
+import com.parlor.games.lastlight.ui.flow.multidevice.LastLightPartyMatch
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
 import com.parlor.session.multidevice.MultiplayerSessionRole
@@ -42,7 +49,7 @@ import org.koin.compose.koinInject
 
 internal class LastLightGameShellBinding(
     private val lastlightDefinition: LastLightDefinition,
-) : GameShellBinding {
+) : GameShellBinding, PartyGameShell {
     override val definition: GameDefinition<*, *, *> = lastlightDefinition
     override val capabilities = GameShellCapabilities(
         setOf(
@@ -71,6 +78,24 @@ internal class LastLightGameShellBinding(
     )
 
     @Composable
+    override fun PartyRules(playerCount: Int) {
+        Text(stringResource(Res.string.party_rules_last_light), color = ParlorTheme.colors.textPrimary)
+    }
+
+    @Composable
+    override fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
+    ) = WithLastLightVisibility {
+        ParlorAccentScope(ParlorAccent.Amber) {
+            LastLightPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
+        }
+    }
+
+    @Composable
     override fun Content(
         launch: GameShellLaunch,
         onExit: () -> Unit,
@@ -78,21 +103,7 @@ internal class LastLightGameShellBinding(
         modifier: Modifier,
     ) {
         require(launch.gameId == definition.id) { "LastLight binding received another game" }
-        val lifecycle: AppLifecycleCoordinator = koinInject()
-        val visibility by lifecycle.visibility.collectAsState()
-        val readVisibility = remember(lifecycle) {
-            {
-                val current = lifecycle.visibility.value
-                LastLightProcessVisibility(!current.privateContentCovered, current.privacyEpoch)
-            }
-        }
-        CompositionLocalProvider(
-            LocalLastLightProcessVisibility provides LastLightProcessVisibility(
-                isForeground = !visibility.privateContentCovered,
-                concealmentEpoch = visibility.privacyEpoch,
-            ),
-            LocalLastLightVisibilityReader provides readVisibility,
-        ) {
+        WithLastLightVisibility {
             ParlorAccentScope(ParlorAccent.Amber) {
                 LastLightShellContent(
                     launch = launch,
@@ -105,6 +116,27 @@ internal class LastLightGameShellBinding(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun WithLastLightVisibility(content: @Composable () -> Unit) {
+    val lifecycle: AppLifecycleCoordinator = koinInject()
+    val visibility by lifecycle.visibility.collectAsState()
+    val readVisibility = remember(lifecycle) {
+        {
+            val current = lifecycle.visibility.value
+            LastLightProcessVisibility(!current.privateContentCovered, current.privacyEpoch)
+        }
+    }
+    CompositionLocalProvider(
+        LocalLastLightProcessVisibility provides LastLightProcessVisibility(
+            isForeground = !visibility.privateContentCovered,
+            concealmentEpoch = visibility.privacyEpoch,
+        ),
+        LocalLastLightVisibilityReader provides readVisibility,
+    ) {
+        content()
     }
 }
 
@@ -163,13 +195,10 @@ private fun LastLightShellContent(
             },
         )
     }
+    val invitation = launch.joinInvitation
+    var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Peer }
-                ?.roomCode
-                .orEmpty(),
-        )
+        mutableStateOf(restoredRoute?.roomCode ?: invitation?.code.orEmpty())
     }
 
     LaunchedEffect(backRequest.id) {
@@ -264,7 +293,11 @@ private fun LastLightShellContent(
             onConfirm = { name ->
                 if (screen == LastLightShellScreen.JoinName) {
                     peerName = name
-                    screen = LastLightShellScreen.JoinPrompt
+                    screen = if (invitation == null) {
+                        LastLightShellScreen.JoinPrompt
+                    } else {
+                        LastLightShellScreen.PeerLobby
+                    }
                 }
             },
             onBack = onExit,
@@ -275,9 +308,12 @@ private fun LastLightShellContent(
             gameTitle = presentation.title,
             seatName = peerName,
             onChangeName = { if (screen == LastLightShellScreen.JoinPrompt) screen = LastLightShellScreen.JoinName },
-            onConfirm = { code ->
+            transport = transport,
+            game = HostedGameProtocol(launch.gameId, LastLightHostRoomBridge.GAME_VERSION),
+            onConfirm = { code, selection ->
                 if (screen == LastLightShellScreen.JoinPrompt) {
                     pendingJoinCode = code
+                    discoveredRoom = selection
                     screen = LastLightShellScreen.PeerLobby
                 }
             },
@@ -292,6 +328,8 @@ private fun LastLightShellContent(
                 LastLightPeerLobbyFlow(
                     transport = transport,
                     code = pendingJoinCode,
+                    discoveredRoom = discoveredRoom,
+                    invitation = invitation,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
@@ -323,6 +361,7 @@ private fun LastLightShellContent(
 }
 
 private fun GameShellLaunch.initialLastLightScreen(): LastLightShellScreen = when (this) {
+    is GameShellLaunch.JoinByInvitation -> LastLightShellScreen.JoinPermission
     is GameShellLaunch.New -> LastLightShellScreen.Setup
     is GameShellLaunch.ResumeLocal -> LastLightShellScreen.LocalGame
     is GameShellLaunch.ResumeMultiplayer -> LastLightShellScreen.ResumePermission

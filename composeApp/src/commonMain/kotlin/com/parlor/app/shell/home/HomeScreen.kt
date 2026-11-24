@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_open
 import com.parlor.app.resources.app_name
 import com.parlor.app.resources.catalog_empty_body
 import com.parlor.app.resources.catalog_empty_title
@@ -103,6 +105,7 @@ import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.EmptyState
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorMark
 import com.parlor.designsystem.components.libraryFocusOutline
@@ -132,12 +135,13 @@ internal fun HomeScreen(
     recoveryActionsEnabled: Boolean = true,
     catalogScrollState: HomeCatalogScrollState = rememberHomeCatalogScrollState(),
     onOpenProfile: (() -> Unit)? = null,
+    onParty: (() -> Unit)? = null,
 ) {
     var selectedFilter by rememberSaveable { mutableStateOf(HomeCatalogFilter.All) }
     var returnFocusKey by rememberSaveable { mutableStateOf<String?>(null) }
     val filteredGames = games.filter { selectedFilter.accepts(it.capabilities) }
     val itemKeys = homeCatalogItemKeys(
-        filteredGames, unfinishedSessions, hasResumableMultiplayer, recoveryLoading, recoveryUnavailable,
+        filteredGames, unfinishedSessions, hasResumableMultiplayer, recoveryLoading, recoveryUnavailable, onParty != null,
     )
     LaunchedEffect(catalogScrollState, recoveryLoading, itemKeys) {
         if (!recoveryLoading) catalogScrollState.restoreAfterRecovery(itemKeys)
@@ -157,6 +161,7 @@ internal fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar(onOpenProfile) }
+
             if (unfinishedSessions.isNotEmpty() || hasResumableMultiplayer) {
                 item(span = { GridItemSpan(maxLineSpan) }, key = "continue-label") {
                     RecoveryHeading()
@@ -193,6 +198,8 @@ internal fun HomeScreen(
                     }
                 }
             }
+
+            partyEntry(onParty)
 
             item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
                 if (showFeatured && games.size > 1) FeaturedGames(games, onGameSelected)
@@ -262,6 +269,14 @@ private fun libraryColumns(width: Dp, padding: PaddingValues): Int {
 
 @Composable
 private fun catalogGameCount(count: Int): String = pluralStringResource(Res.plurals.home_games_count, count, count)
+
+private fun LazyGridScope.partyEntry(onParty: (() -> Unit)?) {
+    if (onParty == null) return
+    item(span = { GridItemSpan(maxLineSpan) }, key = "party-entry") {
+        val label = stringResource(Res.string.party_open)
+        ParlorButton(label, onParty, label, modifier = Modifier.fillMaxWidth(), variant = ParlorButtonVariant.Secondary)
+    }
+}
 
 @Composable
 private fun HomeTopBar(onOpenProfile: (() -> Unit)?) {

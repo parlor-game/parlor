@@ -35,6 +35,7 @@ import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_opening
 import com.parlor.app.resources.room_opening_progress
 import com.parlor.app.shell.game.GameCatalogPresentation
+import com.parlor.designsystem.components.AdmissionWaiting
 import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.LibrarySurface
@@ -43,6 +44,7 @@ import com.parlor.designsystem.components.StickyActionLayout
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.networking.transport.ApprovalWait
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -61,6 +63,7 @@ internal fun RoomOpeningStatus(
     modifier: Modifier = Modifier,
     hostName: String? = null,
     enabled: Boolean = true,
+    approval: ApprovalWait? = null,
 ) {
     val spacing = ParlorTheme.spacing
     LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
@@ -92,6 +95,11 @@ internal fun RoomOpeningStatus(
                                     )
                                 }
                             }
+                        }
+                    }
+                    approval?.let {
+                        ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = spacing.m) {
+                            AdmissionWaiting(it.lobby.hostDisplayName, it.deadline)
                         }
                     }
                     ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = spacing.m) {

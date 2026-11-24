@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game
 
 import com.parlor.designsystem.icons.ParlorArtwork
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.catalog_genre_mafia
+import com.parlor.app.resources.party_rules_mafia
 import com.parlor.app.resources.home_mafia_open
 import com.parlor.app.resources.home_mafia_open_description
 import com.parlor.app.resources.home_mafia_kicker
@@ -23,11 +25,16 @@ import com.parlor.app.shell.playmode.PlayModePickerScreen
 import com.parlor.engine.definition.GameDefinition
 import com.parlor.designsystem.theme.ParlorAccent
 import com.parlor.designsystem.theme.ParlorAccentScope
+import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.MafiaDefinition
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostLobbyFlow
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaHostRoomBridge
 import com.parlor.games.mafia.ui.flow.multidevice.MafiaPeerLobbyFlow
 import com.parlor.games.mafia.ui.flow.passandplay.MafiaGameFlow
+import com.parlor.games.mafia.ui.flow.multidevice.MafiaPartyMatch
+import com.parlor.networking.protocol.SessionEndReason
+import com.parlor.session.multidevice.ProcessMultiplayerSession
+import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.PlayMode
 import com.parlor.session.multidevice.MultiplayerSessionRole
@@ -36,7 +43,7 @@ import org.koin.compose.koinInject
 
 internal class MafiaGameShellBinding(
     private val mafiaDefinition: MafiaDefinition,
-) : GameShellBinding {
+) : GameShellBinding, PartyGameShell {
     override val definition: GameDefinition<*, *, *> = mafiaDefinition
     override val capabilities = GameShellCapabilities(
         setOf(
@@ -63,6 +70,20 @@ internal class MafiaGameShellBinding(
         accent = ParlorAccent.Crimson,
         artwork = ParlorArtwork.Moon,
     )
+
+    @Composable
+    override fun PartyRules(playerCount: Int) {
+        Text(stringResource(Res.string.party_rules_mafia), color = ParlorTheme.colors.textPrimary)
+    }
+
+    @Composable
+    override fun PartyMatch(
+        session: ProcessMultiplayerSession,
+        onEndHostMatch: (SessionEndReason) -> Unit,
+        onReturnToParty: () -> Unit,
+        onHostStarted: suspend () -> Unit,
+        modifier: Modifier,
+    ) = MafiaPartyMatch(session, onEndHostMatch, onReturnToParty, onHostStarted, modifier)
 
     @Composable
     override fun Content(
@@ -141,13 +162,10 @@ private fun MafiaShellContent(
             },
         )
     }
+    val invitation = launch.joinInvitation
+    var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Peer }
-                ?.roomCode
-                .orEmpty(),
-        )
+        mutableStateOf(restoredRoute?.roomCode ?: invitation?.code.orEmpty())
     }
 
     LaunchedEffect(backRequest.id) {
@@ -242,7 +260,11 @@ private fun MafiaShellContent(
             onConfirm = { name ->
                 if (screen == MafiaShellScreen.JoinName) {
                     peerName = name
-                    screen = MafiaShellScreen.JoinPrompt
+                    screen = if (invitation == null) {
+                        MafiaShellScreen.JoinPrompt
+                    } else {
+                        MafiaShellScreen.PeerLobby
+                    }
                 }
             },
             onBack = onExit,
@@ -253,9 +275,12 @@ private fun MafiaShellContent(
             gameTitle = presentation.title,
             seatName = peerName,
             onChangeName = { if (screen == MafiaShellScreen.JoinPrompt) screen = MafiaShellScreen.JoinName },
-            onConfirm = { code ->
+            transport = transport,
+            game = HostedGameProtocol(launch.gameId, MafiaHostRoomBridge.GAME_VERSION),
+            onConfirm = { code, selection ->
                 if (screen == MafiaShellScreen.JoinPrompt) {
                     pendingJoinCode = code
+                    discoveredRoom = selection
                     screen = MafiaShellScreen.PeerLobby
                 }
             },
@@ -270,6 +295,8 @@ private fun MafiaShellContent(
                 MafiaPeerLobbyFlow(
                     transport = transport,
                     code = pendingJoinCode,
+                    discoveredRoom = discoveredRoom,
+                    invitation = invitation,
                     peerName = peerName,
                     onBackToHome = onExit,
                     onOpenNetworkSettings = openNetworkSettings,
@@ -301,6 +328,7 @@ private fun MafiaShellContent(
 }
 
 private fun GameShellLaunch.initialMafiaScreen(): MafiaShellScreen = when (this) {
+    is GameShellLaunch.JoinByInvitation -> MafiaShellScreen.JoinPermission
     is GameShellLaunch.New -> MafiaShellScreen.Setup
     is GameShellLaunch.ResumeLocal -> MafiaShellScreen.LocalGame
     is GameShellLaunch.ResumeMultiplayer -> MafiaShellScreen.ResumePermission

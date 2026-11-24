@@ -45,6 +45,7 @@ import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.LibrarySurface
+import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
@@ -113,7 +114,10 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
     }
     val scrollState = rememberScrollState()
     val body: @Composable () -> Unit = {
-        LobbyInvitation(info.code, info.hostDisplayName, presentation)
+        LobbyInvitation(
+            info.code, info.hostDisplayName, info.roomTag,
+            createLink = room::createJoinLink, game = presentation,
+        )
         if (pending.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.lobby_requests_heading),
@@ -133,6 +137,7 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
                         color = ParlorTheme.colors.textPrimary,
                         style = ParlorTheme.typography.labelLarge,
                     )
+                    AdmissionCountdown(request.approvalDeadline)
                     val act: (Boolean) -> Unit = { approve ->
                         if (enabled && request.playerId !in admitting) {
                             admitting = admitting + request.playerId

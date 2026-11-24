@@ -140,7 +140,7 @@ class NeonShellVisualEvidenceTest {
                                         )
                                         "name-entry" -> NameInputScreen(true, "", {}, {}, gameTitle = gameTitle)
                                         "room-code" -> JoinPromptScreen(
-                                            {}, {}, gameTitle = gameTitle, seatName = name, onChangeName = {},
+                                            { _, _ -> }, {}, gameTitle = gameTitle, seatName = name, onChangeName = {},
                                         )
                                         "waiting" -> RoomOpeningStatus(
                                             waitingGame.catalogPresentation(), RoomOpeningPhase.Opening, {}, hostName = name,

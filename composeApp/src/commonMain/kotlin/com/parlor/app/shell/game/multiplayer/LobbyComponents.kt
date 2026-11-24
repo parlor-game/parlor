@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.party_invite_players
 import com.parlor.app.resources.lobby_player_host
 import com.parlor.app.resources.lobby_player_ready
 import com.parlor.app.resources.lobby_welcome_title
@@ -31,13 +32,24 @@ import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.RoomCodeWithCopy
+import com.parlor.designsystem.components.InviteToLobbyButton
+import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.LobbyRoomTag
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.room.RoomMember
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun LobbyInvitation(code: String, hostName: String, game: GameCatalogPresentation? = null) {
+internal fun LobbyInvitation(
+    code: String,
+    hostName: String,
+    roomTag: String? = null,
+    createLink: (suspend () -> String?)? = null,
+    onInvite: (() -> Unit)? = null,
+    game: GameCatalogPresentation? = null,
+) {
     val spacing = ParlorTheme.spacing
     val shape = RoundedCornerShape(ParlorTheme.radii.card)
     ParlorCard(
@@ -75,6 +87,16 @@ internal fun LobbyInvitation(code: String, hostName: String, game: GameCatalogPr
                     EyebrowLabel(stringResource(Res.string.room_game_code))
                     RoomCodeWithCopy(code = code)
                 }
+            }
+            LobbyRoomTag(roomTag)
+            if (roomTag != null && onInvite != null) {
+                val label = stringResource(Res.string.party_invite_players)
+                ParlorButton(
+                    label, onInvite, label,
+                    modifier = Modifier.fillMaxWidth(), variant = ParlorButtonVariant.Secondary,
+                )
+            } else if (roomTag != null && createLink != null) {
+                InviteToLobbyButton(createLink)
             }
             Text(stringResource(Res.string.room_game_host, hostName.asBidiArgument()),
                 color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.labelLarge)

@@ -210,6 +210,7 @@ fun MafiaMultiDevicePeerFlow(
             scope = scope,
             onBackToHome = onBackToHome,
             modifier = modifier.fillMaxSize(),
+            returnToParty = ownedSession.room.matchProtocol?.partyId != null,
         )
     }
 }

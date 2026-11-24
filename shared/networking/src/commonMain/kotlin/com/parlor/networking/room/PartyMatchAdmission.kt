@@ -1,0 +1,26 @@
+package com.parlor.networking.room
+
+import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.SessionId
+import com.parlor.core.result.Result
+import com.parlor.networking.protocol.GameProtocolRef
+
+/** A host party room keeps logical membership alive across independently owned matches. */
+interface PartyMatchAdmission {
+    val partyId: PartyId
+
+    /** Atomically switches lobby admission to the selected game's exact tuple and seat limit. */
+    suspend fun selectGame(
+        expected: GameProtocolRef,
+        next: GameProtocolRef,
+        seatLimit: Int,
+        expectedMembers: Set<PlayerId>,
+    ): Result<Unit, NetError>
+
+    /** Freeze exactly the connected peers in the current start attempt, without retiring other party seats. */
+    suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>): Result<List<RoomMember>, NetError>
+
+    /** Return to lobby admission only if this call owns the frozen match. */
+    suspend fun reopenMatch(id: SessionId): Result<Unit, NetError>
+}

@@ -58,7 +58,10 @@ import com.parlor.designsystem.components.StickyActionLayout
 import com.parlor.designsystem.components.parlorImePadding
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.RoomInputPolicy
+import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.RoomTransport
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -67,15 +70,18 @@ import org.jetbrains.compose.resources.stringResource
  * authoritative join/resume and acknowledged-session-start workflow.
  */
 @Composable
-fun JoinPromptScreen(
-    onConfirm: (code: String) -> Unit,
+internal fun JoinPromptScreen(
+    onConfirm: (code: String, room: DiscoveredRoomSelection?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     gameTitle: String? = null,
     seatName: String? = null,
     onChangeName: (() -> Unit)? = null,
+    transport: RoomTransport? = null,
+    game: HostedGameProtocol? = null,
 ) {
     var code by remember { mutableStateOf("") }
+    var selection by remember(game) { mutableStateOf<DiscoveredRoomSelection?>(null) }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -146,6 +152,9 @@ fun JoinPromptScreen(
                             )
                         }
                     }
+                    if (transport?.capability?.supportsDiscovery == true && game != null) {
+                        NearbyRoomsPanel(transport, game, selection) { selection = it }
+                    }
                 }
             },
             actions = {
@@ -156,7 +165,7 @@ fun JoinPromptScreen(
                         onClick = {
                             // An enabled callback can outlive the draft it was rendered for.
                             val currentCode = code
-                            if (RoomInputPolicy.isValidRoomCode(currentCode)) onConfirm(currentCode)
+                            if (RoomInputPolicy.isValidRoomCode(currentCode)) onConfirm(currentCode, selection)
                         },
                         modifier = Modifier.widthIn(max = RoomEntryMaxWidth).fillMaxWidth(),
                         enabled = RoomInputPolicy.isValidRoomCode(code),
@@ -167,7 +176,6 @@ fun JoinPromptScreen(
         )
     }
 }
-
 
 /** The editable field owns the entire code and its accessibility semantics. */
 @Composable

@@ -193,6 +193,7 @@
     <string name="vote_outcome_all_abstained">امتنع الجميع — لم يُطرد أحد.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">العودة إلى المجموعة</string>
     <string name="postgame_eyebrow">انتهت اللعبة</string>
     <string name="postgame_mafia_wins">فاز الحرامية</string>
     <string name="postgame_town_wins">فاز الظباط</string>
@@ -246,6 +247,7 @@
     <string name="md_net_error_timeout">انتهت مهلة الاتصال.</string>
     <string name="md_net_error_payload_too_large">أرسلت الغرفة بيانات أكبر من الحد الآمن للمعالجة.</string>
     <string name="md_net_error_wrong_code">لم يتم العثور على غرفة مطابقة. تحقق من رمز الغرفة وحاول مجددًا.</string>
+    <string name="md_net_error_wrong_game">الغرفة دي للعبة تانية أو لإصدار مختلف منها. اختر اللعبة المطابقة وتحقق من الرمز.</string>
     <string name="md_net_error_host_declined">رفض المضيف طلب الانضمام هذا.</string>
     <string name="md_net_error_room_full">هذه الغرفة ممتلئة.</string>
     <string name="md_net_error_session_started">بدأت هذه اللعبة بالفعل ولم تعد تقبل لاعبين جددًا.</string>
@@ -311,4 +313,6 @@
     <string name="discussion_how_to">شاركوا شكوككم واسألوا بعضكم بعضًا. أبقوا الأدوار الخاصة وشاشات الليل مخفية.</string>
     <string name="vote_public_label">تصويت علني</string>
     <string name="vote_public_detail">اختيارك ظاهر للجميع.</string>
+    <string name="md_net_error_approval_expired">انتهت مهلة طلب الانضمام. اطلب من اللاعب المحاولة مرة تانية.</string>
+    <string name="md_net_error_stale_room">الغرفة دي اتقفلت أو اتبدلت. اطلب من المضيف دعوة جديدة.</string>
 </resources>

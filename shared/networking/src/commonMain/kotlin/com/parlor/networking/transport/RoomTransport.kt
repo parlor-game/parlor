@@ -1,14 +1,22 @@
 package com.parlor.networking.transport
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.invitation.JoinInvitation
+import com.parlor.networking.invitation.PartyJoinInvitation
+import com.parlor.networking.protocol.AdmissionLobbyInfo
+import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.room.DiscoveredRoom
+import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlin.time.TimeMark
 
 private val unreportedLocalNetworkAccess =
     MutableStateFlow<LocalNetworkAccess>(LocalNetworkAccess.NotApplicable)
@@ -39,7 +47,7 @@ interface RoomTransport {
     suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError>
 
     suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-        if (config.expectedGameProtocol != null) {
+        if (config.hasScopedTarget()) {
             Result.Failure(NetError.IncompatibleProtocol)
         } else {
             join(config.code, config.displayName)
@@ -48,6 +56,15 @@ interface RoomTransport {
     /** Non-secret metadata for an encrypted resumable membership, if present. */
     suspend fun resumableSession(): Result<ResumableSessionInfo?, NetError> =
         Result.Success(null)
+
+    /** Party resume has a separate target and never resolves through a game binding. */
+    suspend fun resumablePartySession(): Result<ResumablePartySessionInfo?, NetError> =
+        Result.Success(null)
+
+    suspend fun resumeParty(
+        expectedPartyId: PartyId,
+        selection: ResumableSessionSelection,
+    ): Result<LocalRoom, NetError> = Result.Failure(NetError.IncompatibleProtocol)
 
     /** Resume the last protected membership on a fresh physical connection. */
     suspend fun resumeLastSession(): Result<LocalRoom, NetError> =
@@ -106,11 +123,22 @@ interface RoomTransport {
      */
     fun discoverRooms(): Flow<List<DiscoveredRoom>> = flowOf(emptyList())
 
+    /** Browse only the selected game's compatible advertisements. */
+    fun discoverRooms(game: HostedGameProtocol): Flow<Result<List<DiscoveredRoom>, NetError>> =
+        flowOf(Result.Success(emptyList()))
+
     /** Ordered app lifecycle inputs. Implementations must be idempotent. */
     fun notifyAppBackgrounded() = Unit
 
     fun notifyAppForegrounded() = Unit
 }
+
+private fun JoinConfig.hasScopedTarget(): Boolean = isPartyTarget() || isGameTarget()
+
+private fun JoinConfig.isPartyTarget(): Boolean = party != null || partyInvitation != null
+
+private fun JoinConfig.isGameTarget(): Boolean =
+    expectedGameProtocol != null || expectedRoomId != null || discoveredRoom != null || invitation != null
 
 /** Truthful, transport-observed local-network state; never a guessed OS grant. */
 sealed interface LocalNetworkAccess {
@@ -161,17 +189,30 @@ data class HostConfig(
     val maxRemotePlayers: Int = 17,
     /** Shipping game identity persisted into resumable membership credentials. */
     val gameProtocol: HostedGameProtocol? = null,
+    /** A group is a separate room scope. Its initial selection does not identify the group. */
+    val partyProtocol: HostedPartyProtocol? = null,
 ) {
     init {
+        require(gameProtocol == null || partyProtocol == null) { "A physical room has exactly one configured scope" }
+        require((partyProtocol?.initialSeatLimit ?: maxRemotePlayers + 1) in 2..(maxRemotePlayers + 1)) {
+            "Party capacity must fit the physical room"
+        }
         require(maxRemotePlayers in 1..17) { "maxRemotePlayers must be in 1..17" }
     }
 }
+
+data class HostedPartyProtocol(
+    val id: PartyId,
+    val initialGame: HostedGameProtocol,
+    val initialSeatLimit: Int? = null,
+)
 
 data class HostedGameProtocol(
     val gameId: GameId,
     val gameVersion: Int,
 ) {
     init {
+        gameId.requireCanonical()
         require(gameVersion > 0) { "gameVersion must be positive" }
     }
 }
@@ -181,15 +222,22 @@ data class JoinConfig(
     val displayName: String,
     val rejoinToken: String? = null,
     /**
-     * Selected game binding, checked against authenticated admission metadata
-     * before confirming membership. Null is reserved for game-agnostic callers;
+     * Selected game binding, sent in the authenticated admission request and
+     * checked again against the offer before confirming membership. Null is reserved for game-agnostic callers;
      * shipping game join flows must supply this. Transports without binding
-     * support must reject before opening a room. This is not a wire field.
+     * support must reject before opening a room. The wire request carries the validated tuple.
      */
     val expectedGameProtocol: HostedGameProtocol? = null,
-    /** Called when the authenticated host reports that this seat awaits approval. Carries no room data. */
-    val onAwaitingHostApproval: (() -> Unit)? = null,
+    val expectedRoomId: RoomId? = null,
+    val discoveredRoom: DiscoveredRoomSelection? = null,
+    val invitation: JoinInvitation? = null,
+    val party: PartyAdmissionContext? = null,
+    val partyInvitation: PartyJoinInvitation? = null,
+    val onApprovalPending: ((ApprovalWait) -> Unit)? = null,
 )
+
+/** Host-authenticated lobby details. This local countdown is indicative. */
+data class ApprovalWait(val lobby: AdmissionLobbyInfo, val deadline: TimeMark)
 
 data class ResumableSessionInfo(
     val gameId: GameId,
@@ -198,6 +246,13 @@ data class ResumableSessionInfo(
     val expiresAtEpochMillis: Long,
     /** Opaque, non-secret ownership capability; never reconstructed from presentation fields. */
     val deletionSelection: ResumableSessionSelection? = null,
+)
+
+data class ResumablePartySessionInfo(
+    val partyId: PartyId,
+    val displayName: String,
+    val expiresAtEpochMillis: Long,
+    val selection: ResumableSessionSelection,
 )
 
 /** Non-persistent implementation-owned membership handle; never a credential or serialized identity. */

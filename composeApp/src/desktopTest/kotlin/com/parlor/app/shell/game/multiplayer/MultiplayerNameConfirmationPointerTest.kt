@@ -40,7 +40,13 @@ import com.parlor.networking.room.NetError
 import com.parlor.networking.testing.InMemoryPeerRoom
 import com.parlor.networking.testing.InMemoryRoomBus
 import com.parlor.networking.transport.HostConfig
+import com.parlor.networking.protocol.AdmissionLobbyInfo
+import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.JoinConfig
+import com.parlor.core.ids.RoomId
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
@@ -278,7 +284,9 @@ private class PendingApprovalPeer : RoomTransport {
     override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> {
         joinStarted.complete(Unit)
         reportPending.await()
-        checkNotNull(config.onAwaitingHostApproval).invoke()
+        val game = checkNotNull(config.expectedGameProtocol)
+        val lobby = AdmissionLobbyInfo(RoomId("a".repeat(32)), GameProtocolRef(game.gameId, game.gameVersion), "Host", 1, 5)
+        checkNotNull(config.onApprovalPending).invoke(ApprovalWait(lobby, TimeSource.Monotonic.markNow() + 60.seconds))
         admit.await()
         val peerId = PlayerId("test-peer")
         val bus = InMemoryRoomBus().apply { registerPeer(peerId) }

@@ -54,7 +54,7 @@ internal class MafiaHostRuntime(
     private val rawSession = PassAndPlaySessionController(
         definition = definition,
         config = SessionConfig(
-            sessionId = SessionId("mafia-mp-host-${seed.toString(16)}"),
+            sessionId = room.matchProtocol?.sessionId ?: SessionId("mafia-mp-host-${seed.toString(16)}"),
             caseId = CaseId("default"),
             modeId = MafiaIds.ClassicModeId,
             players = players,
