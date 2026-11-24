@@ -37,7 +37,9 @@ def tree():
 
 
 def label(node):
-    return " ".join((node.get("text", ""), node.get("content-desc", ""))).strip().casefold()
+    text = " ".join((node.get("text", ""), node.get("content-desc", "")))
+    # Player names are isolated for bidirectional display in the real UI.
+    return text.translate(dict.fromkeys(range(0x2066, 0x206A))).strip().casefold()
 
 
 def find(target, *, width, height, scroll=False, click=False, max_tap_y=None):
