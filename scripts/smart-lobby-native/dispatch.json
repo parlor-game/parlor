@@ -1,17 +1,32 @@
 {
   "pairing": "distributed",
-  "candidate": "0438fc6ff53780e87fa111f68352b15dd44a3ec3",
+  "candidate": "b95ef31ff2d4c575fd11f068ee4e0d1bdb2254cc",
   "reuse_candidate": true,
   "platforms": [
-    "ios",
-    "ios",
+    "android",
+    "android",
+    "android",
+    "android",
+    "android",
     "ios"
   ],
   "token_digests": [
-    "de236694fe3ff4d5b9307de5d59dbbb5d136d60d87b2927029ba8bc6dcff569e",
-    "3e95e5b6618c5cbc1faf6c5531132dec42e1bfbafef053d9e45ed096385fc746",
-    "5291d7e89b0dc14cc736216134cf418f66136ac4b4926ad871e83862faada0cd"
+    "e1b7044bd722604c3844b9d4da70e65835a5b6470a4e8c8a9ed3dfb351d84ec4",
+    "b484da46872eface90ebfc934ac5a00bad36805169191c88b24158b8c6bc21bb",
+    "d5cc55d90b0f2f4ff8acb1eea4e899142e249aec2558e880c36e5a686f5e09b9",
+    "c2b68d13c6431b673b1eea02a8b30ef661176390d53f2d704a4db40ba72441b7",
+    "55ead12f1914fcf22ac77c56ca9a3a0199918dc22cebec227898030e07e17a6a",
+    "97cc35ccb06f18aa037ae87a9c9517c0930a444076da3fa6324a8744004a23b7"
   ],
   "require_native_ios": true,
-  "ios_lab_runner": "macos-15"
+  "external_producers": {
+    "ios": {
+      "run": 45292075319,
+      "harness_sha": "8adcb868e76e491952d537ee8f705b7a1f522b75"
+    },
+    "android": {
+      "run": 45295035951,
+      "harness_sha": "21c5df28567c87a85d24f188fe5d186403a82dd0"
+    }
+  }
 }
