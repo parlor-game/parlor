@@ -435,13 +435,22 @@ BUNDLE
         :
       else
         [[ "$?" == 124 ]]
-        bounded_simctl 30 spawn "$device" launchctl list | awk -v bundle="$bundle" '
+        local service_listing="$work/simulator-$device-app-launch-services.txt"
+        bounded_simctl 30 spawn "$device" launchctl list > "$service_listing"
+        if awk -v bundle="$bundle" '
           $1 ~ /^[1-9][0-9]*$/ && index($NF, "UIKitApplication:" bundle "[") == 1 {
             print bundle ": " $1; alive = 1
           }
           END { if (!alive) exit 1 }
-        ' > "$record/app-launch.txt"
-        printf '%s\n' 'reconciled-with-owned-simulator' > "$record/app-launch-source.txt"
+        ' "$service_listing" > "$record/app-launch.txt"; then
+          printf '%s\n' 'reconciled-with-owned-simulator' > "$record/app-launch-source.txt"
+        else
+          # Retry without console redirection after confirming the verified
+          # app has no process in this owned guest. No UI operation has run.
+          bounded_simctl 90 launch "$device" "$bundle" > "$record/app-launch.txt"
+          printf '%s\n' 'native-launch-without-console-redirection' > "$record/app-launch-source.txt"
+        fi
+        rm -f "$service_listing"
       fi
     else
       bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"

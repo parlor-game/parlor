@@ -279,11 +279,14 @@ def start_one(temp, index, device, digest, pairing):
     diagnostic_events = pairing == "distributed" or os.environ.get("PARLOR_NATIVE_DIAGNOSTICS") == "1"
     launch = []
     if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device):
-        launch = ["xcrun", "simctl", "launch"]
         if pairing == "distributed":
-            process_logs = temp / "parlor-process-logs" / device
-            launch += [f"--{stream}={process_logs / stream}" for stream in ("stdout", "stderr")]
-        launch += [device, package]
+            # The exact installed app is already running in this guest.
+            # Starting the controller need not launch it a second time.
+            receipt = temp / "parlor-proof" / device / "app-launch.txt"
+            if not re.fullmatch(rf"{re.escape(package)}:\s+[1-9][0-9]*", receipt.read_text().strip()):
+                raise ValueError("Missing verified native app process")
+        else:
+            launch = ["xcrun", "simctl", "launch", device, package]
     environment = {
         **os.environ,
         "UI_TEST_TARGET": target,
