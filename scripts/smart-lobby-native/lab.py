@@ -111,10 +111,10 @@ def plan():
 def external_producer():
     target = os.environ["TARGET"]
     expected = {
-        "android": ("native-android-macos-build.yml", "build"),
-        "ios": ("smart-lobby-native-ui.yml", "build (ios, macos-26)"),
+        "android": {"native-android-macos-build.yml": {"build", "build (android)"}},
+        "ios": {"smart-lobby-native-ui.yml": {"build (ios, macos-26)"},
+                "native-android-macos-build.yml": {"build (ios)"}},
     }
-    workflow, job_name = expected[target]
     payload = json.loads(CONFIG.read_text())
     producer = payload["external_producers"][target]
     run_id = producer["run"]
@@ -127,14 +127,16 @@ def external_producer():
         return json.loads(subprocess.check_output(["gh", "api", route + suffix], text=True))
 
     run = read()
+    workflow_path = run["path"].split("@", 1)[0]
+    allowed_jobs = expected[target].get(workflow_path.removeprefix(".github/workflows/"), set())
     if (run["id"] != run_id or run["event"] != "push" or run["status"] != "completed"
             or run["repository"]["full_name"] != repo or run["head_repository"]["full_name"] != repo
             or run["head_branch"] != "test/distributed-smart-lobby"
-            or run["path"].split("@", 1)[0] != f".github/workflows/{workflow}"
+            or not workflow_path.startswith(".github/workflows/") or not allowed_jobs
             or run["head_sha"] != producer["harness_sha"]):
         raise ValueError("External build is outside the expected workflow and revision")
     jobs = read("/jobs?per_page=60")["jobs"]
-    if not any(job["name"] == job_name and job["status"] == "completed" and job["conclusion"] == "success"
+    if not any(job["name"] in allowed_jobs and job["status"] == "completed" and job["conclusion"] == "success"
                for job in jobs):
         raise ValueError("The original exact build job has no successful result")
     name = f"candidate-{target}-1"

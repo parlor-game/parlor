@@ -1,4 +1,4 @@
-name: Build exact Parlor Android debug package on macOS
+name: Build exact Parlor debug packages on macOS
 on:
   push:
     branches: [test/distributed-smart-lobby]
@@ -10,9 +10,13 @@ permissions:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [android, ios]
     env:
-      TARGET: android
+      TARGET: ${{ matrix.target }}
       GRADLE_OPTS: >-
         -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
         -Dorg.gradle.jvmargs=-Xmx4g
@@ -23,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
       - id: source
-        name: Verify the exact Android source reference
+        name: Verify the exact app source reference
         shell: bash
         run: |
           read -r candidate < scripts/smart-lobby-native/android-macos-candidate.txt
@@ -38,14 +42,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build and hash the verified Android package
+      - name: Build and hash one package for this platform
         shell: bash
         env:
           CANDIDATE: ${{ steps.source.outputs.candidate }}
         run: bash scripts/smart-lobby-native/lab.sh build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: candidate-android-1
+          name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
           if-no-files-found: error
           retention-days: 7
