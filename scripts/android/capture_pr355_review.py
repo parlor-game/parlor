@@ -151,7 +151,7 @@ def profile(output, arabic, only_game=None):
     return {"profile": name, "pixels": [width, height], "density": density, "font_scale": scale, "routes": rows}
 
 
-def last_light_handoff(output):
+def play_last_light(output):
     width, height, density = 1080, 2280, 440
     adb("shell", "wm", "size", f"{width}x{height}")
     adb("shell", "wm", "density", str(density))
@@ -192,38 +192,50 @@ def last_light_handoff(output):
             if b"mInputShown=true" in adb("shell", "dumpsys", "input_method"):
                 adb("shell", "input", "keyevent", "KEYCODE_BACK")
         tap("Start match", scroll=True)
-        first = handoff()
-        screenshot(output / "last-light-first-covered-seat.png")
-        stages.append(f"Started local match at covered handoff to {first}")
-        tap(f"I am {first}")
-        tap("Show hand", scroll=True)
-        tap("Card 1 of", scroll=True)
-        tap("Play 1 card", scroll=True)
-        second = handoff(exclude=first)
-        screenshot(output / "last-light-second-covered-seat.png")
-        stages.append(f"Played one legal card. Covered handoff moved to {second}.")
-        tap(f"I am {second}")
-        tap(f"Challenge {first}", scroll=True)
-        stages.append("Second seat activated the enabled Challenge control.")
-        wanted = ("the claim was true.", "bluff caught.", "last light standing")
-        for _ in range(8):
-            labels = [label(node) for node in tree().iter("node")]
-            verdict = next((v for v in wanted if any(v in text for text in labels)), None)
-            if verdict:
-                screenshot(output / "last-light-public-challenge-result.png")
-                stages.append(f"Public result: {verdict}")
-                break
-            time.sleep(0.7)
-        else:
-            raise RuntimeError("No public round verdict or terminal winner appeared")
+        # A two-seat match must eliminate a player by its eleventh challenge.
+        # Each challenge consumes one of the two fixed six-step fuses.
+        for round_number in range(1, 12):
+            first = handoff()
+            screenshot(output / f"last-light-round-{round_number:02}-first-covered.png")
+            stages.append(f"Round {round_number}: covered handoff to {first}")
+            tap(f"I am {first}")
+            tap("Show hand", scroll=True)
+            tap("Card 1 of", scroll=True)
+            tap("Play 1 card", scroll=True)
+
+            second = handoff(exclude=first)
+            screenshot(output / f"last-light-round-{round_number:02}-second-covered.png")
+            stages.append(f"Round {round_number}: {first} played one card. Covered handoff to {second}.")
+            tap(f"I am {second}")
+            tap(f"Challenge {first}", scroll=True)
+
+            for _ in range(8):
+                labels = [label(node) for node in tree().iter("node")]
+                if any("last light standing" in text for text in labels):
+                    for player in (first, second):
+                        if any(f"{player.casefold()} wins." in text for text in labels):
+                            screenshot(output / "last-light-terminal-winner.png")
+                            stages.append(f"Round {round_number}: {player} wins.")
+                            return
+                verdict = next((value for value in ("the claim was true.", "bluff caught.")
+                                if any(value in text for text in labels)), None)
+                if verdict:
+                    screenshot(output / f"last-light-round-{round_number:02}-public-result.png")
+                    stages.append(f"Round {round_number}: {second} challenged. Public result: {verdict}")
+                    tap("Next round", scroll=True)
+                    break
+                time.sleep(0.7)
+            else:
+                raise RuntimeError("No public round verdict or terminal winner appeared")
+        raise RuntimeError("Two-seat match did not reach a winner within eleven rounds")
     finally:
         (output / "last-light-stages.json").write_text(json.dumps(stages, indent=2) + "\n")
 
 
 def main():
     output = Path(sys.argv[1])
-    if len(sys.argv) == 3 and sys.argv[2] == "--last-light-handoff":
-        last_light_handoff(output)
+    if len(sys.argv) == 3 and sys.argv[2] == "--last-light-match":
+        play_last_light(output)
         return
     profiles = []
     only_game = sys.argv[2] if len(sys.argv) == 3 else None
