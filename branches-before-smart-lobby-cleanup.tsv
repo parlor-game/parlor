@@ -1,0 +1,25 @@
+commit	branch	protected	reachable_from_main	disposition	reason
+8ea99ee0f11c4061609de328227517d97acf1a29	archive/branches-2026-11-20	false	false	advance	Existing restoration reference and its ancestry.
+e693b0cdb10e0b5947774c695faafeb431c56ac6	capture/native-screens-2026-11-22	false	false	retain	Reproducible native qualification or capture workflow and exact source selection.
+c62fdc739ec1fb1f9663abbe7524b472a627e0ae	diagnostic/ios-input-probe-2026-10-29	false	false	retain	Pinned native diagnostic or iOS protection follow-up.
+91eec0eceff4cef067e472b6d2523aaa753af47b	diagnostic/ios-original-host-runtime-2026-10-29	false	false	retain	Pinned native diagnostic or iOS protection follow-up.
+b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	diagnostic/ios-xcresult-review-2026-10-29	false	false	retain	Pinned native diagnostic or iOS protection follow-up.
+febe91cef00a5f7f63c1560cc9757e711844c166	diagnostic/xcode-worker-inventory-2026-10-29	false	false	retain	Pinned native diagnostic or iOS protection follow-up.
+a4c1f70c81c1713ad92cfbeeb156ac7f7a8bc96e	docs/smart-lobby-plan	false	false	retain	Exact reviewed planning reference tracked in issue #357.
+afe783838461afae1029f0369280a1bafadc395f	feat/last-light	false	true	retain	Named by existing test-distribution workflow and policy.
+98011a4f19ce8ea574c5ba5671d2255a3372d7cb	feat/smart-lobby-admission	false	true	retire	Superseded admission branch. Exact tip is an ancestor of protected main through PR #360.
+fc1baa04480eb5ff4da569fdbf36db729571d3be	feat/smart-lobby-game-admission	false	true	retire	Superseded scoped-admission branch. Exact tip is an ancestor of protected main through PR #360.
+997096d96366d83fa8fe25638264d0d55224fb52	feat/smart-lobby-party	false	true	retain	Exact recently merged PR #360 head during outstanding post-merge verification.
+458a63e7901de7a2661a7c042a41f1693c09c97c	fix/input-diagnostic-integration-2026-10-29	false	true	retain	Pinned native diagnostic or iOS protection follow-up.
+7d4907ecea59741c3e81e1bdf4a897c64118501a	fix/ios-complete-protection-readback-2026-11-04	false	false	retain	Pinned native diagnostic or iOS protection follow-up.
+55f24801b12e523eff92c2ab993a6ab88e25ecd7	main	true	true	retain	Protected integration or release branch.
+bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	release	true	true	retain	Protected integration or release branch.
+dee6831dc534c6e46b5fab6f442bc49177b636e2	test/distributed-smart-lobby	false	false	retain	Reproducible native qualification or capture workflow and exact source selection.
+333823cb17315010b2c467016f2fb593d218b70a	test/smart-lobby-native-ui	false	false	retain	Reproducible native qualification or capture workflow and exact source selection.
+b72e7124a93fed40a0c7bf212893389d81f3c6bc	test/smart-lobby-reconnect-observability	false	false	retain	Reproducible native qualification or capture workflow and exact source selection.
+997096d96366d83fa8fe25638264d0d55224fb52	test/smart-lobby-whodunit-candidate	false	true	retain	Reproducible native qualification or capture workflow and exact source selection.
+bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	testing	true	true	retain	Protected integration or release branch.
+3d40d3784aac6f69d5dfbe78c29ef390fd906d24	ux/mobile-party-hub	false	true	retire	Exact tip is an ancestor of protected main through PR #349. Further UI work uses the open redesign stack.
+384514bb1f7aceaf035bd12923cc6b12a3418e1a	ux/neon-compose-integration	false	false	retain	Open pull request source or base.
+effb07ffffc6455a9d00c9107eb2e89864c8bea2	ux/obsidian-game-modes-ui	false	false	retain	Open pull request source or base.
+f213cacbef2348bdd65750e6e252b8ed768e7a75	ux/obsidian-shared-shell	false	false	retain	Separate reference work with unique commits. Compare after the current redesign stack qualifies.
