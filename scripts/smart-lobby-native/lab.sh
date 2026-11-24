@@ -352,6 +352,17 @@ install_android() {
   done 3< "$devices"
 }
 
+ios_app_process() {
+  local services
+  services=$(bounded_simctl 30 spawn "$1" launchctl list) || return 2
+  awk -v bundle="$bundle" '
+    $1 ~ /^[1-9][0-9]*$/ && index($NF, "UIKitApplication:" bundle "[") == 1 {
+      print bundle ": " $1; alive = 1
+    }
+    END { if (!alive) exit 1 }
+  ' <<< "$services"
+}
+
 install_ios() {
   local device installed app launch_timeout=60
   (cd "$package" && shasum -a 256 -c SHA256SUMS)
@@ -435,22 +446,30 @@ BUNDLE
         :
       else
         [[ "$?" == 124 ]]
-        local service_listing="$work/simulator-$device-app-launch-services.txt"
-        bounded_simctl 30 spawn "$device" launchctl list > "$service_listing"
-        if awk -v bundle="$bundle" '
-          $1 ~ /^[1-9][0-9]*$/ && index($NF, "UIKitApplication:" bundle "[") == 1 {
-            print bundle ": " $1; alive = 1
-          }
-          END { if (!alive) exit 1 }
-        ' "$service_listing" > "$record/app-launch.txt"; then
+        if ios_app_process "$device" > "$record/app-launch.txt"; then
           printf '%s\n' 'reconciled-with-owned-simulator' > "$record/app-launch-source.txt"
         else
+          [[ "$?" == 1 ]]
           # Retry without console redirection after confirming the verified
           # app has no process in this owned guest. No UI operation has run.
-          bounded_simctl 90 launch "$device" "$bundle" > "$record/app-launch.txt"
-          printf '%s\n' 'native-launch-without-console-redirection' > "$record/app-launch-source.txt"
+          if bounded_simctl 90 launch "$device" "$bundle" > "$record/app-launch.txt"; then
+            printf '%s\n' 'native-launch-without-console-redirection' > "$record/app-launch-source.txt"
+          else
+            [[ "$?" == 124 ]]
+            local label
+            label=$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$app/Info.plist" 2>/dev/null ||
+              /usr/libexec/PlistBuddy -c 'Print CFBundleName' "$app/Info.plist")
+            if ios_app_process "$device" > "$record/app-launch.txt"; then
+              :
+            else
+              [[ "$?" == 1 ]]
+              python3 "$verification" ios-home-launch "$device" "$label"
+              sleep 3
+              ios_app_process "$device" > "$record/app-launch.txt"
+            fi
+            printf '%s\n' 'verified-native-process-after-home-recovery' > "$record/app-launch-source.txt"
+          fi
         fi
-        rm -f "$service_listing"
       fi
     else
       bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
@@ -562,8 +581,9 @@ PY_ADDRESS
     install_android
     if [[ "$PAIRING_NAME" == android ]]; then python3 "$verification" wifi; fi
   else
+    if [[ "$PAIRING_NAME" == distributed ]]; then install_ios_controller; fi
     install_ios
-    install_ios_controller
+    if [[ "$PAIRING_NAME" != distributed ]]; then install_ios_controller; fi
     open -a Simulator --args -CurrentDeviceUDID "$(head -n 1 "$devices")"
   fi
 }

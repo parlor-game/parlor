@@ -12,6 +12,7 @@ import struct
 import plistlib
 import sys
 import time
+from math import isfinite
 from urllib.parse import urlsplit
 
 from diagnostics import STREAM_EVENTS
@@ -158,6 +159,44 @@ def manifest():
             with path.open("rb") as stream:
                 files[entry] = hashlib.file_digest(stream, "sha256").hexdigest()
     print(json.dumps(files, indent=2))
+
+
+def ios_home_launch():
+    device, bundle_label = sys.argv[2:]
+    if not re.fullmatch(r"[0-9A-Fa-f-]{36}", device) or not 1 <= len(bundle_label) <= 60:
+        raise ValueError("Expected an owned Simulator and the verified application display name")
+    binary = (Path(os.environ["RUNNER_TEMP"]) / "parlor-axe-path").read_text().strip()
+    observation = subprocess.run([binary, "describe-ui", "--udid", device], capture_output=True, check=True,
+                                 timeout=30)
+    if len(observation.stdout) > 4_000_000:
+        raise ValueError("Unexpectedly large Simulator home observation")
+    pending = json.loads(observation.stdout)
+    if not isinstance(pending, list):
+        raise ValueError("Missing native accessibility inspection")
+    points = set()
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, dict):
+            continue
+        if isinstance(item.get("children"), list):
+            pending.extend(item["children"])
+        role = str(item.get("role") or item.get("type") or "").lower()
+        frame = item.get("frame")
+        if (item.get("AXLabel") or item.get("title")) != bundle_label or not isinstance(frame, dict):
+            continue
+        if "icon" not in role and "button" not in role:
+            continue
+        geometry = [frame.get(key) for key in ("x", "y", "width", "height")]
+        if not all(type(value) in (float, int) and isfinite(value) for value in geometry):
+            continue
+        x, y, width, height = geometry
+        if 0 <= x < 600 and 0 <= y < 1100 and 24 <= width <= 180 and 24 <= height <= 180:
+            points.add((round(x + width / 2), round(y + height / 2)))
+    if len(points) != 1:
+        raise ValueError("Installed app icon was not uniquely visible in this owned Simulator")
+    [(x, y)] = points
+    subprocess.run([binary, "tap", "-x", str(x), "-y", str(y), "--udid", device], capture_output=True,
+                   check=True, timeout=30)
 
 
 def check_ios_entitlement():
@@ -431,6 +470,7 @@ if __name__ == "__main__":
             "external-producer": external_producer,
             "pairing": lambda: print(configuration()[0]),
             "manifest": manifest,
+            "ios-home-launch": ios_home_launch,
             "check-ios-entitlement": check_ios_entitlement,
             "wifi": wifi,
             "start": start,
