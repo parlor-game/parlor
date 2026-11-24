@@ -179,6 +179,44 @@ raise SystemExit(status)
 SIMCTL
 }
 
+list_distributed_ios_devices() {
+  local inventory
+  if inventory=$(bounded_simctl 60 list devices available -j); then
+    printf '%s\n' "$inventory"
+    return 0
+  else
+    [[ "$?" == 124 && "${RUNNER_ENVIRONMENT:-}" == github-hosted && "${LAB_SEAT:-}" =~ ^[1-6]$ ]] || return 1
+  fi
+  # Inventory runs before this job claims a guest. Inside the disposable
+  # hosted VM, restart only the runner user's own CoreSimulator service.
+  python3 - "$PARLOR_NATIVE_IOS_PROOF" <<'RECOVER'
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+record = {"result": "service-not-found"}
+for domain in ("gui", "user"):
+    label = f"{domain}/{os.getuid()}/com.apple.CoreSimulator.CoreSimulatorService"
+    try:
+        response = subprocess.run(["/bin/launchctl", "print", label], stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL, timeout=8, check=False)
+        if response.returncode != 0:
+            continue
+        response = subprocess.run(["/bin/launchctl", "kickstart", "-k", label], stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL, timeout=15, check=False)
+        record = {"domain": domain, "result": "started" if response.returncode == 0 else "launchd-rejected",
+                  "exit_code": response.returncode}
+        break
+    except subprocess.TimeoutExpired:
+        record = {"domain": domain, "result": "launchd-timeout"}
+        break
+(Path(sys.argv[1]) / "coresimulator-inventory-recovery.json").write_text(json.dumps(record) + "\n")
+RECOVER
+  bounded_simctl 90 list devices available -j
+}
+
 boot_ios_group() {
   local runtime index device model=com.apple.CoreSimulator.SimDeviceType.iPhone-16
   local architecture="${PARLOR_IOS_BUILD_ARCH:-arm64}"
@@ -468,7 +506,7 @@ path, seat = Path(sys.argv[1]), int(sys.argv[2])
 script = path.read_text()
 replacements = {
     "192.168.137.2 netmask": f"192.168.137.{19 + seat} netmask",
-    "xcrun simctl list devices available -j": "bounded_simctl 60 list devices available -j",
+    "xcrun simctl list devices available -j": "list_distributed_ios_devices",
     'xcrun simctl bootstatus "$device" -b': 'bounded_simctl 240 bootstatus "$device" -b',
     'xcrun simctl spawn "$device" launchctl list > "$out/simulator-processes.txt"':
         'await_owned_springboard "$device" "$out/simulator-processes.txt"',
@@ -480,6 +518,7 @@ for command, replacement in replacements.items():
 path.write_text(script)
 PY_ADDRESS
         export -f bounded_simctl
+        export -f list_distributed_ios_devices
         export -f await_owned_springboard
         export PARLOR_NATIVE_IOS_PROOF="$proof"
       fi
