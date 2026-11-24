@@ -2,10 +2,11 @@
   "pairing": "mixed",
   "candidate": "d2a55eb5f4880798b6e07377df249e370dd2ff11",
   "token_digests": [
-    "ff7be892dd0b2df96c0faf606ef40e2496ffc697bc3ff3504fe3eef6ab01506a",
-    "caf843155192b5ede01c29c19b7dd1b12d96b4ff2b896282e38404882cca4a39"
+    "58ec2b196483a233b57d6b3d3cbb9cc88491b4fd662e2afafc483ecb9a000536",
+    "0b21b80ffe8dd260eca89694f7fd755a2d9dd3a1e17bc867340803fa86eb99d3"
   ],
   "observe_reconnect": true,
   "require_native_ios": false,
-  "visible_ios_window": true
+  "visible_ios_window": true,
+  "reuse_candidate": true
 }

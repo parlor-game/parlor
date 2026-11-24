@@ -72,7 +72,7 @@ def plan():
     fresh_presets = candidate == PRESETS_CANDIDATE and pairing == "mixed" and not reuse_candidate and observe_reconnect
     exact_pr355 = (
         candidate == "d2a55eb5f4880798b6e07377df249e370dd2ff11"
-        and pairing == "mixed" and not reuse_candidate and observe_reconnect
+        and pairing == "mixed" and observe_reconnect
     )
     if visible_ios and not (
         (reuse_party_night or fresh_presets or exact_pr355) and payload.get("require_native_ios") is False
@@ -105,6 +105,7 @@ def plan():
         print(f"extended_match={str(extended_match).lower()}", file=stream)
         print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
         print(f"retained_party_night_run={PARTY_NIGHT_PRODUCER if reuse_party_night else ''}", file=stream)
+        print(f"reuse_pr355={str(exact_pr355 and reuse_candidate).lower()}", file=stream)
         print(f"visible_ios_window={str(visible_ios).lower()}", file=stream)
         print(f"candidate={candidate}", file=stream)
 
