@@ -54,6 +54,11 @@ def plan():
     extended_match = payload.get("extended_match") is True
     if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         raise ValueError("Candidate must be an exact commit SHA")
+    reuse_presets_android = payload.get("reuse_exact_presets_android") is True
+    if reuse_presets_android and (
+        candidate != PRESETS_CANDIDATE or pairing != "android" or len(digests) != 2 or not reuse_candidate
+    ):
+        raise ValueError("The saved presets fallback requires the verified retained APK and two Android installs")
     reuse_party_night = reuse_candidate and candidate == PARTY_NIGHT_SOURCE
     visible_ios = payload.get("visible_ios_window") is True
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
@@ -70,7 +75,7 @@ def plan():
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
-    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair):
+    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or reuse_presets_android):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     builds = [{"target": target, "runner": runner} for target, runner in
@@ -80,6 +85,7 @@ def plan():
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         print(f"build={json.dumps([entry for entry in builds if observe_reconnect or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
+        print(f"reuse_presets_android={str(reuse_presets_android).lower()}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
         print(f"staged_ios_pair={str(staged_ios_pair).lower()}", file=stream)

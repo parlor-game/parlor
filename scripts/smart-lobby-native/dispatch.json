@@ -1,13 +1,10 @@
 {
-  "pairing": "mixed",
+  "pairing": "android",
   "candidate": "0b13c7892fd84dae800a095985a6db6b321a2281",
   "token_digests": [
-    "2f66ba2123e7cfe83843f63697433729fb5dc6ab3003470a215e74e9f4511454",
-    "17747fc8d7018aff506d66a3fed688186edafcaf523c869c080bb0c743e54fcd"
+    "b31a0c27645baf6b5ae520bcac039dd2f2dd9b81cc296140679dfd2a369a263e",
+    "b75598e7e62bd70a8a4b5a421ac292d6a837c608e16e03a9c13b198f603f5794"
   ],
-  "reuse_candidate": false,
-  "observe_reconnect": true,
-  "require_native_ios": false,
-  "visible_ios_window": true,
-  "extended_match": true
+  "reuse_candidate": true,
+  "reuse_exact_presets_android": true
 }

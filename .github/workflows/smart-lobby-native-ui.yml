@@ -25,6 +25,7 @@ jobs:
     outputs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
+      reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
       staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
@@ -131,11 +132,34 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android'
+        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android' && needs.plan.outputs.reuse_presets_android != 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
           run-id: '45075164525'
+          name: candidate-android-1
+          path: ${{ runner.temp }}/parlor-package
+      - name: Verify the original exact presets Android build
+        if: needs.plan.outputs.reuse_presets_android == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/parlor-game/parlor/actions/runs/45372545043/attempts/1 | jq -e '
+            .id == 45372545043 and .workflow_id == 427081574 and .run_attempt == 1 and
+            .repository.full_name == "parlor-game/parlor" and .head_repository.full_name == "parlor-game/parlor" and
+            .head_branch == "test/smart-lobby-native-ui" and .head_sha == "4216fa7454d40e3cbcc65448f493e43f23bc0645"' >/dev/null
+          gh api repos/parlor-game/parlor/actions/jobs/138370474137 | jq -e '
+            .run_id == 45372545043 and .run_attempt == 1 and .conclusion == "success" and
+            .name == "build (android, ubuntu-24.04)"' >/dev/null
+          gh api repos/parlor-game/parlor/actions/artifacts/14910227656 | jq -e '
+            .name == "candidate-android-1" and .digest == "sha256:4bc50dc1cfff39d047816943fc06ebd3aaab1685baf18efce9202380a2a5620e" and .expired == false and
+            .workflow_run.id == 45372545043 and .workflow_run.head_sha == "4216fa7454d40e3cbcc65448f493e43f23bc0645"' >/dev/null
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.reuse_presets_android == 'true'
+        with:
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '45372545043'
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Check the retained package uses the exact successful build producer
