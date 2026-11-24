@@ -241,10 +241,10 @@ RUNTIME
 
 await_owned_springboard() {
   local device="$1" deadline=$((SECONDS + 240))
+  local receipt="${2:-$proof/simulator-$device-services.txt}"
   while (( SECONDS < deadline )); do
-    if bounded_simctl 12 spawn "$device" launchctl list > "$proof/simulator-$device-services.txt" 2>/dev/null &&
-       awk '$1 ~ /^[0-9]+$/ && $NF == "com.apple.SpringBoard" { found = 1 } END { exit !found }' \
-         "$proof/simulator-$device-services.txt"; then
+    if bounded_simctl 15 spawn "$device" launchctl list com.apple.SpringBoard > "$receipt" 2>/dev/null &&
+       grep -Eq '^[[:space:]]*"PID"[[:space:]]*=[[:space:]]*[1-9][0-9]*;' "$receipt"; then
       printf 'Boot confirmed by a live SpringBoard on the owned simulator.\n'
       return 0
     fi
@@ -378,6 +378,8 @@ BUNDLE
     cmp "$package/app-manifest.json" "$record/installed-app-manifest.json"
     if [[ "${STAGED_IOS_PAIR:-false}" == true ]]; then
       cp "$proof/simulator-$device-services.txt" "$record/runtime-processes.txt"
+    elif [[ "$PAIRING_NAME" == distributed ]]; then
+      cp "$work/mobile-lan-preflight/simulator-processes.txt" "$record/runtime-processes.txt"
     else
       bounded_simctl 45 spawn "$device" launchctl list > "$record/runtime-processes.txt"
     fi
@@ -468,7 +470,8 @@ replacements = {
     "192.168.137.2 netmask": f"192.168.137.{19 + seat} netmask",
     "xcrun simctl list devices available -j": "bounded_simctl 60 list devices available -j",
     'xcrun simctl bootstatus "$device" -b': 'bounded_simctl 240 bootstatus "$device" -b',
-    'xcrun simctl spawn "$device" launchctl list': 'bounded_simctl 45 spawn "$device" launchctl list',
+    'xcrun simctl spawn "$device" launchctl list > "$out/simulator-processes.txt"':
+        'await_owned_springboard "$device" "$out/simulator-processes.txt"',
 }
 for command, replacement in replacements.items():
     if script.count(command) != 1:
@@ -477,6 +480,7 @@ for command, replacement in replacements.items():
 path.write_text(script)
 PY_ADDRESS
         export -f bounded_simctl
+        export -f await_owned_springboard
         export PARLOR_NATIVE_IOS_PROOF="$proof"
       fi
     fi
