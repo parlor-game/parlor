@@ -64,6 +64,9 @@ def plan():
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
     distributed = pairing == "distributed"
     layout = payload.get("platforms")
+    ios_runner = payload.get("ios_lab_runner", "macos-26")
+    if ios_runner not in ("macos-26", "macos-15") or (ios_runner != "macos-26" and not distributed):
+        raise ValueError("Unsupported iOS lab image")
     if distributed and (not isinstance(layout, list) or len(layout) != len(digests) or
                         any(platform not in ("android", "ios") for platform in layout) or
                         layout.count("ios") > 5 or (reuse_candidate and candidate != DUAL_IOS_SOURCE)):
@@ -74,7 +77,7 @@ def plan():
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     if distributed:
         targets = tuple(dict.fromkeys(layout))
-        labs = [{"target": platform, "runner": runners[platform],
+        labs = [{"target": platform, "runner": ios_runner if platform == "ios" else runners[platform],
                  "pairing": pairing, "count": 1, "seat": seat} for seat, platform in enumerate(layout, 1)]
     else:
         labs = [{"target": target, "runner": runners[target], "pairing": pairing,
