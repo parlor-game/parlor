@@ -31,6 +31,8 @@ jobs:
       extended_match: ${{ steps.plan.outputs.extended_match }}
       ios_retained_run: ${{ steps.plan.outputs.ios_retained_run }}
       candidate: ${{ steps.plan.outputs.candidate }}
+      retained_party_night_run: ${{ steps.plan.outputs.retained_party_night_run }}
+      visible_ios_window: ${{ steps.plan.outputs.visible_ios_window }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -108,6 +110,7 @@ jobs:
       LAN_KEEP: '1'
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
+      VISIBLE_IOS_WINDOW: ${{ needs.plan.outputs.visible_ios_window }}
       PARLOR_UI_DURATION: ${{ needs.plan.outputs.extended_match == 'true' && '150' || '80' }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
@@ -170,6 +173,43 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: needs.plan.outputs.reuse_candidate != 'true' && (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios')
         with:
+          name: candidate-${{ matrix.target }}-1
+          path: ${{ runner.temp }}/parlor-package
+      - name: Verify the retained Party Night package producer and artifact
+        if: needs.plan.outputs.retained_party_night_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          retained=repos/parlor-game/parlor/actions
+          harness=7d69bff7265964253dcb5b6f137238d58396e53a
+          gh api "$retained/runs/45343614595/attempts/1" | jq -e --arg head "$harness" '
+            .id == 45343614595 and .workflow_id == 427081574 and .run_attempt == 1 and
+            .repository.full_name == "parlor-game/parlor" and .head_repository.full_name == "parlor-game/parlor" and
+            .event == "push" and .head_branch == "test/smart-lobby-native-ui" and .head_sha == $head and
+            .status == "completed"' >/dev/null
+          if [[ "$TARGET" == android ]]; then
+            job=138272970054
+            name='build (android, ubuntu-24.04)'
+            artifact=14896064891
+            digest=8169bf4c9aceb26ebff7159686fe873eb44d462790054827ee41f4785d7f1467
+          else
+            job=138272970022
+            name='build (ios, macos-26)'
+            artifact=14898460890
+            digest=db2b8822d4cfe49fc931a10a3f445577d3d02668d3d08d048a78318af13dff83
+          fi
+          gh api "$retained/jobs/$job" | jq -e --arg name "$name" --arg head "$harness" '
+            .run_id == 45343614595 and .run_attempt == 1 and .name == $name and .head_sha == $head and
+            .conclusion == "success"' >/dev/null
+          gh api "$retained/artifacts/$artifact" | jq -e --arg name "candidate-$TARGET-1" --arg digest "sha256:$digest" --arg head "$harness" '
+            .name == $name and .digest == $digest and .expired == false and
+            .workflow_run.id == 45343614595 and .workflow_run.head_sha == $head' >/dev/null
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.retained_party_night_run != ''
+        with:
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: ${{ needs.plan.outputs.retained_party_night_run }}
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - name: Initialize the public upstream isolated LAN

@@ -19,6 +19,8 @@ CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
 RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
 DUAL_IOS_SOURCE = "0438fc6ff53780e87fa111f68352b15dd44a3ec3"
 DUAL_IOS_PRODUCER = 45121464371
+PARTY_NIGHT_SOURCE = "3154ed26fe18831c5b5a08f1bfa31faa353cbda0"
+PARTY_NIGHT_PRODUCER = 45343614595
 
 
 def configuration():
@@ -51,10 +53,17 @@ def plan():
     extended_match = payload.get("extended_match") is True
     if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         raise ValueError("Candidate must be an exact commit SHA")
+    reuse_party_night = reuse_candidate and candidate == PARTY_NIGHT_SOURCE
+    visible_ios = payload.get("visible_ios_window") is True
+    if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
+        raise ValueError("The retained Party Night builds require the mixed reconnect topology")
+    if visible_ios and not (reuse_party_night and payload.get("require_native_ios") is False):
+        raise ValueError("The visible Simulator controller is limited to the retained Party Night trial")
     if extended_match and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and (pairing != "mixed" or reuse_candidate != extended_match or candidate == RETAINED_CANDIDATE):
+    if observe_reconnect and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+                              candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
@@ -74,6 +83,8 @@ def plan():
         print(f"staged_ios_pair={str(staged_ios_pair).lower()}", file=stream)
         print(f"extended_match={str(extended_match).lower()}", file=stream)
         print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
+        print(f"retained_party_night_run={PARTY_NIGHT_PRODUCER if reuse_party_night else ''}", file=stream)
+        print(f"visible_ios_window={str(visible_ios).lower()}", file=stream)
         print(f"candidate={candidate}", file=stream)
 
 
@@ -218,7 +229,7 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
         "UI_TEST_IOS_AXE": (temp / "parlor-axe-path").read_text().strip()
-        if target == "ios" else "",
+        if target == "ios" and os.environ.get("VISIBLE_IOS_WINDOW") != "true" else "",
         "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
         if target == "ios" and re.fullmatch(r"[0-9a-fA-F-]{36}", device) else "",
     }
