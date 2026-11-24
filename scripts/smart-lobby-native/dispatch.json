@@ -8,9 +8,10 @@
     "ios"
   ],
   "token_digests": [
-    "357d3bd2688c16367ad1c5b67fbc53c801977a764544a4b3876d9b169efc07a4",
-    "9f8283804ad9ef56804914d0b08b22ef432bafb7071ec3b99d35dc31b999c30c",
-    "679da920e55414de71261820a9a9239fdfd5ab03a7ee1b913f93d29f0e5c5aff"
+    "0f28b25f9988ec89d3439d1d8f9c3ff18d4fbe80bbfb743c9059b7aabab8e6d3",
+    "c7c0cc483defd40227c86dc9cb3b40043b116540d5660ab67a26d0f9e3eff01e",
+    "f09a201419d488b9f518c1e0e1766cc5fcd7230ed48877f820ff1baa2514a1a4"
   ],
-  "require_native_ios": true
+  "require_native_ios": true,
+  "ios_lab_runner": "macos-15"
 }
