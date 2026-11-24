@@ -4048,7 +4048,7 @@ class P2pKitRoomTransportLifecycleTest {
             peer("other-version", checkNotNull(LobbyAdvertisement.encodeGame(wrongVersion, "K7QX"))),
             peer("old-protocol", checkNotNull(LobbyAdvertisement.encodeGame(selected, "K7QX", ProtocolVersion(4, 2)))),
             peer("legacy", "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host"),
-            peer("party", "parlor-lobby|1|5.0|p|-|-|K7QX"),
+            peer("party", checkNotNull(LobbyAdvertisement.encodeParty("K7QX", PARTY_WIRE_VERSION))),
         )
         session.sendHandler = { message ->
             val request = codec.decode((message as P2pMessage.Binary).bytes) as PeerMessage.AdmissionRequest

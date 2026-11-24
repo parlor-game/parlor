@@ -8,6 +8,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.invitation.PartyJoinInvitation
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PartyAdmissionContext
 import com.parlor.networking.protocol.PublicPartyLobby
 import com.parlor.networking.protocol.SessionEndReason
@@ -155,7 +156,9 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
 
         /** Set the order in the lobby. Select each game through the normal admission checks. */
         suspend fun configurePlaylist(orderedGames: List<PartyGame>): Result<Unit, PartyRejection> = transition.withLock {
-            if (orderedGames.size !in 1..MAX_PLAYLIST_MATCHES) return@withLock Result.Failure(PartyRejection.IncompatibleGame)
+            if (orderedGames.size !in 1..MAX_PARTY_PLAYLIST_MATCHES) {
+                return@withLock Result.Failure(PartyRejection.IncompatibleGame)
+            }
             val selection = orderedGames.toList()
             if (selection.any { it !in games }) return@withLock Result.Failure(PartyRejection.IncompatibleGame)
             owner.configurePlaylist(selection).toUnit()

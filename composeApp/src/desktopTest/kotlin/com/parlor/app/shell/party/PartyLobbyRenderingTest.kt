@@ -87,7 +87,7 @@ class PartyLobbyRenderingTest {
                                                     tapped++
                                                     current.value = lobby(game, host, peer, ready)
                                                 },
-                                                viewRules = { showRules.value = true }, invite = {},
+                                                viewRules = { showRules.value = true }, invite = {}, editPlaylist = {},
                                             ),
                                         )
                                     }

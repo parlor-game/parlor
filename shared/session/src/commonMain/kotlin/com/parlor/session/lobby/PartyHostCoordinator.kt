@@ -11,6 +11,7 @@ import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.PublicPartyLobby
+import com.parlor.networking.protocol.PublicPartyPlaylist
 import com.parlor.networking.protocol.PublicPartySeat
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
@@ -200,6 +201,9 @@ internal fun PartyLobby.publicLobby(): PublicPartyLobby {
         activeMatchId = match?.id,
         matchOrdinal = matchOrdinal,
         roomName = roomName,
+        playlist = playlist?.let { progress ->
+            PublicPartyPlaylist(progress.games.map(PartyGame::protocol), progress.results.map(PartyMatchResult::matchId))
+        },
     )
 }
 

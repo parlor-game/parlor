@@ -24,6 +24,8 @@ import com.parlor.app.resources.party_end_match
 import com.parlor.app.resources.party_end_match_confirm
 import com.parlor.app.resources.party_leave
 import com.parlor.app.resources.party_leave_confirm
+import com.parlor.app.resources.party_playlist_retry_return
+import com.parlor.app.resources.party_playlist_retry_return_detail
 import com.parlor.app.resources.party_invite_loading
 import com.parlor.app.resources.party_rules_back
 import com.parlor.app.resources.party_private_cover
@@ -40,6 +42,7 @@ import com.parlor.networking.invitation.PartyJoinInvitation
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.PartyLobbyPhase
+import com.parlor.networking.protocol.PublicPartyLobby
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.room.NetError
@@ -94,7 +97,7 @@ private fun PartyPrivacyCover() {
     }
 }
 
-private enum class PartyLobbyPage { Rules, Invite }
+private enum class PartyLobbyPage { Rules, Invite, Playlist }
 
 private sealed interface PartyConfirmation {
     data object Leave : PartyConfirmation
@@ -175,7 +178,6 @@ private fun ActiveParty(
     val error = partyError(actions)
 
     val confirmation = confirm
-    val selected = titles.keys.firstOrNull { it.protocol == lobby?.selectedGame }
     val visiblePage = lobbyPage.takeIf { lobby?.phase == PartyLobbyPhase.Lobby }
     if (privateContentCovered) {
         PartyPrivacyCover()
@@ -190,19 +192,20 @@ private fun ActiveParty(
                 }
             }
         }
-    } else if (visiblePage == PartyLobbyPage.Rules && selected != null) {
-        PartyRulesContent(titles.getValue(selected), onBack = { lobbyPage = null }) {
-            val binding = registry.byId(selected.protocol.gameId) as? PartyGameShell
-            binding?.PartyRules(lobby?.members.orEmpty().count { it.connected })
-        }
-    } else if (visiblePage == PartyLobbyPage.Invite && host != null) {
-        PartyInvitationContent(host, onBack = { lobbyPage = null })
+    } else if (visiblePage != null && lobby != null) {
+        PartyLobbySubpage(visiblePage, lobby, host, registry, titles, actions, onBack = { lobbyPage = null })
     } else if (showingMatch && activeMatch != null && protocol != null && matchUi != null) {
         matchUi.PartyMatch(
             session = activeMatch,
             onEndHostMatch = { reason ->
                 if (host != null && reason == SessionEndReason.Completed) {
-                    scope.launch { actions.run { showParty(host.returnToLobby(protocol.sessionId, reason)) } }
+                    scope.launch {
+                        actions.run {
+                            if (!showParty(host.returnToLobby(protocol.sessionId, reason))) {
+                                confirm = PartyConfirmation.EndMatch(protocol.sessionId, reason)
+                            }
+                        }
+                    }
                 } else {
                     confirm = PartyConfirmation.EndMatch(protocol.sessionId, reason)
                 }
@@ -221,8 +224,37 @@ private fun ActiveParty(
             onLeave = { confirm = PartyConfirmation.Leave },
             onViewMatch = { hiddenForMatch = null },
             commands = partyLobbyCommands(session, scope, actions, viewRules = { lobbyPage = PartyLobbyPage.Rules },
-                invite = { lobbyPage = PartyLobbyPage.Invite }),
+                invite = { lobbyPage = PartyLobbyPage.Invite }, editPlaylist = { lobbyPage = PartyLobbyPage.Playlist }),
         )
+    }
+}
+
+@Composable
+private fun PartyLobbySubpage(
+    page: PartyLobbyPage,
+    lobby: PublicPartyLobby,
+    host: ProcessPartySession.Host?,
+    registry: GameShellRegistry,
+    titles: Map<PartyGame, String>,
+    actions: PartyActions,
+    onBack: () -> Unit,
+) {
+    when (page) {
+        PartyLobbyPage.Rules -> {
+            val selected = titles.entries.firstOrNull { it.key.protocol == lobby.selectedGame } ?: return
+            PartyRulesContent(selected.value, onBack) {
+                val binding = registry.byId(lobby.selectedGame.gameId) as? PartyGameShell
+                binding?.PartyRules(lobby.members.count { it.connected })
+            }
+        }
+        PartyLobbyPage.Invite -> if (host != null) PartyInvitationContent(host, onBack)
+        PartyLobbyPage.Playlist -> {
+            if (host == null) return
+            val scope = rememberCoroutineScope()
+            PartyPlaylistEditor(titles, lobby.members.size, !actions.waiting, partyError(actions), onSave = { games ->
+                scope.launch { actions.run { if (showParty(host.configurePlaylist(games))) onBack() } }
+            }, onBack = onBack)
+        }
     }
 }
 
@@ -243,6 +275,7 @@ private fun partyLobbyCommands(
     actions: PartyActions,
     viewRules: () -> Unit,
     invite: () -> Unit,
+    editPlaylist: () -> Unit,
 ): PartyLobbyCommands {
     val host = session as? ProcessPartySession.Host
     return PartyLobbyCommands(
@@ -263,6 +296,7 @@ private fun partyLobbyCommands(
         },
         viewRules = viewRules,
         invite = invite,
+        editPlaylist = editPlaylist,
     )
 }
 
@@ -303,12 +337,22 @@ private fun PartyConfirmationContent(
     onConfirm: () -> Unit,
 ) {
     val leave = request is PartyConfirmation.Leave
-    val title = if (leave) Res.string.party_leave_confirm else Res.string.party_end_match_confirm
-    val action = if (leave) Res.string.party_leave else Res.string.party_end_match
+    val retryReturn = request is PartyConfirmation.EndMatch && request.reason == SessionEndReason.Completed
+    val title = when {
+        leave -> Res.string.party_leave_confirm
+        retryReturn -> Res.string.party_playlist_retry_return_detail
+        else -> Res.string.party_end_match_confirm
+    }
+    val action = when {
+        leave -> Res.string.party_leave
+        retryReturn -> Res.string.party_playlist_retry_return
+        else -> Res.string.party_end_match
+    }
     PartyScaffold {
         PartyHeading(stringResource(title))
         error?.let { PartyError(it) }
-        PartyButton(action, enabled = !waiting, variant = ParlorButtonVariant.Destructive, onClick = onConfirm)
+        val variant = if (retryReturn) ParlorButtonVariant.Primary else ParlorButtonVariant.Destructive
+        PartyButton(action, enabled = !waiting, variant = variant, onClick = onConfirm)
         PartyButton(Res.string.party_cancel, enabled = !waiting, variant = ParlorButtonVariant.Ghost, onClick = onDismiss)
     }
 }

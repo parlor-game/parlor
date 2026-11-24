@@ -5,6 +5,7 @@ import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.room.RoomMember
 
 data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) {
@@ -103,16 +104,17 @@ internal data class PartyLobby private constructor(
 
     fun configurePlaylist(games: List<PartyGame>): Result<PartyLobby, PartyRejection> = when {
         phase != PartyPhase.Lobby || playlist?.nextGame != null -> Result.Failure(PartyRejection.InvalidPhase)
-        games.size !in 1..MAX_PLAYLIST_MATCHES -> Result.Failure(PartyRejection.IncompatibleGame)
+        games.size !in 1..MAX_PARTY_PLAYLIST_MATCHES -> Result.Failure(PartyRejection.IncompatibleGame)
         games.any { seats.size !in it.playerCounts } -> Result.Failure(PartyRejection.IneligibleCount)
         games.any { game -> seats.values.any { game.protocol !in it.capabilities } } ->
             Result.Failure(PartyRejection.IncompatibleGame)
-        else -> Result.Success(copy(playlist = PartyPlaylist(games.toList())))
+        else -> Result.Success(copy(seats = seats.resetReadiness(), revision = revision + 1, playlist = PartyPlaylist(games.toList())))
     }
 
     /** The authenticated member can set readiness only for the selected game's current revision. */
     fun setReady(actor: PlayerId, ready: Boolean, expectedRevision: Long): Result<PartyLobby, PartyRejection> {
         if (phase != PartyPhase.Lobby) return Result.Failure(PartyRejection.InvalidPhase)
+        if (playlist?.nextGame?.let { it != game } == true) return Result.Failure(PartyRejection.InvalidPhase)
         if (revision != expectedRevision) return Result.Failure(PartyRejection.StaleRevision)
         val seat = seats[actor] ?: return Result.Failure(PartyRejection.UnknownPlayer)
         if (!seat.member.connected) return Result.Failure(PartyRejection.UnknownPlayer)
@@ -214,4 +216,3 @@ internal data class PartyLobby private constructor(
 }
 
 private const val MAX_MATCH_PLAYERS = 16
-internal const val MAX_PLAYLIST_MATCHES = 32

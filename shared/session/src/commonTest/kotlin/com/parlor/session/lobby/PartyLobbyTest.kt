@@ -8,6 +8,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
@@ -92,7 +93,7 @@ class PartyLobbyTest {
         val party = partyWithPeer()
         assertEquals(Result.Failure(PartyRejection.IncompatibleGame), party.configurePlaylist(emptyList()))
         assertEquals(Result.Failure(PartyRejection.IncompatibleGame),
-            party.configurePlaylist(List(MAX_PLAYLIST_MATCHES + 1) { mafia }))
+            party.configurePlaylist(List(MAX_PARTY_PLAYLIST_MATCHES + 1) { mafia }))
 
         val games = mutableListOf(mafia, mafia, word)
         val configured = party.configurePlaylist(games).value()

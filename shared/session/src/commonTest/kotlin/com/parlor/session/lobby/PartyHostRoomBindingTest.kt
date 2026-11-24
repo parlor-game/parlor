@@ -237,6 +237,8 @@ class PartyHostRoomBindingTest {
             runCurrent()
             val replay = room.sent.drop(priorFrames).filterIsInstance<HostMessage.PartySnapshot>().single()
             assertEquals(word.protocol, replay.lobby.selectedGame)
+            assertEquals(listOf(first), replay.lobby.playlist?.completedMatchIds)
+            assertEquals(word.protocol, replay.lobby.playlist?.nextGame)
             assertTrue(replay.lobby.members.single { it.playerId == playerId }.connected)
             assertFalse(replay.lobby.members.single { it.playerId == playerId }.ready)
             assertEquals(listOf(firstResult), host.playlist?.results)
@@ -287,6 +289,7 @@ class PartyHostRoomBindingTest {
         room: HostRoom,
         sequence: Long,
     ): SessionId {
+        runCurrent()
         val lastRevision = room.sent.filterIsInstance<HostMessage.PartySnapshot>().last().revision
         room.messages.send(ready(sequence, lastRevision))
         runCurrent()

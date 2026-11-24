@@ -1,6 +1,7 @@
 package com.parlor.networking.protocol
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.engine.state.Player
@@ -56,6 +57,26 @@ class RoomMessageCodecTest {
         assertFailsWith<IllegalArgumentException> {
             codec.decode(ByteArray(MAX_ROOM_FRAME_BYTES + 1))
         }
+    }
+
+    @Test
+    fun `bounded party results round trip and reject duplicate or oversized ledgers`() {
+        val game = GameProtocolRef(GameId("egyptian-dominoes"), 1)
+        val games = List(MAX_PARTY_PLAYLIST_MATCHES) { game }
+        val settled = games.indices.map { SessionId("a".repeat(32) + "-${it + 10}") }
+        val roster = (1..16).map { PublicPartySeat(PlayerId("test-peer-$it"), "Guest $it", true, false, false) }
+        val board = PublicPartyLobby(PartyLobbyPhase.Lobby, game, roster, 16, null, 32,
+            playlist = PublicPartyPlaylist(games, settled))
+        val snapshot = HostMessage.PartySnapshot(
+            PartyProtocolHeader(PARTY_WIRE_VERSION, PartyId("a".repeat(32)), "party-frame-0001", 100),
+            100, 1, board,
+        )
+        val wire = codec.encode(snapshot)
+        assertTrue(wire.size <= MAX_ROOM_FRAME_BYTES)
+        assertEquals(snapshot, codec.decode(wire))
+        assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games, settled.dropLast(1) + settled.first()) }
+        assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games + game, emptyList()) }
+        assertFailsWith<IllegalArgumentException> { board.copy(matchOrdinal = 31) }
     }
 
     @Test
