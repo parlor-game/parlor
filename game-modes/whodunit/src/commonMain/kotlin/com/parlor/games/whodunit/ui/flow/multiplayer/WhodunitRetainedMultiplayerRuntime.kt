@@ -17,6 +17,7 @@ import com.parlor.games.whodunit.content.contentIdentity
 import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.games.whodunit.domain.event.WhodunitEvent
 import com.parlor.games.whodunit.domain.party.WhodunitReadinessGate
+import com.parlor.games.whodunit.domain.phase.WhodunitPhase
 import com.parlor.games.whodunit.domain.reducer.WhodunitReducerContext
 import com.parlor.games.whodunit.domain.state.WhodunitState
 import com.parlor.networking.protocol.HostMessage
@@ -123,6 +124,9 @@ internal class WhodunitHostRuntime(
     fun beginExit() {
         _startGate.value = _startGate.value.beginExit()
     }
+
+    override val isMatchCompleted: Boolean
+        get() = rawSession.canonicalState.value.phase == WhodunitPhase.PostGame
 
     override suspend fun terminate(reason: SessionEndReason) {
         bridge.terminate(reason)

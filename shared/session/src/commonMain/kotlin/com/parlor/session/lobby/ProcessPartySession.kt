@@ -177,8 +177,14 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         ): Result<Unit, PartyRejection> = transition.withLock {
             val session = playing.value?.takeIf { it.room.matchProtocol?.sessionId == id }
                 ?: return@withLock Result.Failure(PartyRejection.StaleMatch)
+            val runtime = session.runtime.value
+            if (reason == SessionEndReason.Completed &&
+                (owner.state.value.phase !is PartyPhase.Playing || runtime?.isMatchCompleted != true)
+            ) {
+                return@withLock Result.Failure(PartyRejection.InvalidPhase)
+            }
             withContext(NonCancellable) {
-                session.runtime.value?.terminate(reason)
+                runtime?.terminate(reason)
                 owner.returnToLobby(id).toUnit().also {
                     if (it is Result.Success) {
                         if (reason == SessionEndReason.Completed) completedGame.value = session.route.gameId

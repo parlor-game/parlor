@@ -64,6 +64,9 @@ internal class HostedGameRuntime<S : GameState, A : GameAction, E : GameEvent>(
         }
     }
 
+    override val isMatchCompleted: Boolean
+        get() = spec.isCompleted(raw.canonicalState.value)
+
     override suspend fun terminate(reason: SessionEndReason) = bridge.terminate(reason)
     override suspend fun close() {
         bridge.close()

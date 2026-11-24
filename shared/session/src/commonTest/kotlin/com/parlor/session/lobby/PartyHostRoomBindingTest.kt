@@ -23,6 +23,8 @@ import com.parlor.networking.room.SendTarget
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
+import com.parlor.session.multidevice.ProcessMultiplayerSession
+import com.parlor.session.multidevice.RetainedMultiplayerRuntime
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -167,11 +169,24 @@ class PartyHostRoomBindingTest {
                 room.messages.send(ready(index + 1L, revision))
                 runCurrent()
 
-                val session = assertIs<Result.Success<*>>(host.start()).data
+                val session = assertIs<Result.Success<ProcessMultiplayerSession>>(host.start()).data
                 assertEquals(host.match.value, session)
                 val matchId = checkNotNull(room.frozen)
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
+                val runtime = CompletionRuntime().apply { isMatchCompleted = true }
+                session.getOrCreateRuntime(runtime.runtimeKind) { runtime }
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
                 assertEquals(Result.Success(Unit), host.confirmStarted(matchId))
+                runtime.isMatchCompleted = false
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
+                assertEquals(session, host.match.value)
+                assertEquals(null, runtime.termination)
+                assertNull(host.lastCompletedGame.value)
+
+                runtime.isMatchCompleted = reason == SessionEndReason.Completed
                 assertEquals(Result.Success(Unit), host.returnToLobby(matchId, reason))
+                assertEquals(reason, runtime.termination)
+                assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(matchId, reason))
                 assertEquals(mafia.protocol.gameId.takeIf { reason == SessionEndReason.Completed }, host.lastCompletedGame.value)
                 runCurrent()
             }
@@ -181,6 +196,20 @@ class PartyHostRoomBindingTest {
         } finally {
             host.leave()
         }
+    }
+
+    private class CompletionRuntime : RetainedMultiplayerRuntime {
+        override val runtimeKind = "completion-test"
+        override var isMatchCompleted = false
+        var termination: SessionEndReason? = null
+            private set
+
+        override suspend fun terminate(reason: SessionEndReason) {
+            check(termination == null) { "A Party match terminated more than once" }
+            termination = reason
+        }
+
+        override suspend fun close() = Unit
     }
 
     private fun ready(sequence: Long, revision: Long) = PeerMessage.PartySetReady(
