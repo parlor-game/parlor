@@ -64,13 +64,23 @@ def plan():
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
     distributed = pairing == "distributed"
     layout = payload.get("platforms")
+    producers = payload.get("external_producers")
     ios_runner = payload.get("ios_lab_runner", "macos-26")
     if ios_runner not in ("macos-26", "macos-15") or (ios_runner != "macos-26" and not distributed):
         raise ValueError("Unsupported iOS lab image")
     if distributed and (not isinstance(layout, list) or len(layout) != len(digests) or
                         any(platform not in ("android", "ios") for platform in layout) or
-                        layout.count("ios") > 5 or (reuse_candidate and candidate != DUAL_IOS_SOURCE)):
+                        layout.count("ios") > 5 or
+                        (reuse_candidate and candidate != DUAL_IOS_SOURCE and producers is None)):
         raise ValueError("Distributed jobs require a supported roster and an exact build source")
+    if producers is not None and (
+        not distributed or not reuse_candidate or not isinstance(producers, dict) or set(producers) != set(layout)
+        or any(not isinstance(item, dict) or set(item) != {"run", "harness_sha"}
+               or type(item["run"]) is not int or item["run"] <= 0
+               or not isinstance(item["harness_sha"], str) or not re.fullmatch(r"[0-9a-f]{40}", item["harness_sha"])
+               for item in producers.values())
+    ):
+        raise ValueError("Expected one exact verified build producer per platform")
     if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or distributed):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     runners = {"android": "ubuntu-24.04", "ios": "macos-26"}
@@ -89,11 +99,50 @@ def plan():
         print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
+        print(f"external_producers={str(producers is not None).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
         print(f"staged_ios_pair={str(staged_ios_pair).lower()}", file=stream)
         print(f"extended_match={str(extended_match).lower()}", file=stream)
         print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
         print(f"candidate={candidate}", file=stream)
+
+
+def external_producer():
+    target = os.environ["TARGET"]
+    expected = {
+        "android": ("native-android-macos-build.yml", "build"),
+        "ios": ("smart-lobby-native-ui.yml", "build (ios, macos-26)"),
+    }
+    workflow, job_name = expected[target]
+    payload = json.loads(CONFIG.read_text())
+    producer = payload["external_producers"][target]
+    run_id = producer["run"]
+    if type(run_id) is not int or run_id <= 0 or payload["candidate"] != os.environ["CANDIDATE"]:
+        raise ValueError("Invalid external build producer request")
+    repo = "parlor-game/parlor"
+    route = f"repos/{repo}/actions/runs/{run_id}"
+
+    def read(suffix=""):
+        return json.loads(subprocess.check_output(["gh", "api", route + suffix], text=True))
+
+    run = read()
+    if (run["id"] != run_id or run["event"] != "push" or run["status"] != "completed"
+            or run["repository"]["full_name"] != repo or run["head_repository"]["full_name"] != repo
+            or run["head_branch"] != "test/distributed-smart-lobby"
+            or run["path"].split("@", 1)[0] != f".github/workflows/{workflow}"
+            or run["head_sha"] != producer["harness_sha"]):
+        raise ValueError("External build is outside the expected workflow and revision")
+    jobs = read("/jobs?per_page=60")["jobs"]
+    if not any(job["name"] == job_name and job["status"] == "completed" and job["conclusion"] == "success"
+               for job in jobs):
+        raise ValueError("The original exact build job has no successful result")
+    name = f"candidate-{target}-1"
+    matches = [item for item in read("/artifacts?per_page=60")["artifacts"]
+               if item["name"] == name and not item["expired"] and item["workflow_run"]["id"] == run_id]
+    if len(matches) != 1:
+        raise ValueError("Expected one unexpired artifact from the original build")
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
+        print(f"run={run_id}", file=stream)
 
 
 def manifest():
@@ -376,6 +425,7 @@ if __name__ == "__main__":
     try:
         {
             "plan": plan,
+            "external-producer": external_producer,
             "pairing": lambda: print(configuration()[0]),
             "manifest": manifest,
             "check-ios-entitlement": check_ios_entitlement,

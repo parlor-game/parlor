@@ -27,6 +27,7 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
+      external_producers: ${{ steps.plan.outputs.external_producers }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
       staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
       extended_match: ${{ steps.plan.outputs.extended_match }}
@@ -139,7 +140,10 @@ jobs:
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Check the retained package uses the exact successful build producer
-        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true' || (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true')
+        if: >-
+          needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true' ||
+          (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true' &&
+          needs.plan.outputs.external_producers != 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -155,11 +159,28 @@ jobs:
               .run_id == 45121464371 and .name == "build (android, ubuntu-24.04)" and .conclusion == "success"' >/dev/null
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.extended_match == 'true' || (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true')
+        if: >-
+          needs.plan.outputs.extended_match == 'true' ||
+          (matrix.pairing == 'distributed' && needs.plan.outputs.reuse_candidate == 'true' &&
+          needs.plan.outputs.external_producers != 'true')
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
           run-id: '45121464371'
+          name: candidate-${{ matrix.target }}-1
+          path: ${{ runner.temp }}/parlor-package
+      - id: external-build
+        name: Verify the exact reused package by numeric workflow run ID
+        if: needs.plan.outputs.external_producers == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/smart-lobby-native/lab.py external-producer
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.external_producers == 'true'
+        with:
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: ${{ steps.external-build.outputs.run }}
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
