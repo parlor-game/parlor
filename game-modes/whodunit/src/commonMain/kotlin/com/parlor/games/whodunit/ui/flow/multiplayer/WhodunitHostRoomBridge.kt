@@ -1,7 +1,6 @@
 package com.parlor.games.whodunit.ui.flow.multiplayer
 
 import com.parlor.core.ids.PlayerId
-import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.games.whodunit.WhodunitIds
@@ -20,6 +19,7 @@ import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.room.RoomLifecycleState
 import com.parlor.networking.security.SecureIds
+import com.parlor.session.multidevice.hostSessionProtocol
 import com.parlor.session.multidevice.CommandApplication
 import com.parlor.session.multidevice.HostAuthoritativeSessionCoordinator
 import com.parlor.session.multidevice.HostMutationResult
@@ -66,11 +66,7 @@ class WhodunitHostRoomBridge(
     reconcileRoomTopology: Boolean = false,
     requireStartHandshake: Boolean = true,
 ) {
-    val protocol: SessionProtocol = SessionProtocol(
-        sessionId = SessionId(sessionIdGenerator()),
-        gameId = WhodunitIds.GameId,
-        gameVersion = GAME_VERSION,
-    )
+    val protocol: SessionProtocol = room.hostSessionProtocol(WhodunitIds.GameId, GAME_VERSION, sessionIdGenerator)
 
     private val publicStateSerializer = WhodunitState.serializer()
     private val privateSerializer = WhodunitPrivate.serializer()

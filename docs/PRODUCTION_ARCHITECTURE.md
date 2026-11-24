@@ -64,7 +64,14 @@ admission, reconnect, ordering, or a P2pKit instance.
 The host is the sole authority. Peers never run a reducer to predict canonical
 state.
 
-Runtime protocol: `4.2`.
+Runtime protocol: `4.3`.
+
+A game-scoped join includes the selected game ID and version in the encrypted
+admission request. A game host rejects missing or invalid game context and
+rejects a mismatch after checking the room code, before recording a pending
+approval. The joiner still verifies the game context in the credential offer.
+Game-scoped discovery and room-instance binding must qualify alongside this
+change before the 4.3 Smart Lobby is available to users.
 
 Protocol 4.0 introduced the acknowledged, idempotent game-entry barrier;
 protocol 4.1 added the canonical host display name and explicit duplicate-name
@@ -117,7 +124,7 @@ sequenceDiagram
     PC->>P: install only monotonic authoritative revision
 ```
 
-Protocol compatibility is strict and exact: a 4.2 binary interoperates only
+Protocol compatibility is strict and exact: a 4.3 binary interoperates only
 with the same major and minor schema. The cross-game envelope carries protocol
 version, session ID, game ID, game
 version, message ID, and sequence metadata. Commands add a random command ID,

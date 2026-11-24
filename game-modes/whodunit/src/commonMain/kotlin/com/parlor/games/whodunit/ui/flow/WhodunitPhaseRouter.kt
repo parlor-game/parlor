@@ -105,6 +105,7 @@ internal fun HostPhaseRouter(
     scope: kotlinx.coroutines.CoroutineScope,
     onBackToLibrary: () -> Unit,
     modifier: Modifier = Modifier,
+    returnToParty: Boolean = false,
 ) {
     require(playMode.isHost) { "A peer must render through PeerPhaseRouter" }
     if (playMode is PlayMode.Solo) {
@@ -125,6 +126,7 @@ internal fun HostPhaseRouter(
         scope = scope,
         verdict = verdict,
         onBackToLibrary = onBackToLibrary,
+        returnToParty = returnToParty,
         modifier = modifier,
     )
 }
@@ -177,6 +179,7 @@ private fun HostPhaseScreens(
     verdict: Verdict?,
     onBackToLibrary: () -> Unit,
     modifier: Modifier,
+    returnToParty: Boolean,
 ) {
     val multiDeviceSelf = (playMode as? PlayMode.MultiDevice)?.selfPlayerId
     var introAdvanceRequested by remember(phase, multiDeviceSelf) { mutableStateOf(false) }
@@ -235,31 +238,31 @@ private fun HostPhaseScreens(
             modifier = modifier,
         )
 
-        is WhodunitPhase.CharacterReveal -> when (playMode) {
-            // Guarded at HostPhaseRouter's entry. Kept exhaustive so a future
-            // PlayMode change cannot accidentally make Solo executable here.
-            is PlayMode.Solo -> UnsupportedLocalPlayModeScreen(onBackToLibrary, modifier)
-            // Pass-and-play: the device holds every player's private slice
-            // and we drive a single local cursor through the full hand-off
-            // ceremony so the phone can move safely around the table.
-            is PlayMode.PassAndPlay -> LocalCharacterRevealSegment(
-                session = session,
-                roster = state.players,
-                rolesViewed = state.public.rolesViewed,
-                droppedPlayers = state.public.droppedPlayers,
-                roleAssignmentGeneration = state.public.roleAssignmentGeneration,
-                payload = payload,
-                modifier = modifier,
-            )
-            // MultiDevice host is also a player at the table — they render only
-            // their own dossier and wait while the other peers do the same.
-            is PlayMode.MultiDevice -> SessionBackedSelfCharacterRevealSegment(
-                session = session,
-                selfPlayerId = playMode.selfPlayerId,
-                isHost = true,
-                payload = payload,
-                modifier = modifier,
-            )
+        is WhodunitPhase.CharacterReveal -> {
+            // The iOS Compose build miscompiles the implicit last branch of
+            // a nested exhaustive PlayMode when here. Use the same resolved
+            // seat as the readiness effects and keep the fallback explicit.
+            if (multiDeviceSelf != null) {
+                SessionBackedSelfCharacterRevealSegment(
+                    session = session,
+                    selfPlayerId = multiDeviceSelf,
+                    isHost = true,
+                    payload = payload,
+                    modifier = modifier,
+                )
+            } else if (playMode is PlayMode.PassAndPlay) {
+                LocalCharacterRevealSegment(
+                    session = session,
+                    roster = state.players,
+                    rolesViewed = state.public.rolesViewed,
+                    droppedPlayers = state.public.droppedPlayers,
+                    roleAssignmentGeneration = state.public.roleAssignmentGeneration,
+                    payload = payload,
+                    modifier = modifier,
+                )
+            } else {
+                UnsupportedLocalPlayModeScreen(onBackToLibrary, modifier)
+            }
         }
 
         is WhodunitPhase.Round -> RoundSegment(
@@ -316,6 +319,7 @@ private fun HostPhaseScreens(
             onTryOtherMode = onBackToLibrary,
             onBackToLibrary = onBackToLibrary,
             modifier = modifier,
+            returnToParty = returnToParty,
         )
     }
 }

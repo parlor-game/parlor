@@ -20,6 +20,7 @@ import com.parlor.games.ghamza.domain.GhamzaAction
 import com.parlor.games.wordimpostor.WordImpostorDefinition
 import com.parlor.games.wordimpostor.domain.WordImpostorAction
 import com.parlor.networking.protocol.CommandStatus
+import com.parlor.networking.protocol.PARLOR_PROTOCOL_MINOR
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.room.RoomLifecycleState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -72,8 +73,8 @@ class MultiplayerAuthorityTest {
                 fixture.header("old-session").copy(sessionId = SessionId("expired-session")),
                 fixture.header("wrong-game").copy(gameId = GameId("another-game")),
                 fixture.header("wrong-codec").copy(gameVersion = spec.version + 1),
-                fixture.header("old-protocol").copy(protocol = ProtocolVersion(4, 1)),
-                fixture.header("new-protocol").copy(protocol = ProtocolVersion(4, 3)),
+                fixture.header("old-protocol").copy(protocol = ProtocolVersion(minor = PARLOR_PROTOCOL_MINOR - 1)),
+                fixture.header("new-protocol").copy(protocol = ProtocolVersion(minor = PARLOR_PROTOCOL_MINOR + 1)),
             )
             foreignHeaders.forEach { header ->
                 val command = fixture.command(legitimate, sender).copy(header = header, commandId = header.messageId)

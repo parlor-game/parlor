@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import com.parlor.designsystem.components.AdmissionWaiting
+import com.parlor.networking.transport.ApprovalWait
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,6 +19,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.room_game_error_body
+import com.parlor.app.resources.room_game_approval_expired
+import com.parlor.app.resources.room_game_stale_room
+import com.parlor.app.resources.room_game_wrong_game
 import com.parlor.app.resources.room_game_incompatible
 import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_new_room
@@ -40,6 +45,7 @@ internal fun RoomGameStatus(
     onNewRoom: (() -> Unit)? = null,
     onSettings: (() -> Unit)? = null,
     enabled: Boolean = true,
+    approval: ApprovalWait? = null,
 ) {
     HeroBackdrop(modifier.fillMaxSize()) {
         Column(
@@ -47,8 +53,12 @@ internal fun RoomGameStatus(
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(title, color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.displayMedium,
-                textAlign = TextAlign.Center, modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite })
+            if (approval == null) {
+                Text(title, color = ParlorTheme.colors.textPrimary, style = ParlorTheme.typography.displayMedium,
+                    textAlign = TextAlign.Center, modifier = Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite })
+            } else {
+                AdmissionWaiting(approval.lobby.hostDisplayName, approval.deadline)
+            }
             body?.let {
                 Text(it, color = ParlorTheme.colors.textSecondary, style = ParlorTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             }
@@ -68,5 +78,11 @@ internal fun RoomButton(label: String, onClick: () -> Unit, enabled: Boolean = t
 
 @Composable
 internal fun roomGameError(error: NetError): String = stringResource(
-    if (error == NetError.IncompatibleProtocol) Res.string.room_game_incompatible else Res.string.room_game_error_body,
+    when (error) {
+        NetError.ApprovalExpired -> Res.string.room_game_approval_expired
+        NetError.StaleRoom -> Res.string.room_game_stale_room
+        NetError.WrongGame -> Res.string.room_game_wrong_game
+        NetError.IncompatibleProtocol -> Res.string.room_game_incompatible
+        else -> Res.string.room_game_error_body
+    },
 )

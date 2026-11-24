@@ -1,6 +1,7 @@
 package com.parlor.transport.p2p
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.HostMessage
@@ -8,6 +9,7 @@ import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.ResumableCredentialOffer
 import com.parlor.networking.protocol.RoomMessageCodec
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.NetError
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.JoinConfig
@@ -41,6 +43,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PeerOpeningCancellationTest {
@@ -60,8 +63,30 @@ class PeerOpeningCancellationTest {
     }
 
     @Test
+    fun an_offer_without_the_selected_room_identity_cannot_install_membership() = runTest {
+        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame, omitRoomId = true)
+        fixture.prepare()
+        try {
+            val result = fixture.transport.join(JoinConfig(
+                code = "ABCDEF",
+                displayName = "Alice",
+                expectedGameProtocol = HostedGameProtocol(GameId("fixture-game"), 1),
+                expectedRoomId = RoomId("a".repeat(32)),
+            ))
+            assertEquals(Result.Failure(NetError.StaleRoom), result)
+            assertEquals(Result.Success(null), fixture.store.loadResumeCandidate())
+            assertFalse(fixture.session.sent.filterIsInstance<P2pMessage.Binary>().any {
+                RoomMessageCodec().decode(it.bytes) is PeerMessage.AdmissionConfirmed
+            })
+            fixture.assertReleased()
+        } finally {
+            fixture.stopFakeIfNeeded()
+        }
+    }
+
+    @Test
     fun matchingGameAdmissionConfirmsAndRetainsTheSelectedBinding() = runTest {
-        val fixture = OpeningFixture(backgroundScope, resume = false)
+        val fixture = OpeningFixture(backgroundScope, resume = false, advertisedGame = fixtureGame)
         fixture.prepare()
         val joined = fixture.transport.join(JoinConfig(
             code = "ABCDEF", displayName = "Alice",
@@ -71,6 +96,7 @@ class PeerOpeningCancellationTest {
         try {
             assertEquals("fixture-game", fixture.committedCredential().gameId)
             assertEquals(1, fixture.committedCredential().gameVersion)
+            assertEquals(fixture.offer.roomId, room.info.value.roomId)
             assertTrue(fixture.session.sent.filterIsInstance<P2pMessage.Binary>().any {
                 RoomMessageCodec().decode(it.bytes) is PeerMessage.AdmissionConfirmed
             })
@@ -83,7 +109,7 @@ class PeerOpeningCancellationTest {
         expected: HostedGameProtocol,
         missingGame: Boolean = false,
     ) {
-        val fixture = OpeningFixture(backgroundScope, resume = false, missingGame = missingGame)
+        val fixture = OpeningFixture(backgroundScope, resume = false, missingGame = missingGame, advertisedGame = expected)
         fixture.prepare()
         try {
             assertEquals(Result.Failure(NetError.IncompatibleProtocol), fixture.transport.join(JoinConfig(
@@ -139,6 +165,32 @@ class PeerOpeningCancellationTest {
             fixture.assertReleased()
         } finally {
             room?.closeForRetry()
+            fixture.stopFakeIfNeeded()
+        }
+    }
+
+    @Test
+    fun resumeDialsPinnedHostAfterHeartbeatWithoutPeerListEmission() = runTest {
+        val fixture = OpeningFixture(backgroundScope, resume = true)
+        fixture.prepare()
+        val cachedHost = fixture.fake.peersFlow.value.single()
+        fixture.fake.lastSeenByPeer[cachedHost.id] = Clock.System.now().toEpochMilliseconds() - 60_000L
+        val opening = async { fixture.open() }
+        try {
+            runCurrent()
+            assertTrue(fixture.fake.callLog.contains("startDiscovery"))
+            assertEquals(0, fixture.connectCalls)
+
+            // P2pKit updates this heartbeat without emitting the unchanged peers list.
+            fixture.fake.lastSeenByPeer[cachedHost.id] = Clock.System.now().toEpochMilliseconds()
+            advanceTimeBy(2_000L)
+            runCurrent()
+
+            assertEquals(1, fixture.connectCalls)
+            assertEquals(Result.Success(Unit), assertIs<Result.Success<LocalRoom>>(opening.await()).data.closeForRetry())
+            fixture.assertReleased()
+        } finally {
+            opening.cancelAndJoin()
             fixture.stopFakeIfNeeded()
         }
     }
@@ -462,15 +514,23 @@ class PeerOpeningCancellationTest {
 }
 
 /** Drives the production adapter and codec, not a replacement room/session owner. */
+private val fixtureGame = HostedGameProtocol(GameId("fixture-game"), 1)
+
 private class OpeningFixture(
     scope: CoroutineScope,
     private val resume: Boolean,
     missingGame: Boolean = false,
+    advertisedGame: HostedGameProtocol? = null,
+    omitRoomId: Boolean = false,
 ) {
     val fake = FakeP2pKit(PeerId("opening-peer"))
     private val host = Peer(
         id = PeerId("opening-host"),
-        name = "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Synthetic Host",
+        name = if (advertisedGame == null) {
+            "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Synthetic Host"
+        } else {
+            checkNotNull(LobbyAdvertisement.encodeGame(advertisedGame, "K7QX"))
+        },
         platform = Platform.UNKNOWN,
         supportedTransports = setOf(TransportKind.LAN),
     )
@@ -522,6 +582,7 @@ private class OpeningFixture(
         expiresAtEpochMillis = kotlin.time.Clock.System.now().toEpochMilliseconds() + 86_400_000L,
         gameId = if (missingGame) null else "fixture-game",
         gameVersion = if (missingGame) null else 1,
+        roomId = if (advertisedGame != null && !omitRoomId) RoomId("a".repeat(32)) else null,
     )
     val offer = ResumableCredentialOffer(
         offerId = if (resume) "opening-offer-2" else initial.offerId,
@@ -534,6 +595,7 @@ private class OpeningFixture(
         expiresAtEpochMillis = initial.expiresAtEpochMillis,
         gameId = initial.gameId,
         gameVersion = initial.gameVersion,
+        roomId = initial.roomId,
     )
 
     suspend fun prepare() {

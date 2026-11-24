@@ -1,7 +1,10 @@
 package com.parlor.transport.p2p
 
+import com.parlor.core.ids.GameId
 import com.parlor.core.result.Result
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.JoinConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.storage.secure.InMemorySecureKeyValueBacking
 import com.parlor.storage.secure.PlatformKeyedSecureStorage
@@ -69,6 +72,8 @@ internal class LoopbackDeviceFixture(
         )
 }
 
+internal val loopbackGameProtocol = HostedGameProtocol(GameId("loopback-test-game"), 1)
+
 /**
  * Model the explicit host approval that the application normally presents in its lobby.
  * The caller takes ownership immediately, before later assertions can fail.
@@ -93,7 +98,7 @@ internal suspend fun joinApprovedLoopbackPeer(
     var ownershipTransferred = false
     try {
         val result = withTimeout(30.seconds) {
-            peerTransport.join(host.info.value.code, displayName)
+            peerTransport.join(JoinConfig(host.info.value.code, displayName, expectedGameProtocol = loopbackGameProtocol))
         }
         check(result is Result.Success) { "Loopback peer join failed" }
         val room = result.data

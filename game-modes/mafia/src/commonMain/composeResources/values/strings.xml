@@ -193,6 +193,7 @@
     <string name="vote_outcome_all_abstained">Everyone abstained — no one is eliminated.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">Back to party</string>
     <string name="postgame_eyebrow">Game over</string>
     <string name="postgame_mafia_wins">Mafia wins</string>
     <string name="postgame_town_wins">Town wins</string>
@@ -246,6 +247,7 @@
     <string name="md_net_error_timeout">The connection timed out.</string>
     <string name="md_net_error_payload_too_large">The room sent data that is too large to process safely.</string>
     <string name="md_net_error_wrong_code">No matching room was found. Check the room code and try again.</string>
+    <string name="md_net_error_wrong_game">This room uses a different game or game version. Select the matching game and check the code.</string>
     <string name="md_net_error_host_declined">The host declined this join request.</string>
     <string name="md_net_error_room_full">This room is full.</string>
     <string name="md_net_error_session_started">This game has already started and is not accepting new players.</string>
@@ -311,4 +313,6 @@
     <string name="discussion_how_to">Share your suspicions and ask each other questions. Keep your private role and night screen hidden.</string>
     <string name="vote_public_label">Public vote</string>
     <string name="vote_public_detail">Your vote is visible to everyone.</string>
+    <string name="md_net_error_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="md_net_error_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>

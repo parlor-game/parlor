@@ -24,6 +24,7 @@ import com.parlor.games.mafia.domain.state.Team
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.postgame_ended_without_winner
 import com.parlor.games.mafia.resources.postgame_exit
+import com.parlor.games.mafia.resources.postgame_party_exit
 import com.parlor.games.mafia.resources.postgame_exit_description
 import com.parlor.games.mafia.resources.postgame_eyebrow
 import com.parlor.games.mafia.resources.postgame_mafia_wins
@@ -39,6 +40,7 @@ fun PostGameScreen(
     finalRoles: List<Pair<String, Role>>,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    returnToParty: Boolean = false,
 ) {
     val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     val winnerColor = when (winner) {
@@ -50,8 +52,10 @@ fun PostGameScreen(
         modifier = modifier,
         actions = {
             ParlorButton(
-                label = stringResource(Res.string.postgame_exit),
-                contentDescription = stringResource(Res.string.postgame_exit_description),
+                label = stringResource(if (returnToParty) Res.string.postgame_party_exit else Res.string.postgame_exit),
+                contentDescription = stringResource(
+                    if (returnToParty) Res.string.postgame_party_exit else Res.string.postgame_exit_description,
+                ),
                 onClick = onExit,
                 modifier = Modifier.fillMaxWidth(),
             )

@@ -228,6 +228,25 @@ class GameShellRegistryExtensibilityTest {
     }
 
     @Test
+    fun registry_rejects_noncanonical_game_ids_even_for_local_games() {
+        val localOnly = FixtureBinding(
+            definition = ExistingDefinition(id = GameId("fixture_game")),
+            modes = setOf(GameEntryMode.PassAndPlay),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            DefaultGameShellRegistry(listOf(localOnly))
+        }
+    }
+
+    @Test
+    fun multiplayer_contract_rejects_reserved_game_ids() {
+        assertFailsWith<IllegalArgumentException> {
+            GameShellMultiplayerContract(GameId("party"), 1, 2..4)
+        }
+    }
+
+    @Test
     fun registry_rejects_a_multiplayer_contract_that_does_not_match_definition() {
         val mismatched = object : GameShellBinding {
             override val definition: GameDefinition<*, *, *> = fixtureDefinition
@@ -311,9 +330,8 @@ private class FixtureBinding(
 }
 
 private class ExistingDefinition(
+    override val id: GameId = GameId("existing-test-game"),
     delegate: RoundRobinAnnounceGame = RoundRobinAnnounceGame(),
 ) : GameDefinition<com.parlor.engine.testing.fakes.RrState,
     com.parlor.engine.testing.fakes.RrAction,
-    com.parlor.engine.testing.fakes.RrEvent> by delegate {
-    override val id: GameId = GameId("existing-test-game")
-}
+    com.parlor.engine.testing.fakes.RrEvent> by delegate

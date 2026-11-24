@@ -29,6 +29,9 @@ struct ContentView: View {
         // Compose owns both system and IME insets, including focused-field
         // scrolling. SwiftUI must not resize its host for the keyboard too.
         .ignoresSafeArea(.all, edges: .all)
+        .onOpenURL { url in
+            MainViewControllerKt.AcceptJoinLink(url: url.absoluteString)
+        }
         .onAppear {
             reportScenePhase(scenePhase)
         }

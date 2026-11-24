@@ -3,6 +3,7 @@
 # and dependency-verification update; the catalog is not a draft.
 
 [versions]
+qrcode-kotlin = "4.5.0"
 
 # Kotlin and KMP
 kotlin = "2.4.10"
@@ -40,6 +41,7 @@ turbine = "1.2.0"
 assertk = "0.28.1"
 
 [libraries]
+qrcode-kotlin = { module = "io.github.g0dkar:qrcode-kotlin", version.ref = "qrcode-kotlin" }
 
 # AndroidX
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.9.3" }

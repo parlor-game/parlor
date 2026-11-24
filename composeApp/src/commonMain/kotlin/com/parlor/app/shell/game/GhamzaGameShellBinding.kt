@@ -43,6 +43,8 @@ internal class GhamzaGameShellBinding(override val definition: GhamzaDefinition)
         GhamzaAuthority.allowed(action, actor, host, state)
     override fun disconnected(state: GhamzaState) = state.public.disconnected
     override fun isAborted(state: GhamzaState) = state.phase == GhamzaPhase.Aborted
+    override fun isCompleted(state: GhamzaState) = state.phase == GhamzaPhase.MatchResult
+    override fun isRematch(action: GhamzaAction) = action is GhamzaAction.Rematch
     override fun disconnectedAction(id: PlayerId) = GhamzaAction.Disconnected(id)
     override fun reconnectedAction(id: PlayerId) = GhamzaAction.Reconnected(id)
     override fun encodeAction(action: GhamzaAction) = GhamzaCodec.encodeAction(action)

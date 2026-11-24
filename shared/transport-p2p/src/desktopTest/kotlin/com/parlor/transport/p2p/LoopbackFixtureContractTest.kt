@@ -1,13 +1,22 @@
 package com.parlor.transport.p2p
 
-import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.GameProtocolRef
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
+import com.parlor.networking.protocol.PartyAdmissionContext
+import com.parlor.networking.protocol.PartyProtocolHeader
+import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PendingAdmission
+import com.parlor.networking.room.RoomMember
 import com.parlor.networking.transport.HostConfig
-import com.parlor.networking.transport.HostedGameProtocol
+import com.parlor.networking.transport.HostedPartyProtocol
+import com.parlor.networking.transport.JoinConfig
+import com.parlor.networking.transport.ResumablePartySessionInfo
 import com.parlor.networking.transport.ResumableSessionInfo
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
@@ -37,6 +46,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -71,7 +81,7 @@ class LoopbackFixtureContractTest {
         try {
             val host = network.host()
             val peer = network.peer(host, "alice")
-            val joining = async { peer.transport.join(host.info.value.code, "alice") }
+            val joining = async { peer.transport.join(JoinConfig(host.info.value.code, "alice", expectedGameProtocol = loopbackGameProtocol)) }
             try {
                 runCurrent()
                 assertFalse(joining.isCompleted)
@@ -105,7 +115,7 @@ class LoopbackFixtureContractTest {
                 val membership = requireNotNull(assertIs<Result.Success<ResumableSessionInfo?>>(
                     device.transport.resumableSession(),
                 ).data)
-                assertEquals(GameId("loopback-test-game"), membership.gameId)
+                assertEquals(loopbackGameProtocol.gameId, membership.gameId)
                 assertEquals(name, membership.displayName)
                 // Capabilities remain inside the device store, not the public room/UI contract.
                 assertNull(room.rejoinToken)
@@ -170,23 +180,80 @@ class LoopbackFixtureContractTest {
         }
     }
 
+    @Test
+    fun an_explicit_party_join_keeps_the_same_authenticated_seat_across_two_match_leases() = runTest {
+        val network = Network(this)
+        try {
+            val partyId = PartyId("a".repeat(32))
+            val game = GameProtocolRef(loopbackGameProtocol.gameId, loopbackGameProtocol.gameVersion)
+            val host = network.host(HostedPartyProtocol(partyId, loopbackGameProtocol))
+            val peer = network.peer(host, "alice")
+            val joining = async {
+                peer.transport.join(JoinConfig(host.info.value.code, "alice",
+                    party = PartyAdmissionContext(partyId, listOf(game))))
+            }
+            val pending = host.pendingAdmissions.first { it.size == 1 }.single()
+            assertEquals(listOf(game), pending.partySupportedGames)
+            assertIs<Result.Success<Unit>>(host.approveAdmission(pending.playerId))
+            val room = assertIs<Result.Success<LocalRoom>>(joining.await()).data.also(network::own)
+            assertEquals(partyId, room.info.value.partyId)
+            assertEquals(host.info.value.roomId, room.info.value.roomId)
+            val seat = room.selfPlayerId
+            assertEquals(Result.Success(null), peer.transport.resumableSession())
+            val saved = assertNotNull(assertIs<Result.Success<ResumablePartySessionInfo?>>(
+                peer.transport.resumablePartySession(),
+            ).data)
+            assertEquals(partyId, saved.partyId)
+            assertEquals(Result.Failure(NetError.IncompatibleProtocol), peer.transport.resumeLastSession(loopbackGameProtocol))
+            assertEquals(Result.Failure(NetError.IncompatibleProtocol),
+                peer.transport.resumeParty(PartyId("b".repeat(32)), saved.selection))
+
+            val frames = async { host.incoming.first() }
+            runCurrent()
+            val ready = PeerMessage.PartySetReady(
+                PartyProtocolHeader(PARTY_WIRE_VERSION, partyId, "peer-message-00001", 0),
+                PlayerId("spoofed"), 1, 1, true,
+            )
+            assertIs<Result.Success<Unit>>(room.sendToHost(ready))
+            assertEquals(ready.copy(actor = seat), frames.await())
+
+            val lease = assertNotNull(host.partyMatches)
+            for (id in listOf(SessionId("match-1"), SessionId("match-2"))) {
+                val frozen = assertIs<Result.Success<List<RoomMember>>>(
+                    lease.freezeMatch(id, setOf(seat)),
+                ).data
+                assertEquals(seat, frozen.single().playerId)
+                assertIs<Result.Success<Unit>>(lease.reopenMatch(id))
+                assertEquals(seat, host.members.value.single().playerId)
+                assertTrue(host.members.value.single().connected)
+            }
+        } finally {
+            network.close()
+        }
+    }
+
     private class Network(private val scope: TestScope) {
         private val appId = AppId("com.parlor.synthetic.loopback")
         val kits = mutableListOf<FakeP2pKit>()
         private val rooms = mutableListOf<LocalRoom>()
         private val hostKit = FakeP2pKit(PeerId("fixture-host")).also(kits::add)
+        private lateinit var hostAdvertisement: String
 
         fun own(room: LocalRoom) { rooms += room }
 
-        suspend fun host(): LocalRoom = assertIs<Result.Success<LocalRoom>>(
+        suspend fun host(party: HostedPartyProtocol? = null): LocalRoom = assertIs<Result.Success<LocalRoom>>(
             device(hostKit).transport(appId, "host", scope.backgroundScope).host(
-                HostConfig("Fixture Host", gameProtocol = HostedGameProtocol(GameId("loopback-test-game"), 1)),
+                HostConfig(
+                    "Fixture Host",
+                    gameProtocol = loopbackGameProtocol.takeIf { party == null },
+                    partyProtocol = party,
+                ),
             ),
         ).data.also(::own)
 
         fun peer(host: LocalRoom, name: String): Device {
             val kit = FakeP2pKit(PeerId("fixture-$name")).also(kits::add)
-            val hostPeer = peerInfo(PeerId(host.selfPlayerId.raw), "${P2pKitRoomTransport.P2P_ROOM_PREFIX}Host")
+            val hostPeer = peerInfo(PeerId(host.selfPlayerId.raw), hostAdvertisement)
             val hostSide = FakeP2pSession(peerInfo(kit.localPeerId, name))
             val peerSide = FakeP2pSession(hostPeer)
             val toHost = linkedEndpoint(peerSide, hostSide)
@@ -218,7 +285,10 @@ class LoopbackFixtureContractTest {
         private fun device(kit: FakeP2pKit): LoopbackDeviceFixture = LoopbackDeviceFixture(
             StandardTestDispatcher(scope.testScheduler),
             object : P2pKitFactory {
-                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit = kit
+                override suspend fun createKit(appId: AppId, deviceName: String): P2pKit {
+                    if (kit === hostKit) hostAdvertisement = deviceName
+                    return kit
+                }
             },
         )
     }

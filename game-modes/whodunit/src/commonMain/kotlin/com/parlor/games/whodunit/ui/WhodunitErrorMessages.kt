@@ -26,6 +26,9 @@ import com.parlor.games.whodunit.resources.net_error_suspended
 import com.parlor.games.whodunit.resources.net_error_transport
 import com.parlor.games.whodunit.resources.net_error_unauthorized
 import com.parlor.games.whodunit.resources.net_error_wrong_code
+import com.parlor.games.whodunit.resources.net_error_wrong_game
+import com.parlor.games.whodunit.resources.net_error_approval_expired
+import com.parlor.games.whodunit.resources.net_error_stale_room
 import com.parlor.core.result.DataError
 import com.parlor.networking.room.NetError
 import org.jetbrains.compose.resources.stringResource
@@ -60,6 +63,9 @@ internal fun netErrorMessage(error: NetError): String = stringResource(
         NetErrorMessageKey.Timeout -> Res.string.net_error_timeout
         NetErrorMessageKey.PayloadTooLarge -> Res.string.net_error_payload_too_large
         NetErrorMessageKey.WrongCode -> Res.string.net_error_wrong_code
+        NetErrorMessageKey.WrongGame -> Res.string.net_error_wrong_game
+        NetErrorMessageKey.ApprovalExpired -> Res.string.net_error_approval_expired
+        NetErrorMessageKey.StaleRoom -> Res.string.net_error_stale_room
         NetErrorMessageKey.HostDeclined -> Res.string.net_error_host_declined
         NetErrorMessageKey.RoomFull -> Res.string.net_error_room_full
         NetErrorMessageKey.SessionStarted -> Res.string.net_error_session_started
@@ -82,6 +88,9 @@ internal enum class NetErrorMessageKey {
     Timeout,
     PayloadTooLarge,
     WrongCode,
+    WrongGame,
+    ApprovalExpired,
+    StaleRoom,
     HostDeclined,
     RoomFull,
     SessionStarted,
@@ -103,6 +112,9 @@ internal fun netErrorMessageKey(error: NetError): NetErrorMessageKey = when (err
     NetError.Timeout -> NetErrorMessageKey.Timeout
     NetError.PayloadTooLarge -> NetErrorMessageKey.PayloadTooLarge
     NetError.WrongCode -> NetErrorMessageKey.WrongCode
+        NetError.WrongGame -> NetErrorMessageKey.WrongGame
+        NetError.ApprovalExpired -> NetErrorMessageKey.ApprovalExpired
+    NetError.StaleRoom -> NetErrorMessageKey.StaleRoom
     NetError.HostDeclined -> NetErrorMessageKey.HostDeclined
     NetError.RoomFull -> NetErrorMessageKey.RoomFull
     NetError.SessionStarted -> NetErrorMessageKey.SessionStarted

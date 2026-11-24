@@ -16,6 +16,7 @@ import com.parlor.games.whodunit.di.whodunitModule
 import com.parlor.networking.security.SecureIds
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +50,12 @@ val coreModule: Module = module {
             processScope = get(qualifier = named("multiplayerSession")),
             discardResumableSession = roomTransport::discardResumableSession,
             discardSelectedMembership = roomTransport::discardResumableMembership,
+        )
+    }
+    single {
+        ProcessPartySessionOwner(
+            transport = get(),
+            scope = get(qualifier = named("multiplayerSession")),
         )
     }
     // Strict JSON for content validation: unknown fields in case payloads fail

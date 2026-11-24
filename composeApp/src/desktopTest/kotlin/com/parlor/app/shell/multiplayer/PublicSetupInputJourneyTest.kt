@@ -47,6 +47,7 @@ import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
+import com.parlor.session.lobby.ProcessPartySessionOwner
 import com.parlor.session.multidevice.ProcessMultiplayerState
 import com.parlor.storage.settings.InMemorySettingsStore
 import com.parlor.storage.snapshot.InMemorySnapshotStore
@@ -153,6 +154,7 @@ class PublicSetupInputJourneyTest {
                         single { Json { encodeDefaults = true } }
                         single<RoomTransport> { fixture.transport }
                         single { fixture.owner }
+                        single { fixture.partyOwner }
                         single { StartupMultiplayerRecoveryGate() }
                         single<SessionSeedSource> { SessionSeedSource { 1L } }
                         single<SnapshotStore> { InMemorySnapshotStore() }
@@ -235,6 +237,7 @@ private class PublicSetupFixture(language: AppLanguage) : AutoCloseable {
     private val job = SupervisorJob()
     private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     val owner = ProcessMultiplayerSessionOwner(CoroutineScope(job + dispatcher))
+    val partyOwner = ProcessPartySessionOwner(transport, CoroutineScope(job + dispatcher))
 
     override fun close() {
         try {

@@ -14,7 +14,7 @@ This supplement is not an exhaustive per-file copyright inventory, an applicatio
 license, publisher legal approval, or a statement of Store readiness. Other
 licenses may already accompany dependency resources elsewhere in the package.
 
-The 25 upstream text files are copied verbatim (including their line endings).
+The 26 upstream text files are copied verbatim (including their line endings).
 INDEX.txt is a Parlor-authored guide, not a replacement for the full terms.
 The repository's config/third-party-notices.json records exact byte sizes,
 SHA-256 hashes, upstream sources, versions and applicability. It is not a
@@ -25,6 +25,10 @@ Shared license text
 APACHE-2.0.txt: Apache License 2.0 for Kotlin/Compose, Skiko, generated Wuffs
 0.3.3, Piex and Apache-derived inputs. This is not a claim that every dependency
 is Apache-licensed. Component notices below remain separate.
+
+QRCode-Kotlin (Android, iOS and Desktop development)
+----------------------------------------------------
+- QRCode-Kotlin-4.5.0-LICENSE.txt: complete MIT terms for the offline invitation encoder.
 
 Skiko / Skia native inputs (iOS)
 -------------------------------

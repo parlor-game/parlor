@@ -75,6 +75,7 @@
     <string name="net_error_transport">A connection problem happened.</string>
     <string name="net_error_unauthorized">Not authorised to join.</string>
     <string name="net_error_wrong_code">No matching room was found. Check the room code and try again.</string>
+    <string name="net_error_wrong_game">This room uses a different game or game version. Select the matching game and check the code.</string>
     <string name="network_open_settings">Open app settings</string>
     <string name="network_open_settings_description">Open Parlor's system settings to review Local Network access.</string>
     <string name="network_recovery_help">Parlor could not confirm local-network access. Check Wi-Fi and, on iPhone, Parlor's Local Network setting. This failure can also be caused by routing, Bonjour, or the host being unavailable.</string>
@@ -254,6 +255,7 @@
     <string name="reveal_stage_continue_description">Acknowledge the reveal and continue to post-game.</string>
 
     <!-- Post-game -->
+    <string name="postgame_party_exit">Back to party</string>
     <string name="postgame_eyebrow">AFTER THE GAME</string>
     <string name="postgame_question">What's next?</string>
     <string name="postgame_replay">Play Again — New Killer</string>
@@ -370,4 +372,6 @@
     <string name="whodunit_list_separator"> · </string>
     <string name="timer_elapsed_format">%1$s:%2$s</string>
     <string name="timer_total_format">/ %1$s:%2$s</string>
+    <string name="net_error_approval_expired">This join request expired. Ask the player to join again.</string>
+    <string name="net_error_stale_room">This room has closed or been replaced. Ask the host for a new invitation.</string>
 </resources>

@@ -42,7 +42,7 @@ internal class HostedGameRuntime<S : GameState, A : GameAction, E : GameEvent>(
     override val runtimeKind = spec.kind("host")
     private val raw = PassAndPlaySessionController(
         definition = spec.definition,
-        config = SessionConfig(SessionId(SecureIds.id128()), caseId, spec.modeId, players, seed),
+        config = SessionConfig(room.matchProtocol?.sessionId ?: SessionId(SecureIds.id128()), caseId, spec.modeId, players, seed),
         reducerContext = DefaultReducerContext(clock, RandomSource.seeded(seed)), scope = scope,
     )
     val bridge = HostedGameBridge(spec, raw, room, players, scope, reconcileRoomTopology = true)

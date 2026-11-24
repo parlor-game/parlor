@@ -1,10 +1,14 @@
 package com.parlor.networking.room
 
+import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
+import com.parlor.core.ids.RoomId
 import com.parlor.core.result.Result
+import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.RoomMessage
+import com.parlor.networking.protocol.SessionProtocol
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlin.time.TimeMark
 
 /**
  * The local-multi-device room abstraction. Production binds this contract to
@@ -26,6 +31,10 @@ interface LocalRoom {
     val info: StateFlow<RoomInfo>
     val members: StateFlow<List<RoomMember>>
     val isHost: Boolean
+    /** Reversible roster transactions are available only for an authoritative party room. */
+    val partyMatches: PartyMatchAdmission? get() = null
+    /** Assigned by party authority before a game can attach to this match. */
+    val matchProtocol: SessionProtocol? get() = null
     val incoming: Flow<RoomMessage>
 
     /** Logical session lifecycle; game commands are legal only while active. */
@@ -66,6 +75,9 @@ interface LocalRoom {
      */
     val peerEvents: SharedFlow<PeerEvent>
         get() = emptyPeerEvents
+
+    /** Creates a same-LAN invitation while initial admission is open. Host only. */
+    suspend fun createJoinLink(): String? = null
 
     /** Authenticated peers that supplied the correct room code and await host approval. */
     val pendingAdmissions: StateFlow<List<PendingAdmission>>
@@ -228,6 +240,9 @@ data class RoomInfo(
     val hostDisplayName: String,
     val hostPlayerId: PlayerId,
     val status: Status,
+    val roomId: RoomId? = null,
+    val roomTag: String? = null,
+    val partyId: PartyId? = null,
 ) {
     enum class Status { Idle, Hosting, Joined, Lost }
 }
@@ -236,12 +251,17 @@ data class RoomMember(
     val playerId: PlayerId,
     val displayName: String,
     val connected: Boolean,
+    /** Selected during authenticated party admission and retained across socket replacement. Host-side only. */
+    val partySupportedGames: List<GameProtocolRef> = emptyList(),
 )
 
 data class PendingAdmission(
     val playerId: PlayerId,
     val displayName: String,
     val isRejoin: Boolean,
+    val partySupportedGames: List<GameProtocolRef> = emptyList(),
+    /** Same monotonic deadline the host checks under the seat-capacity lock. */
+    val approvalDeadline: TimeMark? = null,
 )
 
 /** Network/transport errors. */
@@ -250,6 +270,9 @@ sealed interface NetError {
     data object Timeout : NetError
     data object PayloadTooLarge : NetError
     data object WrongCode : NetError
+    data object WrongGame : NetError
+    data object ApprovalExpired : NetError
+    data object StaleRoom : NetError
     data object HostDeclined : NetError
     data object RoomFull : NetError
     data object SessionStarted : NetError

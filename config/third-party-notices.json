@@ -3,11 +3,12 @@
   "scope": "REVIEWED_INPUT_NOTICE_SUPPLEMENT_NOT_EXHAUSTIVE_OR_LEGAL_APPROVAL",
   "resource_directory": "composeApp/src/commonMain/composeResources/files/legal",
   "resource_namespace": "com.parlor.app.resources",
-  "resource_count": 26,
+  "resource_count": 27,
   "catalog": {
     "path": "gradle/libs.versions.toml",
-    "sha256": "621697e9eab1a741b97719f6fce31fd04e2a27fc4f56c18496a124c01f6834df",
+    "sha256": "b42ac5ad5f559355ac21aed14742d21e533a0c0f1e2f6702601d6b19336fbddd",
     "pins": {
+      "qrcode-kotlin": "4.5.0",
       "kotlin": "2.4.10",
       "kotlinx-coroutines": "1.11.0",
       "kotlinx-serialization": "1.11.0",
@@ -51,7 +52,9 @@
     "kotlin_unicode_data": "13.0.0",
     "unicode_license_accessed": "2026-09-07",
     "bouncycastle": "1.85",
-    "slf4j": "2.0.16"
+    "slf4j": "2.0.16",
+    "qrcode_kotlin": "4.5.0",
+    "qrcode_kotlin_commit": "773d7047fca4df35f40ae8c0364ba963fd622002"
   },
   "files": [
     {
@@ -239,10 +242,33 @@
       }
     },
     {
+      "name": "QRCode-Kotlin-4.5.0-LICENSE.txt",
+      "kind": "upstream-text",
+      "bytes": 1089,
+      "sha256": "b13b37465b05419dc9cfa79b78cd24dff358ef164f46accf61b5c585a6ceae95",
+      "components": [
+        "QRCode-Kotlin 4.5.0"
+      ],
+      "platforms": [
+        "android",
+        "ios",
+        "desktop-development"
+      ],
+      "classification": "SHARED_LICENSE_TEXT",
+      "applicability": "Verbatim MIT license for the offline QR encoder used in room invitations.",
+      "provenance": {
+        "method": "full-text",
+        "url": "https://raw.githubusercontent.com/g0dkar/qrcode-kotlin/773d7047fca4df35f40ae8c0364ba963fd622002/LICENSE",
+        "accessed_on": "2026-11-22",
+        "source_sha256": "b13b37465b05419dc9cfa79b78cd24dff358ef164f46accf61b5c585a6ceae95",
+        "source_bytes": 1089
+      }
+    },
+    {
       "name": "INDEX.txt",
       "kind": "index",
-      "bytes": 5031,
-      "sha256": "53b6a73e28b2aa88bc2084bae2923348d109a9e6d117b9f98c5b6b37495d4764",
+      "bytes": 5228,
+      "sha256": "2a702537ed36a07b6ee498d8b801c119a0b454d3af87f8e3b17871876831c400",
       "components": [
         "Parlor dependency-input notice supplement"
       ],

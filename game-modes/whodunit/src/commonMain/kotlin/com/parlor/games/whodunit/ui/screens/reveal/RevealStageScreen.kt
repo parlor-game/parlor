@@ -45,6 +45,11 @@ import com.parlor.games.whodunit.ui.components.WhodunitTable
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
+private fun killerWinCause(verdict: Verdict): KillerWinCause? = when (verdict) {
+    is Verdict.PlayersWin -> null
+    is Verdict.KillerWins -> verdict.cause
+}
+
 /**
  * The final-reveal moment, editorial direction.
  *
@@ -72,36 +77,21 @@ fun RevealStageScreen(
     val colors = ParlorTheme.colors
     val reduced = ParlorTheme.reducedMotion
     val motion = ParlorTheme.motion
-    // Capture the verdict in a local so the smart cast in the nested `when`
-    // is anchored to one stable read. The previous code branched three times
-    // on the parameter; on Kotlin/Native an incremental rebuild occasionally
-    // dropped exhaustiveness on the second / third `when` over the same
-    // sealed-interface parameter, throwing NoWhenBranchMatchedException on
-    // an instance that any `is` check would otherwise match.
-    val v: Verdict = verdict
-    val playersWin = v is Verdict.PlayersWin
-    val verdictLine = if (playersWin) {
-        stringResource(Res.string.reveal_stage_yes)
-    } else {
-        stringResource(Res.string.reveal_stage_no)
-    }
+    // Resolve the sealed verdict once outside Compose dispatch. Repeating the
+    // type test in this screen let the iOS build render contradictory labels.
+    val cause = killerWinCause(verdict)
+    val playersWin = cause == null
+    val verdictLine = stringResource(if (playersWin) Res.string.reveal_stage_yes else Res.string.reveal_stage_no)
     val accentColor = if (playersWin) colors.semanticSuccess else colors.semanticDanger
-    val subhead = if (v is Verdict.PlayersWin) {
-        stringResource(Res.string.reveal_stage_players_win_subhead)
-    } else {
-        val killerCause = (v as? Verdict.KillerWins)?.cause
-        when (killerCause) {
-            KillerWinCause.InnocentAccused ->
-                stringResource(Res.string.reveal_stage_killer_innocent_subhead)
-            KillerWinCause.TieUnresolved ->
-                stringResource(Res.string.reveal_stage_killer_tie_subhead)
-            KillerWinCause.SurvivedToFinalTwo ->
-                stringResource(Res.string.reveal_stage_killer_finaltwo_subhead)
-            KillerWinCause.GameEndedEarly ->
-                stringResource(Res.string.reveal_stage_game_ended_subhead)
-            null -> stringResource(Res.string.reveal_stage_killer_innocent_subhead)
-        }
-    }
+    val subhead = stringResource(
+        when (cause) {
+            null -> Res.string.reveal_stage_players_win_subhead
+            KillerWinCause.InnocentAccused -> Res.string.reveal_stage_killer_innocent_subhead
+            KillerWinCause.TieUnresolved -> Res.string.reveal_stage_killer_tie_subhead
+            KillerWinCause.SurvivedToFinalTwo -> Res.string.reveal_stage_killer_finaltwo_subhead
+            KillerWinCause.GameEndedEarly -> Res.string.reveal_stage_game_ended_subhead
+        },
+    )
 
     // Stage gating:
     //   0 = verdict word only

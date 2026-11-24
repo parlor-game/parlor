@@ -334,6 +334,7 @@ class HostAuthoritativeSessionCoordinator(
                 messageId = startId,
                 sequence = 0L,
                 connectionEpoch = protocol.connectionEpoch,
+                partyId = protocol.partyId,
             ),
             caseVersion = caseVersion,
             caseDigest = caseDigest,
@@ -1296,6 +1297,7 @@ class HostAuthoritativeSessionCoordinator(
         messageId = messageId,
         sequence = ++hostSequence,
         connectionEpoch = protocol.connectionEpoch,
+        partyId = protocol.partyId,
     )
 
     private fun doubledRetryDelay(current: Long, maximum: Long): Long {
@@ -2037,6 +2039,7 @@ class PeerAuthoritativeSessionCoordinator(
         messageId = messageId,
         sequence = 0L,
         connectionEpoch = protocol.connectionEpoch,
+        partyId = protocol.partyId,
     )
 
     private companion object {
