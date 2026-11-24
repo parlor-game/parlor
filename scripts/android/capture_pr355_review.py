@@ -204,9 +204,18 @@ def last_light_handoff(output):
         stages.append(f"Played one legal card. Covered handoff moved to {second}.")
         tap(f"I am {second}")
         tap(f"Challenge {first}", scroll=True)
-        expect("The cards are on the table.")
-        screenshot(output / "last-light-public-challenge-result.png")
-        stages.append("Second seat challenged. The public round result appeared.")
+        stages.append("Second seat activated the enabled Challenge control.")
+        wanted = ("the claim was true.", "bluff caught.", "last light standing")
+        for _ in range(8):
+            labels = [label(node) for node in tree().iter("node")]
+            verdict = next((v for v in wanted if any(v in text for text in labels)), None)
+            if verdict:
+                screenshot(output / "last-light-public-challenge-result.png")
+                stages.append(f"Public result: {verdict}")
+                break
+            time.sleep(0.7)
+        else:
+            raise RuntimeError("No public round verdict or terminal winner appeared")
     finally:
         (output / "last-light-stages.json").write_text(json.dumps(stages, indent=2) + "\n")
 
