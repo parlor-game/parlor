@@ -139,7 +139,7 @@ jobs:
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Check the retained package uses the exact successful build producer
-        if: needs.plan.outputs.staged_ios_pair == 'true' || needs.plan.outputs.extended_match == 'true'
+        if: needs.plan.outputs.staged_ios_pair == 'true' || (needs.plan.outputs.extended_match == 'true' && needs.plan.outputs.reuse_candidate == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -155,7 +155,7 @@ jobs:
               .run_id == 45121464371 and .name == "build (android, ubuntu-24.04)" and .conclusion == "success"' >/dev/null
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.extended_match == 'true'
+        if: needs.plan.outputs.extended_match == 'true' && needs.plan.outputs.reuse_candidate == 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -263,10 +263,14 @@ jobs:
           bash verification/mobile-lan/trial.sh bridge "$TARGET"
           bash verification/mobile-lan/trial.sh verify "$TARGET"
       - name: Observe isolated LAN continuity during native gameplay
-        if: matrix.pairing == 'mixed' && matrix.target == 'android'
+        if: matrix.pairing == 'mixed'
         run: |
-          setsid bash scripts/smart-lobby-native/lab.sh mixed-lan-probe </dev/null \
+          if [[ "$TARGET" == ios ]]; then
+            nohup bash scripts/smart-lobby-native/lab.sh mixed-lan-probe </dev/null >"$RUNNER_TEMP/parlor-proof/lan-echo.jsonl" &
+          else
+            setsid bash scripts/smart-lobby-native/lab.sh mixed-lan-probe </dev/null \
             >"$RUNNER_TEMP/parlor-proof/lan-echo.jsonl" &
+          fi
           printf '%s\n' "$!" > "$RUNNER_TEMP/mobile-lan/probe.pid"
       - name: Record aggregate LAN and owned listener samples
         if: needs.plan.outputs.observe_reconnect == 'true'

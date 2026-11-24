@@ -422,13 +422,17 @@ SDK_RETRY
 # from an application session transition. This output carries no packet data.
 mixed_lan_probe() {
   local sent completed delivered
+  local -a probe
+  if [[ "$TARGET" == ios ]]; then
+    probe=(ping -S 192.168.137.2 -c 1 -W 3000 192.168.137.10)
+  else
+    probe=(timeout 4 adb -s emulator-5554 shell ping -I wlan0 -c 1 -W 2 192.168.137.2)
+  fi
   while [[ -f "$work/mobile-lan/ready" ]]; do
-    sent="$(date -u +%s%3N)"
+    sent="$(python3 -c 'import time; print(time.time_ns() // 1000000)')"
     delivered=0
-    if timeout 4 adb -s emulator-5554 shell ping -I wlan0 -c 1 -W 2 192.168.137.2 >/dev/null 2>&1; then
-      delivered=1
-    fi
-    completed="$(date -u +%s%3N)"
+    if "${probe[@]}" >/dev/null 2>&1; then delivered=1; fi
+    completed="$(python3 -c 'import time; print(time.time_ns() // 1000000)')"
     printf '{"send_epoch_ms":%s,"complete_epoch_ms":%s,"delivered":%s}\n' "$sent" "$completed" "$delivered"
     sleep 3
   done

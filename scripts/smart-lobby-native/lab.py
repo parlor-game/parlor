@@ -21,6 +21,7 @@ DUAL_IOS_SOURCE = "0438fc6ff53780e87fa111f68352b15dd44a3ec3"
 DUAL_IOS_PRODUCER = 45121464371
 PARTY_NIGHT_SOURCE = "3154ed26fe18831c5b5a08f1bfa31faa353cbda0"
 PARTY_NIGHT_PRODUCER = 45343614595
+PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
 
 
 def configuration():
@@ -57,12 +58,13 @@ def plan():
     visible_ios = payload.get("visible_ios_window") is True
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
         raise ValueError("The retained Party Night builds require the mixed reconnect topology")
-    if visible_ios and not (reuse_party_night and payload.get("require_native_ios") is False):
+    fresh_presets = candidate == PRESETS_CANDIDATE and pairing == "mixed" and not reuse_candidate and observe_reconnect
+    if visible_ios and not ((reuse_party_night or fresh_presets) and payload.get("require_native_ios") is False):
         raise ValueError("The visible Simulator controller is limited to the retained Party Night trial")
-    if extended_match and (pairing != "mixed" or not reuse_candidate or
+    if extended_match and not fresh_presets and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+    if observe_reconnect and not fresh_presets and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
                               candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
