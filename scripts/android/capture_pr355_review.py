@@ -149,8 +149,71 @@ def profile(output, arabic, only_game=None):
     return {"profile": name, "pixels": [width, height], "density": density, "font_scale": scale, "routes": rows}
 
 
+def last_light_handoff(output):
+    width, height, density = 1080, 2280, 440
+    adb("shell", "wm", "size", f"{width}x{height}")
+    adb("shell", "wm", "density", str(density))
+    adb("shell", "settings", "put", "system", "font_scale", "1.0")
+    adb("shell", "cmd", "uimode", "night", "no")
+    adb("shell", "pm", "clear", PACKAGE)
+    launch()
+    params = {"width": width, "height": height}
+    stages = []
+
+    def tap(target, scroll=False, max_tap_y=None):
+        if not find(target, **params, click=True, scroll=scroll, max_tap_y=max_tap_y):
+            raise RuntimeError(f"Missing interactive control: {target}")
+
+    def expect(target):
+        if not find(target, **params):
+            raise RuntimeError(f"Missing public state: {target}")
+
+    def handoff(exclude=None):
+        for _ in range(8):
+            labels = [label(node) for node in tree().iter("node")]
+            for name in ("AlphaQA", "BetaQA"):
+                if name != exclude and any(f"pass the device to {name.casefold()}" in text for text in labels):
+                    if any(re.search(r"\bcard [1-9] of [1-9]", text) for text in labels):
+                        raise RuntimeError("Private card exposed in the handoff accessibility tree")
+                    return name
+            time.sleep(0.7)
+        raise RuntimeError("Expected covered handoff to the active seat")
+
+    try:
+        tap("Open Last Light and choose local or nearby play", scroll=True, max_tap_y=3 * height // 4)
+        tap("Start a pass-and-play session on this device.", scroll=True)
+        expect("Gather around one device")
+        for field, name in enumerate(("AlphaQA", "BetaQA"), 1):
+            tap(f"Player {field}", scroll=True)
+            adb("shell", "input", "text", name)
+            expect(name)
+            if b"mInputShown=true" in adb("shell", "dumpsys", "input_method"):
+                adb("shell", "input", "keyevent", "KEYCODE_BACK")
+        tap("Start match", scroll=True)
+        first = handoff()
+        screenshot(output / "last-light-first-covered-seat.png")
+        stages.append(f"Started local match at covered handoff to {first}")
+        tap(f"I am {first}")
+        tap("Show hand", scroll=True)
+        tap("Card 1 of", scroll=True)
+        tap("Play 1 card", scroll=True)
+        second = handoff(exclude=first)
+        screenshot(output / "last-light-second-covered-seat.png")
+        stages.append(f"Played one legal card. Covered handoff moved to {second}.")
+        tap(f"I am {second}")
+        tap(f"Challenge {first}", scroll=True)
+        expect("The cards are on the table.")
+        screenshot(output / "last-light-public-challenge-result.png")
+        stages.append("Second seat challenged. The public round result appeared.")
+    finally:
+        (output / "last-light-stages.json").write_text(json.dumps(stages, indent=2) + "\n")
+
+
 def main():
     output = Path(sys.argv[1])
+    if len(sys.argv) == 3 and sys.argv[2] == "--last-light-handoff":
+        last_light_handoff(output)
+        return
     profiles = []
     only_game = sys.argv[2] if len(sys.argv) == 3 else None
     for locale in ((True,) if only_game else (False, True)):
