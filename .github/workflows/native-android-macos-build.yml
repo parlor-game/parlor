@@ -1,0 +1,51 @@
+name: Build exact Parlor Android debug package on macOS
+on:
+  push:
+    branches: [test/distributed-smart-lobby]
+    paths: [scripts/smart-lobby-native/android-macos-candidate.txt]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      TARGET: android
+      GRADLE_OPTS: >-
+        -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+        -Dorg.gradle.jvmargs=-Xmx4g
+        -Dorg.gradle.parallel=false
+        -Dorg.gradle.workers.max=2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - id: source
+        name: Verify the exact Android source reference
+        shell: bash
+        run: |
+          read -r candidate < scripts/smart-lobby-native/android-macos-candidate.txt
+          [[ "$candidate" =~ ^[0-9a-f]{40}$ ]]
+          printf 'candidate=%s\n' "$candidate" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.source.outputs.candidate }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and hash the verified Android package
+        shell: bash
+        env:
+          CANDIDATE: ${{ steps.source.outputs.candidate }}
+        run: bash scripts/smart-lobby-native/lab.sh build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-android-1
+          path: ${{ runner.temp }}/parlor-package
+          if-no-files-found: error
+          retention-days: 7

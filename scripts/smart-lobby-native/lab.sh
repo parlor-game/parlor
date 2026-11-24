@@ -19,7 +19,7 @@ build() {
   if [[ "$TARGET" == android ]]; then
     ./gradlew :composeApp:assembleDebug --dependency-verification=strict --no-configuration-cache
     cp composeApp/build/outputs/apk/debug/composeApp-debug.apk "$package/parlor.apk"
-    (cd "$package" && sha256sum parlor.apk > SHA256SUMS)
+    (cd "$package" && shasum -a 256 parlor.apk > SHA256SUMS)
     "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"
     "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$package/parlor.apk" > "$package/signature.txt"
   else
