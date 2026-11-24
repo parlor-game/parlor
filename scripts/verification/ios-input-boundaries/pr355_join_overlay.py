@@ -8,6 +8,7 @@ path = Path(sys.argv[1])
 original = path.read_text()
 source = original
 for language, name, transition in (
+    ("Arabic", "ArabicKeyboardSanity", False),
     ("Arabic", "ArabicDirectJoin", False),
     ("Arabic", "ArabicHostBackJoin", True),
     ("English", "EnglishHostBackJoin", True),
@@ -46,6 +47,9 @@ new = '''            if let probe {
             assertTextValue(name, in: app, equals: "Table Test", introduction: introduction)
             if let probe {
                 captureJoinProbe(app, name, copy.peerContinue, probe, "after-commit")
+            }
+            if probe == "ArabicKeyboardSanity" {
+                return
             }'''
 assert source.count(old) == 1
 source = source.replace(old, new)

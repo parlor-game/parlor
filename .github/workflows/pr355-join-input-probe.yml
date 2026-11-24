@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   probe:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 55
     env:
       APP_SOURCE: d2a55eb5f4880798b6e07377df249e370dd2ff11
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(uname -m)" = arm64
+          uname -m | grep -Fx x86_64
           out="$RUNNER_TEMP/join-evidence"
           mkdir "$out"
           git worktree add --detach "$RUNNER_TEMP/join-source" "$APP_SOURCE"
@@ -49,7 +49,7 @@ jobs:
           test "$(git diff --name-only)" = "$test_file"
           git diff -- "$test_file" > "$out/test-only.patch"
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/join-build" \
+            -destination 'generic/platform=iOS Simulator' ARCHS=x86_64 -derivedDataPath "$RUNNER_TEMP/join-build" \
             -parallel-testing-enabled NO build-for-testing | tee "$out/build.log"
       - name: Compare three installed routes on fresh iOS 18.5 profiles
         shell: bash
@@ -69,12 +69,19 @@ jobs:
           trap cleanup EXIT
           bundle="$(find "$RUNNER_TEMP/join-build/Build/Products" -maxdepth 1 -name '*.xctestrun' -print)"
           test -f "$bundle"
-          for route in ArabicHostBackJoin ArabicDirectJoin EnglishHostBackJoin; do
+          for route in ArabicKeyboardSanity ArabicHostBackJoin ArabicDirectJoin EnglishHostBackJoin; do
             udid="$(xcrun simctl create "Parlor-join-$GITHUB_RUN_ID-$route" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
             printf '%s\t%s\n' "$route" "$udid" | tee -a "$out/simulators.tsv"
             result="$out/$route.xcresult"
+            iterations=2
+            if [[ "$route" == ArabicKeyboardSanity ]]; then
+              iterations=1
+              xcrun simctl boot "$udid"
+              /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], timeout=150, check=True)' "$udid" \
+                | tee "$out/sanity-boot.log"
+            fi
             if xcodebuild -xctestrun "$bundle" -destination "platform=iOS Simulator,id=$udid" \
-              -parallel-testing-enabled NO -destination-timeout 120 -test-iterations 2 \
+              -parallel-testing-enabled NO -destination-timeout 120 -test-iterations "$iterations" \
               -only-testing:"iosAppUITests/IOSAppLaunchUITests/testProbe$route" \
               -resultBundlePath "$result" test-without-building | tee "$out/$route.log"; then
               echo "$route PASS" | tee -a "$out/outcomes.txt"
@@ -86,6 +93,9 @@ jobs:
               xcrun xcresulttool export attachments --path "$result" --output-path "$out/$route-attachments"
             fi
             cleanup
+            if [[ "$route" == ArabicKeyboardSanity && "$status" -ne 0 ]]; then
+              exit "$status"
+            fi
           done
           exit "$status"
       - name: Retain comparative results and screenshots
