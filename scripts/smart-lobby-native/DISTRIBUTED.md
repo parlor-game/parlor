@@ -163,6 +163,35 @@ controllers across three concurrent labs. Each lab confines discovery and
 gameplay to its own roster. The larger simultaneous count measures runner
 availability across separate rooms.
 
+## Qualified rosters
+
+- Six independent jobs, one iOS host and five Android guests, completed both
+  Whodunit routes on app `997096d9`. Every seat cast a ballot and displayed the
+  same final headline and subtitle in each match. The relay evidence includes
+  30 directed reachability checks, native discovery advertisements from the
+  iOS host, and P2pKit TCP traffic in both directions for each guest.
+  [Workflow](https://github.com/parlor-game/parlor/actions/runs/45304038848)
+  · [iOS host receipt](https://github.com/parlor-game/parlor/actions/runs/45304038848/artifacts/14883421286)
+- Five independent macOS jobs completed standalone and Party Mafia on the same
+  app source. The host switched the same Party to Word Impostor. All five seats
+  stayed approved, each voted in all three rounds, and the final scorecards
+  agreed. [Workflow](https://github.com/parlor-game/parlor/actions/runs/45310659996)
+  · [iOS host receipt](https://github.com/parlor-game/parlor/actions/runs/45310659996/artifacts/14885054336)
+- Reserve the full five macOS slots before dispatching a five-seat iOS lab. A
+  run started while the mixed-route host was still active lost its fifth seat
+  to the queue through the 15-minute certificate rendezvous. Dispatching once
+  the other labs released their slots allowed all five jobs to attach. Both
+  workflows used the same retained packages with no build per seat.
+  [Queue evidence](https://github.com/parlor-game/parlor/actions/runs/45307626076/artifacts/14883335633)
+  · [Exact package producer](https://github.com/parlor-game/parlor/actions/runs/45301741674)
+- The remaining six-seat iOS-only Whodunit cases need a sixth authorized
+  Simulator endpoint. A new endpoint must load the same app source, join the
+  isolated lab, and pass native discovery and bidirectional TCP checks. Twelve
+  devices in one room add no qualification row for the current games. The
+  observed capacity of fourteen devices applies across separate labs.
+
+The matrix and release status are recorded in [draft PR #360](https://github.com/parlor-game/parlor/pull/360).
+
 [GitHub Actions limits](https://docs.github.com/en/actions/reference/limits)
 · [GitHub private networking](https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/connect-to-a-private-network)
 · [Pinned two-runner proof](https://github.com/ui-test-actions/ui-test-actions/blob/0c818c5d72e8c30c59bd1287c330a40392bf8e89/docs/mobile-lan.md)
