@@ -25,6 +25,7 @@ jobs:
     outputs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
+      rules_restore_android: ${{ steps.plan.outputs.rules_restore_android }}
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
@@ -132,7 +133,7 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android' && needs.plan.outputs.reuse_presets_android != 'true'
+        if: needs.plan.outputs.observe_reconnect != 'true' && matrix.target == 'android' && needs.plan.outputs.reuse_presets_android != 'true' && needs.plan.outputs.rules_restore_android != 'true'
         with:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
@@ -195,7 +196,7 @@ jobs:
           name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_candidate != 'true' && (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios')
+        if: needs.plan.outputs.reuse_candidate != 'true' && (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios' || needs.plan.outputs.rules_restore_android == 'true')
         with:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
@@ -312,6 +313,13 @@ jobs:
           path: ${{ runner.temp }}/parlor-connections
           if-no-files-found: error
           retention-days: 1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: needs.plan.outputs.rules_restore_android == 'true'
+        with:
+          name: parlor-native-preflight-android-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parlor-proof
+          if-no-files-found: error
+          retention-days: 7
       - name: Keep all controllers available for visible UI actions
         run: python3 scripts/smart-lobby-native/lab.py hold
       - name: Collect redacted diagnostics before tearing down guests

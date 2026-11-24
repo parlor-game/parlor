@@ -1,10 +1,12 @@
 {
   "pairing": "android",
-  "candidate": "0b13c7892fd84dae800a095985a6db6b321a2281",
+  "candidate": "758fa763168c643df8d86267cc1d0b7f0d1322f4",
+  "rules_restore_android": true,
   "token_digests": [
-    "b31a0c27645baf6b5ae520bcac039dd2f2dd9b81cc296140679dfd2a369a263e",
-    "b75598e7e62bd70a8a4b5a421ac292d6a837c608e16e03a9c13b198f603f5794"
-  ],
-  "reuse_candidate": true,
-  "reuse_exact_presets_android": true
+    "8f18e8ef5d5fa9b53ce3e9fce1552da3af8f31f1ae72ba2adf95597e1b8e0884",
+    "aa024d8334fb5b1b4175d04bd76aa2b4ecf752ca6f5bcf058e626787575d433b",
+    "7bc172737f31e59145d964a2b609371132fed414acc23201cab3890e9840fd22",
+    "5d7642ca4a9b72f4b5f5810cf174a6d437e793f2b153b329f5689533d36cd6b3",
+    "ba5fb34a2e48e9f905abd6fcc1b61683468d603feb1cd1eb415754afd2455f39"
+  ]
 }

@@ -54,6 +54,12 @@ def plan():
     extended_match = payload.get("extended_match") is True
     if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         raise ValueError("Candidate must be an exact commit SHA")
+    rules_restore_android = payload.get("rules_restore_android") is True
+    if rules_restore_android and (
+        candidate != "758fa763168c643df8d86267cc1d0b7f0d1322f4"
+        or pairing != "android" or len(digests) != 5 or reuse_candidate or observe_reconnect
+    ):
+        raise ValueError("The rules restore trial requires five Android installs of the exact candidate")
     reuse_presets_android = payload.get("reuse_exact_presets_android") is True
     if reuse_presets_android and (
         candidate != PRESETS_CANDIDATE or pairing != "android" or len(digests) != 2 or not reuse_candidate
@@ -75,7 +81,7 @@ def plan():
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
-    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or reuse_presets_android):
+    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     builds = [{"target": target, "runner": runner} for target, runner in
@@ -83,8 +89,9 @@ def plan():
     labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
             for entry in builds]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
-        print(f"build={json.dumps([entry for entry in builds if observe_reconnect or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps([entry for entry in builds if observe_reconnect or rules_restore_android or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
+        print(f"rules_restore_android={str(rules_restore_android).lower()}", file=stream)
         print(f"reuse_presets_android={str(reuse_presets_android).lower()}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
