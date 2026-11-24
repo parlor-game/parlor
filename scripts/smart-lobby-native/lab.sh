@@ -387,8 +387,22 @@ BUNDLE
     if [[ "$PAIRING_NAME" == distributed ]]; then
       local process_log="$work/parlor-process-logs/$device"
       (umask 077 && mkdir -p "$process_log" && touch "$process_log/stdout" "$process_log/stderr")
-      bounded_simctl "$launch_timeout" launch --stdout="$process_log/stdout" --stderr="$process_log/stderr" \
-        "$device" "$bundle" > "$record/app-launch.txt"
+      # A fully booted, verified guest can take longer than 60 seconds to
+      # answer the launch request. Reconcile a timed-out request with the
+      # owned Simulator before opening its separate UI controller.
+      if bounded_simctl 120 launch --stdout="$process_log/stdout" --stderr="$process_log/stderr" \
+        "$device" "$bundle" > "$record/app-launch.txt"; then
+        :
+      else
+        [[ "$?" == 124 ]]
+        bounded_simctl 30 spawn "$device" launchctl list | awk -v bundle="$bundle" '
+          $1 ~ /^[1-9][0-9]*$/ && index($NF, "UIKitApplication:" bundle "[") == 1 {
+            print bundle ": " $1; alive = 1
+          }
+          END { if (!alive) exit 1 }
+        ' > "$record/app-launch.txt"
+        printf '%s\n' 'reconciled-with-owned-simulator' > "$record/app-launch-source.txt"
+      fi
     else
       bounded_simctl "$launch_timeout" launch "$device" "$bundle" > "$record/app-launch.txt"
     fi
