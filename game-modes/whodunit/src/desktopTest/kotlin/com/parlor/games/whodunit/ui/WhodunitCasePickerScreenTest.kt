@@ -1,9 +1,20 @@
 package com.parlor.games.whodunit.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.parlor.content.repository.CaseRepository
 import com.parlor.content.repository.CaseUpdate
 import com.parlor.content.schema.CaseSummary
@@ -23,6 +34,8 @@ import com.parlor.games.whodunit.ui.screens.setup.WhodunitCasePickerScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class WhodunitCasePickerScreenTest {
@@ -49,6 +62,39 @@ class WhodunitCasePickerScreenTest {
             onNodeWithText(ENGLISH_CASE_TITLE).assertDoesNotExist()
             onNodeWithText(CONTINUE_LABEL).assertDoesNotExist()
         }
+
+    @Test
+    fun enlarged_rtl_language_filter_labels_fit_without_breaking_words() = runComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                ProvideAppLanguage(AppLanguage.Arabic) {
+                    ParlorTheme(reducedMotion = true) {
+                        Box(Modifier.size(320.dp, 570.dp)) {
+                            WhodunitCasePickerScreen(
+                                repository = EnglishOnlyCaseRepository,
+                                onCasePicked = {},
+                                onBack = {},
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        for (label in listOf("English", ARABIC_FILTER_LABEL, "الكل")) {
+            val layouts = mutableListOf<TextLayoutResult>()
+            onNodeWithText(label, useUnmergedTree = true)
+                .assertIsDisplayed()
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            assertEquals(1, layout.lineCount, label)
+            assertEquals(label.length, layout.getLineEnd(0, visibleEnd = true), label)
+            val lineWidth = layout.getLineRight(0) - layout.getLineLeft(0)
+            assertTrue(lineWidth <= layout.size.width + 1f, "$label: $lineWidth exceeds ${layout.size.width}")
+        }
+        onNodeWithText("English").performClick()
+        onNodeWithText(ENGLISH_CASE_TITLE).assertExists()
+    }
 
     private object EnglishOnlyCaseRepository : CaseRepository {
         override suspend fun listCases(gameId: GameId): Result<List<CaseSummary>, DataError> =
