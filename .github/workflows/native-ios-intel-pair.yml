@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   lab:
-    runs-on: macos-26-intel
+    runs-on: macos-15-intel
     timeout-minutes: 100
     env:
       TARGET: ios
@@ -28,8 +28,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Allocate and boot two owned simulators using the proven early Intel probe
-        run: python3 scripts/smart-lobby-native/dual_intel_probe.py --keep-booted
+      - name: Stage two iOS 26.2 devices provided by the macOS 15 Intel image
+        run: python3 scripts/smart-lobby-native/dual_intel_probe.py --keep-preinstalled
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ui-test-actions/ui-test-actions

@@ -26,6 +26,20 @@ def owned_simulator(seat, runtime):
     return device
 
 
+def preinstalled_simulators(runtime):
+    inventory = json.loads(simctl("list", "devices", "available", "-j", timeout=90))
+    devices = inventory["devices"][runtime]
+    selected = []
+    for model in ("iPhone 16e", "iPhone 16"):
+        device, = [item["udid"] for item in devices if item["name"] == model and item["isAvailable"]]
+        if not re.fullmatch(r"[0-9A-Fa-f-]{36}", device):
+            raise RuntimeError("Unexpected preinstalled test device identifier")
+        selected.append(device)
+    if len(set(selected)) != 2:
+        raise RuntimeError("The two image-provided simulators must be distinct")
+    return selected
+
+
 def springboard_pid(device):
     table = simctl("spawn", device, "launchctl", "list", timeout=12)
     match = re.search(r"^([0-9]+)\s+\S+\s+com\.apple\.SpringBoard$", table, re.M)
@@ -54,14 +68,16 @@ def boot(device):
 
 def main():
     temporary = Path(os.environ["RUNNER_TEMP"])
-    keep_booted = sys.argv[1:] == ["--keep-booted"]
+    preinstalled = sys.argv[1:] == ["--keep-preinstalled"]
+    keep_booted = preinstalled or sys.argv[1:] == ["--keep-booted"]
     if sys.argv[1:] and not keep_booted:
         raise ValueError("Unknown probe argument")
     proof = temporary / "parlor-proof" if keep_booted else temporary
     proof.mkdir(exist_ok=True)
     path = proof / "native-intel-simulator-capacity.json"
     summary = {"architecture": platform.machine(), "parlor_app_built": False, "seats": [],
-               "strategy": "wait for the first SpringBoard before starting the second simulator"}
+               "strategy": "wait for the first SpringBoard before starting the second simulator",
+               "device_source": "standard image" if preinstalled else "job-created"}
     devices = []
     retained = False
     try:
@@ -75,9 +91,10 @@ def main():
         # combination. Requiring it at create avoids a second inventory pass.
         runtime = "com.apple.CoreSimulator.SimRuntime.iOS-26-2"
         summary["runtime"] = runtime
+        available = preinstalled_simulators(runtime) if preinstalled else None
         for seat in (1, 2):
             try:
-                device = owned_simulator(seat, runtime)
+                device = available[seat - 1] if available else owned_simulator(seat, runtime)
             except subprocess.SubprocessError as error:
                 summary["seats"].append({"ready": False, "stage": "create", "error": type(error).__name__})
                 break
