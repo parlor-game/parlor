@@ -17,7 +17,7 @@ GAMES = (
     ("last-light", "Last Light", "الضوء الأخير", True),
     ("egyptian-dominoes", "Egyptian Dominoes", "الدومنة المصرية", False),
     ("ghamza", "Ghamza", "غمزة", False),
-    ("word-impostor", "Word Impostor", "لعبة الإمبوستر", False),
+    ("word-impostor", "Word Impostor", "الإمبوستر", False),
 )
 
 
@@ -83,7 +83,7 @@ def launch():
     adb("shell", "am", "start", "-W", "-n", ACTIVITY)
 
 
-def profile(output, arabic):
+def profile(output, arabic, only_game=None):
     width, height, density, scale = (720, 1280, 360, "2.0") if arabic else (1080, 2280, 440, "1.0")
     name = "ar-dark-320dp-2x" if arabic else "en-light-393dp-1x"
     adb("shell", "wm", "size", f"{width}x{height}")
@@ -110,10 +110,13 @@ def profile(output, arabic):
     back_label = "العودة إلى الشاشة الرئيسية." if arabic else "Return to the home screen."
     rows = []
     for slug, english, arabic_title, local in GAMES:
+        if only_game and slug != only_game:
+            continue
         print(f"Capturing {name} / {slug}", flush=True)
         try:
             launch()
-            tap(arabic_title if arabic else english, scroll=True)
+            catalog_label = "لعبة الإمبوستر" if arabic and slug == "word-impostor" else arabic_title
+            tap(catalog_label if arabic else english, scroll=True)
             expect(back_label)
             expect(arabic_title if arabic else english)
             screenshot(output / f"{name}-{slug}-picker.png")
@@ -134,9 +137,10 @@ def profile(output, arabic):
 def main():
     output = Path(sys.argv[1])
     profiles = []
-    for locale in (False, True):
+    only_game = sys.argv[2] if len(sys.argv) == 3 else None
+    for locale in ((True,) if only_game else (False, True)):
         try:
-            profiles.append(profile(output, locale))
+            profiles.append(profile(output, locale, only_game))
         except (RuntimeError, subprocess.SubprocessError) as exc:
             profiles.append({"locale": "ar" if locale else "en", "failure": str(exc)})
     (output / "coverage.json").write_text(json.dumps(profiles, indent=2, ensure_ascii=False) + "\n")
