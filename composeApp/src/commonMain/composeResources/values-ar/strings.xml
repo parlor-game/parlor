@@ -173,6 +173,7 @@
         <item quantity="many">ابدأ بـ %1$d لاعبًا</item>
         <item quantity="other">ابدأ بـ %1$d لاعبًا</item>
     </plurals>
+    <string name="room_game_restore_defaults">استعادة القواعد الافتراضية</string>
     <string name="room_game_cannot_start">اختر إعدادات تناسب اللاعبين الموجودين.</string>
     <string name="room_game_wait_for_admission">وافق على طلبات الانضمام أو ارفضها قبل البدء.</string>
     <string name="room_game_wait_for_connection">انتظر حتى يصبح اتصال الغرفة جاهزًا.</string>
