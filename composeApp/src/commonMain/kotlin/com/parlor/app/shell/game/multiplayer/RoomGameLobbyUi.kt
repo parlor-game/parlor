@@ -31,6 +31,7 @@ import com.parlor.app.resources.room_game_decline
 import com.parlor.app.resources.room_game_leave
 import com.parlor.app.resources.room_game_local
 import com.parlor.app.resources.room_game_request
+import com.parlor.app.resources.room_game_restore_defaults
 import com.parlor.app.resources.room_game_start
 import com.parlor.app.resources.room_game_wait_for_admission
 import com.parlor.app.resources.room_game_wait_for_connection
@@ -129,6 +130,14 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
             Text(stringResource(Res.string.lobby_setup_heading), color = ParlorTheme.colors.textPrimary,
                 style = ParlorTheme.typography.headingMedium, modifier = Modifier.semantics { heading() })
             spec.Settings(state.caseId, count, enabled, setup::select)
+            if (state.caseId != spec.defaultCaseId) {
+                RoomButton(
+                    stringResource(Res.string.room_game_restore_defaults),
+                    { setup.select(spec.defaultCaseId) },
+                    enabled,
+                    secondary = true,
+                )
+            }
             if (startHint != null) {
                 Text(
                     text = startHint,

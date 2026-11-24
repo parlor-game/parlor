@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.parlor.app.shell.game.DominoGameShellBinding
 import com.parlor.app.shell.game.GhamzaGameShellBinding
 import com.parlor.app.shell.game.WordImpostorGameShellBinding
+import com.parlor.core.ids.CaseId
 import com.parlor.core.ids.PlayerId
 import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorToastState
@@ -29,6 +30,8 @@ import com.parlor.engine.action.GameAction
 import com.parlor.engine.event.GameEvent
 import com.parlor.engine.state.GameState
 import com.parlor.games.dominoes.DominoDefinition
+import com.parlor.games.dominoes.domain.DominoCompetition
+import com.parlor.games.dominoes.domain.DominoSettings
 import com.parlor.games.ghamza.GhamzaDefinition
 import com.parlor.games.wordimpostor.WordImpostorDefinition
 import com.parlor.networking.room.LocalRoom
@@ -48,6 +51,45 @@ class RoomGameLobbyRenderingTest {
             verifyLobby(DominoGameShellBinding(DominoDefinition()), language)
             verifyLobby(GhamzaGameShellBinding(GhamzaDefinition()), language)
             verifyLobby(WordImpostorGameShellBinding(WordImpostorDefinition()), language)
+        }
+    }
+
+    @Test
+    fun restoring_default_rules_reenables_start_after_a_dominoes_roster_change() {
+        for (language in listOf(AppLanguage.English, AppLanguage.Arabic)) {
+            runComposeUiTest {
+                val spec = DominoGameShellBinding(DominoDefinition())
+                val members = MutableStateFlow(
+                    (1..3).map { RoomMember(PlayerId("guest-$it"), "Player $it", true) },
+                )
+                val room = object : LocalRoom by InMemoryHostRoom(InMemoryRoomBus(), PlayerId("host"), "Host") {
+                    override val members = members
+                }
+                val setup = GameHostSetupCheckpoint(spec.kind("setup"), spec.defaultCaseId)
+                setup.select(DominoSettings(competition = DominoCompetition.Teams).caseId)
+                val toast = ParlorToastState()
+                var startedWith: CaseId? = null
+                setContent {
+                    CompositionLocalProvider(LocalParlorToastState provides toast) {
+                        ProvideAppLanguage(language) {
+                            ParlorTheme(reducedMotion = true) {
+                                HostRoomControls(spec, room, setup, { startedWith = setup.state.value.caseId },
+                                    {}, false, Modifier)
+                            }
+                        }
+                    }
+                }
+                val arabic = language == AppLanguage.Arabic
+                onNodeWithText(startLabel(arabic, 4)).performScrollTo().assertIsEnabled()
+                runOnIdle { members.value = members.value.take(1) }
+                onNodeWithText(startLabel(arabic, 2)).performScrollTo().assertIsNotEnabled()
+
+                val reset = if (arabic) "استعادة القواعد الافتراضية" else "Restore default rules"
+                onNodeWithText(reset).performScrollTo().assertIsEnabled().performClick()
+                onNodeWithText(reset).assertDoesNotExist()
+                onNodeWithText(startLabel(arabic, 2)).performScrollTo().assertIsEnabled().performClick()
+                runOnIdle { assertEquals(spec.defaultCaseId, startedWith) }
+            }
         }
     }
 

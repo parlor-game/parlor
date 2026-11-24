@@ -165,6 +165,7 @@
         <item quantity="one">Start with %1$d player</item>
         <item quantity="other">Start with %1$d players</item>
     </plurals>
+    <string name="room_game_restore_defaults">Restore default rules</string>
     <string name="room_game_cannot_start">Choose settings that fit the players at the table.</string>
     <string name="room_game_wait_for_admission">Approve or decline each join request before starting.</string>
     <string name="room_game_wait_for_connection">Wait for the room connection to be ready.</string>
