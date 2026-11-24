@@ -47,6 +47,7 @@ internal class PartyHostCoordinator(
     val state = lobby.asStateFlow()
 
     suspend fun admit(seat: PartySeat) = mutate { it.admit(seat) }
+    suspend fun configurePlaylist(games: List<PartyGame>) = mutate { it.configurePlaylist(games) }
     suspend fun selectGame(game: PartyGame): Result<PartyLobby, PartyRejection> = mutations.withLock {
         val previous = lobby.value
         val selected = previous.selectGame(game)
@@ -78,8 +79,8 @@ internal class PartyHostCoordinator(
 
     suspend fun commitMatch(match: SessionId) = mutate { it.commitMatch(match) }
 
-    suspend fun returnToLobby(match: SessionId): Result<PartyLobby, PartyRejection> = mutations.withLock {
-        val returned = lobby.value.returnToLobby(match)
+    suspend fun returnToLobby(match: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val returned = lobby.value.returnToLobby(match, completed)
         if (returned !is Result.Success || matchAdmission == null) return@withLock apply(returned)
         val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match) }
         if (reopened is Result.Failure) return@withLock Result.Failure(reopened.error.toPartyRejection())

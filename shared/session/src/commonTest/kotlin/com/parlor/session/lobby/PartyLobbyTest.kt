@@ -84,6 +84,24 @@ class PartyLobbyTest {
     }
 
     @Test
+    fun a_playlist_is_bounded_and_requires_compatible_games_for_the_current_party() {
+        val incompatible = partyWithPeer(capabilities = setOf(mafia.protocol))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), incompatible.configurePlaylist(listOf(mafia, word)))
+        val large = partyWithPeer().admit(seat(other)).value()
+        assertEquals(Result.Failure(PartyRejection.IneligibleCount), large.configurePlaylist(listOf(mafia, small)))
+        val party = partyWithPeer()
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), party.configurePlaylist(emptyList()))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame),
+            party.configurePlaylist(List(MAX_PLAYLIST_MATCHES + 1) { mafia }))
+
+        val games = mutableListOf(mafia, mafia, word)
+        val configured = party.configurePlaylist(games).value()
+        games.clear()
+        assertEquals(listOf(mafia, mafia, word), configured.playlist?.games)
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), configured.configurePlaylist(listOf(word)))
+    }
+
+    @Test
     fun canceled_attempt_never_reuses_its_match_id_and_reconnect_keeps_identity() {
         val party = partyWithPeer()
         val ready = party.setReady(peer, true, party.revision).value()

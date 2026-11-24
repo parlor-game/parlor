@@ -14,6 +14,17 @@ data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) 
     }
 }
 
+/** Host-only receipt for a verified finished match. Per-game scoring is separate. */
+data class PartyMatchResult(val matchId: SessionId, val game: GameProtocolRef)
+
+@ConsistentCopyVisibility
+data class PartyPlaylist internal constructor(
+    val games: List<PartyGame>,
+    val results: List<PartyMatchResult> = emptyList(),
+) {
+    val nextGame: PartyGame? get() = games.getOrNull(results.size)
+}
+
 internal data class PartySeat(
     val member: RoomMember,
     val capabilities: Set<GameProtocolRef>,
@@ -65,6 +76,7 @@ internal data class PartyLobby private constructor(
     val matchOrdinal: Long,
     val phase: PartyPhase,
     val roomName: String?,
+    val playlist: PartyPlaylist? = null,
 ) {
     fun admit(seat: PartySeat): Result<PartyLobby, PartyRejection> {
         val player = seat.member.playerId
@@ -82,10 +94,20 @@ internal data class PartyLobby private constructor(
 
     fun selectGame(selection: PartyGame): Result<PartyLobby, PartyRejection> = when {
         phase != PartyPhase.Lobby -> Result.Failure(PartyRejection.InvalidPhase)
+        playlist?.nextGame?.let { it != selection } == true -> Result.Failure(PartyRejection.InvalidPhase)
         selection == game -> Result.Success(this)
         seats.size > selection.playerCounts.last -> Result.Failure(PartyRejection.IneligibleCount)
         seats.values.any { selection.protocol !in it.capabilities } -> Result.Failure(PartyRejection.IncompatibleGame)
         else -> Result.Success(copy(game = selection, seats = seats.resetReadiness(), revision = revision + 1))
+    }
+
+    fun configurePlaylist(games: List<PartyGame>): Result<PartyLobby, PartyRejection> = when {
+        phase != PartyPhase.Lobby || playlist?.nextGame != null -> Result.Failure(PartyRejection.InvalidPhase)
+        games.size !in 1..MAX_PLAYLIST_MATCHES -> Result.Failure(PartyRejection.IncompatibleGame)
+        games.any { seats.size !in it.playerCounts } -> Result.Failure(PartyRejection.IneligibleCount)
+        games.any { game -> seats.values.any { game.protocol !in it.capabilities } } ->
+            Result.Failure(PartyRejection.IncompatibleGame)
+        else -> Result.Success(copy(playlist = PartyPlaylist(games.toList())))
     }
 
     /** The authenticated member can set readiness only for the selected game's current revision. */
@@ -113,6 +135,7 @@ internal data class PartyLobby private constructor(
 
     fun prepareMatch(): Result<PartyLobby, PartyRejection> {
         if (phase != PartyPhase.Lobby) return Result.Failure(PartyRejection.InvalidPhase)
+        if (playlist?.nextGame?.let { it != game } == true) return Result.Failure(PartyRejection.InvalidPhase)
         val connected = seats.values.filter { it.member.connected }
         if (connected.size !in game.playerCounts || connected.none { it.member.playerId == host }) {
             return Result.Failure(PartyRejection.IneligibleCount)
@@ -142,14 +165,24 @@ internal data class PartyLobby private constructor(
         ))
     }
 
-    fun returnToLobby(matchId: SessionId): Result<PartyLobby, PartyRejection> {
+    fun returnToLobby(matchId: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> {
         val current = when (phase) {
             is PartyPhase.Starting -> phase.match
             is PartyPhase.Playing -> phase.match
             else -> return Result.Failure(PartyRejection.InvalidPhase)
         }
         if (current.id != matchId) return Result.Failure(PartyRejection.StaleMatch)
-        return Result.Success(copy(phase = PartyPhase.Lobby, seats = seats.resetReadiness(), revision = revision + 1))
+        if (completed && phase !is PartyPhase.Playing) return Result.Failure(PartyRejection.InvalidPhase)
+        val progress = playlist?.let {
+            if (completed && it.nextGame != null) {
+                it.copy(results = it.results + PartyMatchResult(current.id, current.game))
+            } else {
+                it
+            }
+        }
+        return Result.Success(copy(
+            phase = PartyPhase.Lobby, seats = seats.resetReadiness(), revision = revision + 1, playlist = progress,
+        ))
     }
 
     fun endParty(): PartyLobby =
@@ -181,3 +214,4 @@ internal data class PartyLobby private constructor(
 }
 
 private const val MAX_MATCH_PLAYERS = 16
+internal const val MAX_PLAYLIST_MATCHES = 32

@@ -139,15 +139,27 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         private val transition = Mutex()
         private val playing = MutableStateFlow<ProcessMultiplayerSession?>(null)
         private val completedGame = MutableStateFlow<GameId?>(null)
+        private var pendingReturn: SessionEndReason? = null
         override val lobby = owner.state.map(PartyLobby::publicLobby)
             .stateIn(scope, SharingStarted.WhileSubscribed(0), owner.state.value.publicLobby())
         override val match = playing.asStateFlow()
         val approvals = owner.pending
         val lastCompletedGame = completedGame.asStateFlow()
 
+        /** Progress belongs to the live host and survives peers rejoining that host. */
+        val playlist: PartyPlaylist? get() = owner.state.value.playlist
+
         suspend fun createInvitation(): String? = physical.createJoinLink()
         suspend fun approve(player: PlayerId): Result<Unit, NetError> = owner.approve(player)
         suspend fun reject(player: PlayerId): Result<Unit, NetError> = owner.reject(player)
+
+        /** Set the order in the lobby. Select each game through the normal admission checks. */
+        suspend fun configurePlaylist(orderedGames: List<PartyGame>): Result<Unit, PartyRejection> = transition.withLock {
+            if (orderedGames.size !in 1..MAX_PLAYLIST_MATCHES) return@withLock Result.Failure(PartyRejection.IncompatibleGame)
+            val selection = orderedGames.toList()
+            if (selection.any { it !in games }) return@withLock Result.Failure(PartyRejection.IncompatibleGame)
+            owner.configurePlaylist(selection).toUnit()
+        }
 
         suspend fun selectGame(game: PartyGame): Result<Unit, PartyRejection> =
             if (game in games) owner.selectGame(game).toUnit() else Result.Failure(PartyRejection.IncompatibleGame)
@@ -175,21 +187,33 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
             id: SessionId,
             reason: SessionEndReason = SessionEndReason.Completed,
         ): Result<Unit, PartyRejection> = transition.withLock {
+            if (reason == SessionEndReason.Completed && playlist?.results?.any { it.matchId == id } == true) {
+                return@withLock Result.Success(Unit)
+            }
             val session = playing.value?.takeIf { it.room.matchProtocol?.sessionId == id }
                 ?: return@withLock Result.Failure(PartyRejection.StaleMatch)
             val runtime = session.runtime.value
-            if (reason == SessionEndReason.Completed &&
+            if (pendingReturn == null && reason == SessionEndReason.Completed &&
                 (owner.state.value.phase !is PartyPhase.Playing || runtime?.isMatchCompleted != true)
             ) {
                 return@withLock Result.Failure(PartyRejection.InvalidPhase)
             }
             withContext(NonCancellable) {
-                runtime?.terminate(reason)
-                owner.returnToLobby(id).toUnit().also {
+                // A transport failure can leave the already-ended match frozen.
+                // Its next return attempt must keep the original terminal decision.
+                val acceptedReason = pendingReturn ?: reason
+                pendingReturn = acceptedReason
+                runtime?.terminate(acceptedReason)
+                val completed = acceptedReason == SessionEndReason.Completed
+                owner.returnToLobby(id, completed).toUnit().also {
                     if (it is Result.Success) {
-                        if (reason == SessionEndReason.Completed) completedGame.value = session.route.gameId
-                        session.closeRuntimeAndScope()
-                        playing.value = null
+                        if (completed) completedGame.value = session.route.gameId
+                        try {
+                            session.closeRuntimeAndScope()
+                        } finally {
+                            playing.value = null
+                            pendingReturn = null
+                        }
                     }
                 }
             }
@@ -200,6 +224,7 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
                 if (it is Result.Success) {
                     playing.value?.closeRuntimeAndScope()
                     playing.value = null
+                    pendingReturn = null
                     scope.cancel()
                 }
             }
