@@ -68,7 +68,7 @@ class PostGameScreenLayoutTest {
             }
         }
         onNodeWithText("Back to home").assertDoesNotExist()
-        onNodeWithText("Back to party").performScrollTo().assertIsDisplayed().performClick()
+        onNodeWithText("Back to party").assertIsDisplayed().performClick()
         runOnIdle { assertTrue(exited) }
     }
 
