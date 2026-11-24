@@ -2,8 +2,8 @@
   "pairing": "mixed",
   "candidate": "d2a55eb5f4880798b6e07377df249e370dd2ff11",
   "token_digests": [
-    "a514a4915c3ae3c35f59ea96669a1b562e07e2e717877d97ac3aac35be0ab30f",
-    "a6495c62b187aa9fe9b150cd5ea5c2d13a7798890d271548b729991242df41c3"
+    "57f2e196d7b81e2716ecc51689daed4a033048d14946d132d109738bacf25c1d",
+    "2814174fcb15e05ff46491f42019c7c5b9504bfba351092f920fae6dc3aa9f70"
   ],
   "observe_reconnect": true,
   "require_native_ios": false,
