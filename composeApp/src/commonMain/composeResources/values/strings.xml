@@ -278,6 +278,13 @@
     <string name="party_playlist_unknown_game">Unavailable game</string>
     <string name="party_playlist_retry_return">Retry return to party</string>
     <string name="party_playlist_retry_return_detail">Return to the party to record the result.</string>
+    <string name="party_preset_heading">Saved playlist presets</string>
+    <string name="party_preset_save">Save as preset</string>
+    <string name="party_preset_load">Load preset %1$d</string>
+    <string name="party_preset_delete">Remove preset %1$d</string>
+    <string name="party_preset_full">Remove a saved preset before adding another.</string>
+    <string name="party_preset_incompatible">This preset is unavailable for the current party.</string>
+    <string name="party_preset_write_failed">The preset could not be saved or removed. Try again.</string>
     <string name="party_view_match">Return to match</string>
     <string name="party_leave">Leave party</string>
     <string name="party_cancel">Cancel</string>

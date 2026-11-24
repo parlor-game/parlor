@@ -26,8 +26,11 @@ interface SettingsStore {
      * Defaults to `"system"`.
      */
     val themeMode: Flow<String>
+    val partyPlaylistPresets: Flow<List<PartyPlaylistPreset>>
 
     suspend fun setReducedMotion(enabled: Boolean)
     suspend fun setLanguageOverride(language: String?)
     suspend fun setThemeMode(tag: String)
+    suspend fun savePartyPlaylistPreset(preset: PartyPlaylistPreset)
+    suspend fun removePartyPlaylistPreset(preset: PartyPlaylistPreset)
 }

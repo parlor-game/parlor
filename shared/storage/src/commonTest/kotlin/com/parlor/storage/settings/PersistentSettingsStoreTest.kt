@@ -1,5 +1,6 @@
 package com.parlor.storage.settings
 
+import com.parlor.core.ids.GameId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -88,11 +89,60 @@ class PersistentSettingsStoreTest {
         assertFalse(failed.reducedMotion.first())
     }
 
+    @Test
+    fun playlist_presets_keep_order_and_repeats_through_store_recreation() = runTest {
+        val backing = FakeBacking()
+        val hostGames = mutableListOf(GameId("last-light"), GameId("egyptian-dominoes"), GameId("last-light"))
+        val expected = PartyPlaylistPreset(hostGames.toList())
+        val store = PersistentSettingsStore(backing)
+        store.savePartyPlaylistPreset(PartyPlaylistPreset(hostGames))
+        hostGames.clear()
+        store.savePartyPlaylistPreset(expected)
+        assertEquals(1, backing.stringWrites)
+
+        val restored = PersistentSettingsStore(backing)
+        assertEquals(listOf(expected), restored.partyPlaylistPresets.first())
+        restored.removePartyPlaylistPreset(expected)
+        assertTrue(PersistentSettingsStore(backing).partyPlaylistPresets.first().isEmpty())
+    }
+
+    @Test
+    fun preset_capacity_and_failed_removal_keep_the_last_successful_value() = runTest {
+        val backing = FakeBacking()
+        val store = PersistentSettingsStore(backing)
+        val presets = List(PartyPlaylistPreset.MAX_SAVED) { PartyPlaylistPreset(listOf(GameId("game-$it"))) }
+        presets.forEach { store.savePartyPlaylistPreset(it) }
+        assertFailsWith<SettingsPersistenceException> {
+            store.savePartyPlaylistPreset(PartyPlaylistPreset(listOf(GameId("extra-game"))))
+        }
+        assertEquals(presets, PersistentSettingsStore(backing).partyPlaylistPresets.first())
+
+        val failing = FakeBacking(SettingsPersistenceException("disk unavailable")).apply {
+            strings.putAll(backing.strings)
+        }
+        val restored = PersistentSettingsStore(failing)
+        assertFailsWith<SettingsPersistenceException> { restored.removePartyPlaylistPreset(presets.first()) }
+        assertEquals(presets, restored.partyPlaylistPresets.first())
+    }
+
+    @Test
+    fun corrupt_and_oversized_preset_preferences_do_not_affect_other_settings() = runTest {
+        val backing = FakeBacking().apply { strings["language_override"] = "ar" }
+        listOf("[{\"games\":[\"Bad-ID\"]}]", "[" + " ".repeat(12_001) + "]").forEach { raw ->
+            backing.strings["party_playlist_presets_v1"] = raw
+            val store = PersistentSettingsStore(backing)
+            assertEquals("ar", store.languageOverride.first())
+            assertTrue(store.partyPlaylistPresets.first().isEmpty())
+        }
+    }
+
     private class FakeBacking(
         private val writeFailure: Throwable? = null,
     ) : SettingsKeyValueBacking {
         val booleans = mutableMapOf<String, Boolean>()
         val strings = mutableMapOf<String, String>()
+        var stringWrites = 0
+            private set
 
         override fun readBoolean(key: String): Boolean? = booleans[key]
         override fun readString(key: String): String? = strings[key]
@@ -104,6 +154,7 @@ class PersistentSettingsStoreTest {
 
         override suspend fun writeString(key: String, value: String?) {
             writeFailure?.let { throw it }
+            stringWrites++
             if (value == null) strings.remove(key) else strings[key] = value
         }
     }

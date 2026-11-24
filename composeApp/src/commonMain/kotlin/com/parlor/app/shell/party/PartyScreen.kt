@@ -52,6 +52,7 @@ import com.parlor.session.lobby.PartyGame
 import com.parlor.session.lobby.PartyRejection
 import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.session.lobby.ProcessPartySessionOwner
+import com.parlor.storage.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -61,6 +62,7 @@ internal fun PartyScreen(
     owner: ProcessPartySessionOwner,
     transport: RoomTransport,
     registry: GameShellRegistry,
+    settings: SettingsStore,
     invitation: PartyJoinInvitation?,
     privateContentCovered: Boolean,
     backRequest: Long,
@@ -79,7 +81,7 @@ internal fun PartyScreen(
         }
     }
     if (session != null) {
-        ActiveParty(owner, session, registry, titles, privateContentCovered, backRequest, onExit)
+        ActiveParty(owner, session, registry, settings, titles, privateContentCovered, backRequest, onExit)
     } else if (privateContentCovered) {
         PartyPrivacyCover()
     } else if (permissionAcknowledged) {
@@ -140,6 +142,7 @@ private fun ActiveParty(
     owner: ProcessPartySessionOwner,
     session: ProcessPartySession,
     registry: GameShellRegistry,
+    settings: SettingsStore,
     titles: Map<PartyGame, String>,
     privateContentCovered: Boolean,
     backRequest: Long,
@@ -193,7 +196,7 @@ private fun ActiveParty(
             }
         }
     } else if (visiblePage != null && lobby != null) {
-        PartyLobbySubpage(visiblePage, lobby, host, registry, titles, actions, onBack = { lobbyPage = null })
+        PartyLobbySubpage(visiblePage, lobby, host, registry, settings, titles, actions, onBack = { lobbyPage = null })
     } else if (showingMatch && activeMatch != null && protocol != null && matchUi != null) {
         matchUi.PartyMatch(
             session = activeMatch,
@@ -235,6 +238,7 @@ private fun PartyLobbySubpage(
     lobby: PublicPartyLobby,
     host: ProcessPartySession.Host?,
     registry: GameShellRegistry,
+    settings: SettingsStore,
     titles: Map<PartyGame, String>,
     actions: PartyActions,
     onBack: () -> Unit,
@@ -251,7 +255,7 @@ private fun PartyLobbySubpage(
         PartyLobbyPage.Playlist -> {
             if (host == null) return
             val scope = rememberCoroutineScope()
-            PartyPlaylistEditor(titles, lobby.members.size, !actions.waiting, partyError(actions), onSave = { games ->
+            PartyPlaylistEditor(titles, lobby.members.size, !actions.waiting, partyError(actions), settings, onSave = { games ->
                 scope.launch { actions.run { if (showParty(host.configurePlaylist(games))) onBack() } }
             }, onBack = onBack)
         }

@@ -46,6 +46,7 @@ import com.parlor.networking.transport.TransportCapability
 import com.parlor.session.lobby.PartyGame
 import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.session.lobby.ProcessPartySessionOwner
+import com.parlor.storage.settings.InMemorySettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -146,12 +147,13 @@ class PartyLobbyRenderingTest {
         val owner = ProcessPartySessionOwner(transport, backgroundScope)
         assertIs<Result.Success<ProcessPartySession>>(owner.join("Guest", "ABCDEF", setOf(game)))
         val registry = DefaultGameShellRegistry(emptyList())
+        val settings = InMemorySettingsStore()
         val covered = mutableStateOf(false)
         runComposeUiTest {
             setContent {
                 ProvideAppLanguage(AppLanguage.English) {
                     ParlorTheme(reducedMotion = true) {
-                        PartyScreen(owner, transport, registry, invitation = null, privateContentCovered = covered.value,
+                        PartyScreen(owner, transport, registry, settings, invitation = null, privateContentCovered = covered.value,
                             backRequest = 0, onExit = {})
                     }
                 }

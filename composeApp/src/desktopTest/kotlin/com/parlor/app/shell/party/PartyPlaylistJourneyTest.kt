@@ -53,6 +53,7 @@ import com.parlor.session.lobby.ProcessPartySession
 import com.parlor.session.lobby.ProcessPartySessionOwner
 import com.parlor.session.multidevice.ProcessMultiplayerSession
 import com.parlor.session.multidevice.RetainedMultiplayerRuntime
+import com.parlor.storage.settings.InMemorySettingsStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -68,6 +69,8 @@ import kotlin.test.assertIs
 
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class PartyPlaylistJourneyTest {
+    private val hostSettings = InMemorySettingsStore()
+    private val guestSettings = InMemorySettingsStore()
     private val lastLight = LastLightGameShellBinding(LastLightDefinition())
     private val dominoes = DominoGameShellBinding(DominoDefinition())
     private val registry = DefaultGameShellRegistry(listOf(lastLight, dominoes))
@@ -112,13 +115,22 @@ class PartyPlaylistJourneyTest {
 
     private fun editThroughHostLobby(owner: ProcessPartySessionOwner, host: ProcessPartySession.Host, wire: PlaylistWire) =
         runComposeUiTest {
-            setContent { RenderLobby(owner, wire) }
+            setContent { RenderLobby(owner, wire, hostSettings) }
             onNodeWithText("Make a playlist").performScrollTo().performClick()
             onNodeWithText("Save playlist").performScrollTo().assertIsNotEnabled()
             onNodeWithText("Add Egyptian Dominoes").performScrollTo().performClick()
             onNodeWithText("Remove 1 · Egyptian Dominoes").performScrollTo().performClick()
             onNodeWithText("Add Last Light").performScrollTo().performClick()
             onNodeWithText("Add Egyptian Dominoes").performScrollTo().performClick()
+            onNodeWithText("Save as preset").performScrollTo().performClick()
+            onNodeWithText("Load preset 1").assertExists()
+            onNodeWithText("Save as preset").assertIsNotEnabled()
+            onNodeWithText("Remove 1 · Last Light").performScrollTo().performClick()
+            onNodeWithText("Load preset 1").performScrollTo().performClick()
+            onNodeWithText("Remove 1 · Last Light").assertExists()
+            onNodeWithText("Remove 2 · Egyptian Dominoes").assertExists()
+            onNodeWithText("Remove preset 1").performScrollTo().performClick()
+            onNodeWithText("Load preset 1").assertDoesNotExist()
             onNodeWithText("Save playlist").performScrollTo().performClick()
             waitUntil { host.playlist?.games == games }
         }
@@ -137,7 +149,9 @@ class PartyPlaylistJourneyTest {
     private fun verifyBothLobbies(host: ProcessPartySessionOwner, guest: ProcessPartySessionOwner, wire: PlaylistWire) =
         runComposeUiTest {
             val owner = mutableStateOf(host)
-            setContent { key(owner.value) { RenderLobby(owner.value, wire) } }
+            setContent {
+                key(owner.value) { RenderLobby(owner.value, wire, if (owner.value === host) hostSettings else guestSettings) }
+            }
             for (session in listOf(host, guest)) {
                 runOnIdle { owner.value = session }
                 onNodeWithText("Next game · Egyptian Dominoes").performScrollTo().assertIsDisplayed()
@@ -151,11 +165,11 @@ class PartyPlaylistJourneyTest {
         }
 
     @Composable
-    private fun RenderLobby(owner: ProcessPartySessionOwner, transport: RoomTransport) {
+    private fun RenderLobby(owner: ProcessPartySessionOwner, transport: RoomTransport, settings: InMemorySettingsStore) {
         ProvideAppLanguage(AppLanguage.English) {
             ParlorTheme(reducedMotion = true) {
                 Box(Modifier.size(320.dp, 640.dp)) {
-                    PartyScreen(owner, transport, registry, invitation = null, privateContentCovered = false,
+                    PartyScreen(owner, transport, registry, settings, invitation = null, privateContentCovered = false,
                         backRequest = 0, onExit = {})
                 }
             }

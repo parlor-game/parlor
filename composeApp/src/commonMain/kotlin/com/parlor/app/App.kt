@@ -379,6 +379,7 @@ internal fun App(settings: SettingsStore) {
                                     owner = partyOwner,
                                     transport = roomTransport,
                                     registry = gameShellRegistry,
+                                    settings = settings,
                                     invitation = navigator.partyInvitation,
                                     privateContentCovered = visibility.privateContentCovered,
                                     backRequest = gameBackRequest.id,
