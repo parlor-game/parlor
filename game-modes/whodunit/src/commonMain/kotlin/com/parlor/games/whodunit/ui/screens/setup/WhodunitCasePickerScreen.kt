@@ -5,12 +5,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
@@ -195,13 +197,15 @@ private fun CaseLibrary(
 
 @Composable
 private fun FilterRow(filter: CaseFilter, onSelected: (CaseFilter) -> Unit) {
-    Row(
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
+    FlowRow(
         modifier = Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(ParlorTheme.radii.pill))
             .background(ParlorTheme.colors.surfaceInset)
             .padding(ParlorTheme.spacing.xxs)
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xxs),
     ) {
         CaseFilter.entries.forEach { option ->
             val label = when (option) {
@@ -211,10 +215,10 @@ private fun FilterRow(filter: CaseFilter, onSelected: (CaseFilter) -> Unit) {
             }
             val selected = option == filter
             val shape = RoundedCornerShape(ParlorTheme.radii.pill)
+            val chipWidth = if (compactTypography) Modifier.widthIn(min = 48.dp) else Modifier.weight(1f)
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
+                modifier = chipWidth
                     .heightIn(min = 48.dp)
                     .clip(shape)
                     .background(

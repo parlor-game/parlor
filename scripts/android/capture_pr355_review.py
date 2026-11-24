@@ -1,6 +1,7 @@
 """Capture two public UI profiles from the Android release APK installed by CI."""
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -9,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 DEVICE = "emulator-5554"
-PACKAGE = "me.parlor.android"
+PACKAGE = os.getenv("PARLOR_APP_ID", "me.parlor.android")
 ACTIVITY = f"{PACKAGE}/com.parlor.app.MainActivity"
 GAMES = (
     ("whodunit", "Whodunit", "من القاتل", True),
