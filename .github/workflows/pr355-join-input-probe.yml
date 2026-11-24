@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-          fetch-depth: 4
+          fetch-depth: 8
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
         with:
           distribution: temurin
@@ -73,15 +73,16 @@ jobs:
             udid="$(xcrun simctl create "Parlor-join-$GITHUB_RUN_ID-$route" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
             printf '%s\t%s\n' "$route" "$udid" | tee -a "$out/simulators.tsv"
             result="$out/$route.xcresult"
-            iterations=2
+            iteration_options=(-parallel-testing-enabled NO -destination-timeout 120)
             if [[ "$route" == ArabicKeyboardSanity ]]; then
-              iterations=1
               xcrun simctl boot "$udid"
               /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], timeout=150, check=True)' "$udid" \
                 | tee "$out/sanity-boot.log"
+            else
+              iteration_options+=(-test-iterations 2)
             fi
             if xcodebuild -xctestrun "$bundle" -destination "platform=iOS Simulator,id=$udid" \
-              -parallel-testing-enabled NO -destination-timeout 120 -test-iterations "$iterations" \
+              "${iteration_options[@]}" \
               -only-testing:"iosAppUITests/IOSAppLaunchUITests/testProbe$route" \
               -resultBundlePath "$result" test-without-building | tee "$out/$route.log"; then
               echo "$route PASS" | tee -a "$out/outcomes.txt"
