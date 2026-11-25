@@ -29,6 +29,7 @@ jobs:
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       build_only: ${{ steps.plan.outputs.build_only }}
+      reuse_pr356: ${{ steps.plan.outputs.reuse_pr356 }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
       staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
@@ -240,39 +241,59 @@ jobs:
           run-id: ${{ needs.plan.outputs.retained_party_night_run }}
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
-      - name: Verify and extract the retained PR 355 package
-        if: needs.plan.outputs.reuse_pr355 == 'true'
+      - name: Verify and extract the retained UI candidate package
+        if: needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          SHARED_SHELL_PACKAGE: ${{ needs.plan.outputs.reuse_pr356 }}
         run: |
           retained=repos/parlor-game/parlor/actions
-          producer=45451672718
-          harness=54b13793e93ec15d4b089ae3c6957b5319d126ac
-          tree=bb5687eea486fd3277558d3e28b763931b0dfcdd
-          gh api "$retained/runs/$producer/attempts/1" | jq -e --arg head "$harness" '
-            .id == 45451672718 and .workflow_id == 427081574 and .run_attempt == 1 and
+          if [[ "$SHARED_SHELL_PACKAGE" == true ]]; then
+            producer=45542121396
+            harness=6e8e1f5361ede328a9f3e90783fc9b7c7308f603
+            tree=3d7d9c15a24edf137f9d7606aa86df6e86e78a63
+            if [[ "$TARGET" == android ]]; then
+              job=138963054372
+              name='build (android, ubuntu-24.04)'
+              artifact=14990201417
+              digest=e702f3c30600ff32235837035d9526141a114c2f4f74ae729a5d6cfcc10b1583
+              package_digest=a880dceff3580523bfa229b0e3c95289381b3eee4d9e0fcd5c4a0b3be5319ed9
+            else
+              job=138963054397
+              name='build (ios, macos-26)'
+              artifact=14991781597
+              digest=56d4bd5ed79e5d9a51586be88a0779e8db60e260526aafd6aa66adef75d2d41f
+              package_digest=ff39b51d931d7a31f2e410881e7bdd40b67cdcf45790e4f01cc38c05af09ad3f
+            fi
+          else
+            producer=45451672718
+            harness=54b13793e93ec15d4b089ae3c6957b5319d126ac
+            tree=bb5687eea486fd3277558d3e28b763931b0dfcdd
+            if [[ "$TARGET" == android ]]; then
+              job=138650426210
+              name='build (android, ubuntu-24.04)'
+              artifact=14948349888
+              digest=107d25a056529af744707623bdf6d6cccd0a6e9fb337484a538db7f5e2fb739a
+              package_digest=76fbe0e8dd9a9d661d7698c4317693efd2dcead2bca43b7988d4aac96328f9d3
+            else
+              job=138650426140
+              name='build (ios, macos-26)'
+              artifact=14948873916
+              digest=b168eda83d19ef80e5ce37ea52f3d851cbaaceca134266d1c2dd6c0da1cbcb4f
+              package_digest=0606d88583bbb487d47417f4c820eb03847f2b5f180e6d90d783814e5fa690d7
+            fi
+          fi
+          gh api "$retained/runs/$producer/attempts/1" | jq -e --arg head "$harness" --argjson producer "$producer" '
+            .id == $producer and .workflow_id == 427081574 and .run_attempt == 1 and
             .repository.full_name == "parlor-game/parlor" and .head_repository.full_name == "parlor-game/parlor" and
             .event == "push" and .head_branch == "test/smart-lobby-native-ui" and
             .head_sha == $head and .status == "completed"' >/dev/null
-          if [[ "$TARGET" == android ]]; then
-            job=138650426210
-            name='build (android, ubuntu-24.04)'
-            artifact=14948349888
-            digest=107d25a056529af744707623bdf6d6cccd0a6e9fb337484a538db7f5e2fb739a
-            package_digest=76fbe0e8dd9a9d661d7698c4317693efd2dcead2bca43b7988d4aac96328f9d3
-          else
-            job=138650426140
-            name='build (ios, macos-26)'
-            artifact=14948873916
-            digest=b168eda83d19ef80e5ce37ea52f3d851cbaaceca134266d1c2dd6c0da1cbcb4f
-            package_digest=0606d88583bbb487d47417f4c820eb03847f2b5f180e6d90d783814e5fa690d7
-          fi
-          gh api "$retained/jobs/$job" | jq -e --arg name "$name" --arg head "$harness" '
-            .run_id == 45451672718 and .run_attempt == 1 and .name == $name and .head_sha == $head and
+          gh api "$retained/jobs/$job" | jq -e --arg name "$name" --arg head "$harness" --argjson producer "$producer" '
+            .run_id == $producer and .run_attempt == 1 and .name == $name and .head_sha == $head and
             .conclusion == "success"' >/dev/null
-          gh api "$retained/artifacts/$artifact" | jq -e --arg name "candidate-$TARGET-1" --arg digest "sha256:$digest" --arg head "$harness" '
+          gh api "$retained/artifacts/$artifact" | jq -e --arg name "candidate-$TARGET-1" --arg digest "sha256:$digest" --arg head "$harness" --argjson producer "$producer" '
             .name == $name and .digest == $digest and .expired == false and
-            .workflow_run.id == 45451672718 and .workflow_run.head_sha == $head' >/dev/null
+            .workflow_run.id == $producer and .workflow_run.head_sha == $head' >/dev/null
           archive="$RUNNER_TEMP/parlor-retained.zip"
           package="$RUNNER_TEMP/parlor-package"
           gh api "$retained/artifacts/$artifact/zip" > "$archive"

@@ -76,10 +76,10 @@ def plan():
     )
     exact_pr356 = (
         candidate == "08c09f72f267b3fa7d83c381d813d1297e59f3c4"
-        and pairing == "mixed" and observe_reconnect and not reuse_candidate
+        and pairing == "mixed" and observe_reconnect
     )
     build_only = payload.get("build_only") is True
-    if build_only and not exact_pr356:
+    if build_only and (not exact_pr356 or reuse_candidate):
         raise ValueError("Package-only qualification requires the exact shared shell source")
     if visible_ios and not (
         (reuse_party_night or fresh_presets or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
@@ -113,6 +113,7 @@ def plan():
         print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
         print(f"retained_party_night_run={PARTY_NIGHT_PRODUCER if reuse_party_night else ''}", file=stream)
         print(f"build_only={str(build_only).lower()}", file=stream)
+        print(f"reuse_pr356={str(exact_pr356 and reuse_candidate).lower()}", file=stream)
         print(f"reuse_pr355={str(exact_pr355 and reuse_candidate).lower()}", file=stream)
         print(f"visible_ios_window={str(visible_ios).lower()}", file=stream)
         print(f"candidate={candidate}", file=stream)
