@@ -16,25 +16,28 @@ import org.koin.android.ext.android.getKoin
 class AndroidStatusBarAppearanceRuntimeTest : InstrumentationTestCase() {
     fun testStatusBarIconsFollowTheAppTheme() = runBlocking {
         val app = instrumentation.targetContext.applicationContext as Application
-        val settings = app.getKoin().get<SettingsStore>()
-        val previousTheme = settings.themeMode.first()
-        var activity: Activity? = null
+        val activity = instrumentation.startActivitySync(
+            Intent(Intent.ACTION_MAIN)
+                .setClassName(app.packageName, MainActivity::class.java.name)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
         try {
-            settings.setThemeMode(ThemeMode.Light.tag)
-            val launched = instrumentation.startActivitySync(
-                Intent(Intent.ACTION_MAIN)
-                    .setClassName(app.packageName, MainActivity::class.java.name)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            activity = launched
-            awaitStatusBarAppearance(launched, isLight = true)
-            settings.setThemeMode(ThemeMode.Dark.tag)
-            awaitStatusBarAppearance(launched, isLight = false)
-            settings.setThemeMode(ThemeMode.Light.tag)
-            awaitStatusBarAppearance(launched, isLight = true)
+            // Starting the Activity also synchronizes with Application.onCreate.
+            instrumentation.waitForIdleSync()
+            val settings = app.getKoin().get<SettingsStore>()
+            val previousTheme = settings.themeMode.first()
+            try {
+                settings.setThemeMode(ThemeMode.Light.tag)
+                awaitStatusBarAppearance(activity, isLight = true)
+                settings.setThemeMode(ThemeMode.Dark.tag)
+                awaitStatusBarAppearance(activity, isLight = false)
+                settings.setThemeMode(ThemeMode.Light.tag)
+                awaitStatusBarAppearance(activity, isLight = true)
+            } finally {
+                settings.setThemeMode(previousTheme)
+            }
         } finally {
-            activity?.let { instrumentation.runOnMainSync(it::finish) }
-            settings.setThemeMode(previousTheme)
+            instrumentation.runOnMainSync(activity::finish)
         }
     }
 
