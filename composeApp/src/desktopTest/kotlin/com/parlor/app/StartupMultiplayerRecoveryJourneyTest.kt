@@ -11,6 +11,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -115,7 +116,12 @@ class StartupMultiplayerRecoveryJourneyTest {
                     // an explicit control, not a retry of a failed acceptance action.
                     onNodeWithContentDescription(fixture.settingsDescription).performClick()
                     onNode(fixture.settingsHeading).assertExists()
-                    onNodeWithContentDescription(fixture.gamesDescription).performClick()
+                    val gamesTab = onNodeWithContentDescription(fixture.gamesDescription)
+                    val tabSemantics = gamesTab.fetchSemanticsNode().config
+                    assertEquals(Role.Tab, tabSemantics[SemanticsProperties.Role])
+                    assertEquals(false, tabSemantics[SemanticsProperties.Selected])
+                    assertTrue(!tabSemantics.contains(SemanticsProperties.Text), "The tab already has its localized name")
+                    gamesTab.performClick()
                     assertStagedRecovery(fixture)
                 }
             }

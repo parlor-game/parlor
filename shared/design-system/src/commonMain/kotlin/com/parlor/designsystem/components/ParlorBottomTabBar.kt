@@ -29,9 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,7 +89,9 @@ fun ParlorBottomTabBar(
                             onClick = { onTabSelected(index) },
                         )
                         .padding(vertical = 5.dp)
-                        .semantics {
+                        // Keep the localized name on the selectable node. The visible
+                        // caption repeats it and would create a separate Android label node.
+                        .clearAndSetSemantics {
                             contentDescription = tab.contentDescription
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
