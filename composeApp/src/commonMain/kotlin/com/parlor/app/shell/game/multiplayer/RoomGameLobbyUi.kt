@@ -2,8 +2,11 @@ package com.parlor.app.shell.game.multiplayer
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -15,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -26,22 +30,29 @@ import com.parlor.app.resources.lobby_requests_heading
 import com.parlor.app.resources.lobby_setup_heading
 import com.parlor.app.resources.room_game_action_failed
 import com.parlor.app.resources.room_game_approve
+import com.parlor.app.resources.room_game_approve_button
 import com.parlor.app.resources.room_game_cannot_start
 import com.parlor.app.resources.room_game_decline
+import com.parlor.app.resources.room_game_decline_button
 import com.parlor.app.resources.room_game_leave
-import com.parlor.app.resources.room_game_local
 import com.parlor.app.resources.room_game_request
 import com.parlor.app.resources.room_game_start
 import com.parlor.app.resources.room_game_wait_for_admission
 import com.parlor.app.resources.room_game_wait_for_connection
 import com.parlor.app.resources.room_game_wait_for_players
+import androidx.compose.ui.unit.dp
+import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.LocalParlorToastState
+import com.parlor.designsystem.components.ParlorButton
+import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorToastSeverity
+import com.parlor.designsystem.components.StickyActionLayout
+import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
@@ -54,10 +65,14 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
+private const val LOBBY_REFLOW_FONT_SCALE = 1.5f
+private val LobbyStickyMinimumHeight = 480.dp
+
 @Composable
 internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
     spec: MultiplayerGameSpec<S, A, E>, room: LocalRoom, setup: GameHostSetupCheckpoint,
     onStart: () -> Unit, onLeave: () -> Unit, operationInFlight: Boolean, modifier: Modifier,
+    presentation: GameCatalogPresentation? = null,
 ) {
     val info by room.info.collectAsState()
     val members by room.members.collectAsState()
@@ -81,69 +96,112 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> HostRoomControls(
         !settingsAccepted -> stringResource(Res.string.room_game_cannot_start)
         else -> null
     }
-    HeroBackdrop(modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).parlorSafeContentPadding(ParlorTheme.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m)) {
-            Text(stringResource(Res.string.room_game_local), color = ParlorTheme.colors.textSecondary)
-            LobbyInvitation(
-                info.code, info.hostDisplayName, info.roomTag,
-                createLink = room::createJoinLink,
+    val actions: @Composable () -> Unit = {
+        val feedback = state.error?.let { roomGameError(it) } ?: startHint
+        if (feedback != null) {
+            Text(
+                feedback, color = ParlorTheme.colors.textSecondary, style = ParlorTheme.typography.bodySmall,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
-            if (pending.isNotEmpty()) {
-                Text(
-                    text = stringResource(Res.string.lobby_requests_heading),
-                    color = ParlorTheme.colors.textPrimary,
-                    style = ParlorTheme.typography.headingMedium,
-                    modifier = Modifier.semantics {
-                        heading()
-                        liveRegion = LiveRegionMode.Polite
-                    },
-                )
-            }
-            pending.forEach { request ->
-                ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
-                    Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                        Text(stringResource(Res.string.room_game_request, request.displayName.asBidiArgument()),
-                            color = ParlorTheme.colors.textPrimary)
-                        AdmissionCountdown(request.approvalDeadline)
-                        val act: (Boolean) -> Unit = { approve ->
-                            if (enabled && request.playerId !in admitting) {
-                                admitting = admitting + request.playerId
-                                scope.launch {
-                                    try {
-                                        val result = if (approve) room.approveAdmission(request.playerId)
-                                            else room.rejectAdmission(request.playerId)
-                                        if (result is Result.Failure) toast.show(failed, ParlorToastSeverity.Warning)
-                                    } finally { admitting = admitting - request.playerId }
-                                }
+        }
+        RoomButton(pluralStringResource(Res.plurals.room_game_start, count, count), {
+            val currentCount = room.members.value.count(RoomMember::connected) + 1
+            if (canStart && room.foregroundReady.value && admitting.isEmpty() &&
+                room.pendingAdmissions.value.isEmpty() && spec.acceptsSettings(setup.state.value.caseId.raw, currentCount)
+            ) onStart()
+        }, canStart)
+        RoomButton(stringResource(Res.string.room_game_leave), onLeave, !operationInFlight, secondary = true)
+    }
+    val scrollState = rememberScrollState()
+    val body: @Composable () -> Unit = {
+        LobbyInvitation(
+            info.code, info.hostDisplayName, info.roomTag,
+            createLink = room::createJoinLink, game = presentation,
+        )
+        if (pending.isNotEmpty()) {
+            Text(
+                text = stringResource(Res.string.lobby_requests_heading),
+                color = ParlorTheme.colors.textPrimary,
+                style = ParlorTheme.typography.headingMedium,
+                modifier = Modifier.semantics {
+                    heading()
+                    liveRegion = LiveRegionMode.Polite
+                },
+            )
+        }
+        pending.forEach { request ->
+            ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+                    Text(
+                        stringResource(Res.string.room_game_request, request.displayName.asBidiArgument()),
+                        color = ParlorTheme.colors.textPrimary,
+                        style = ParlorTheme.typography.labelLarge,
+                    )
+                    AdmissionCountdown(request.approvalDeadline)
+                    val act: (Boolean) -> Unit = { approve ->
+                        if (enabled && request.playerId !in admitting) {
+                            admitting = admitting + request.playerId
+                            scope.launch {
+                                try {
+                                    val result = if (approve) room.approveAdmission(request.playerId)
+                                        else room.rejectAdmission(request.playerId)
+                                    if (result is Result.Failure) toast.show(failed, ParlorToastSeverity.Warning)
+                                } finally { admitting = admitting - request.playerId }
                             }
                         }
-                        RoomButton(stringResource(Res.string.room_game_approve, request.displayName.asBidiArgument()),
-                            { act(true) }, enabled && request.playerId !in admitting)
-                        RoomButton(stringResource(Res.string.room_game_decline, request.displayName.asBidiArgument()),
-                            { act(false) }, enabled && request.playerId !in admitting, true)
                     }
+                    AdmissionActions(request.displayName, enabled && request.playerId !in admitting, act)
                 }
             }
-            LobbyRoster(info.hostDisplayName, connected)
-            Text(stringResource(Res.string.lobby_setup_heading), color = ParlorTheme.colors.textPrimary,
-                style = ParlorTheme.typography.headingMedium, modifier = Modifier.semantics { heading() })
-            spec.Settings(state.caseId, count, enabled, setup::select)
-            if (startHint != null) {
-                Text(
-                    text = startHint,
-                    color = ParlorTheme.colors.textSecondary,
-                    style = ParlorTheme.typography.bodyMedium,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
-            }
-            state.error?.let { Text(roomGameError(it), color = ParlorTheme.colors.textSecondary) }
-            RoomButton(pluralStringResource(Res.plurals.room_game_start, count, count), {
-                val currentCount = room.members.value.count(RoomMember::connected) + 1
-                if (room.pendingAdmissions.value.isEmpty() && spec.acceptsSettings(setup.state.value.caseId.raw, currentCount)) onStart()
-            }, canStart)
-            RoomButton(stringResource(Res.string.room_game_leave), onLeave, !operationInFlight, true)
         }
+        LobbyRoster(info.hostDisplayName, connected)
+        Text(stringResource(Res.string.lobby_setup_heading), color = ParlorTheme.colors.textPrimary,
+            style = ParlorTheme.typography.headingMedium, modifier = Modifier.semantics { heading() })
+        spec.Settings(state.caseId, count, enabled, setup::select)
+    }
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
+        val keepActionsVisible = LocalDensity.current.fontScale < LOBBY_REFLOW_FONT_SCALE && maxHeight >= LobbyStickyMinimumHeight
+        val viewport = Modifier.widthIn(max = 560.dp).fillMaxSize().verticalScroll(scrollState)
+            .parlorSafeContentPadding(ParlorTheme.spacing.m)
+        if (keepActionsVisible) {
+            StickyActionLayout(
+                modifier = Modifier.widthIn(max = 560.dp),
+                content = { Column(viewport, verticalArrangement = Arrangement.spacedBy(10.dp)) { body() } },
+                actions = actions,
+            )
+        } else {
+            Column(viewport, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                body()
+                actions()
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdmissionActions(name: String, enabled: Boolean, action: (Boolean) -> Unit) {
+    FlowRow(
+        maxItemsInEachRow = if (LocalDensity.current.fontScale >= LOBBY_REFLOW_FONT_SCALE) 1 else 2,
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+    ) {
+        val isolated = name.asBidiArgument()
+        ParlorButton(
+            label = stringResource(Res.string.room_game_approve_button),
+            contentDescription = stringResource(Res.string.room_game_approve, isolated),
+            onClick = { action(true) },
+            enabled = enabled,
+            modifier = Modifier.weight(1f).libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.subtle)),
+            illuminated = true,
+        )
+        ParlorButton(
+            label = stringResource(Res.string.room_game_decline_button),
+            contentDescription = stringResource(Res.string.room_game_decline, isolated),
+            onClick = { action(false) },
+            enabled = enabled,
+            variant = ParlorButtonVariant.Secondary,
+            modifier = Modifier.weight(1f).libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.subtle)),
+        )
     }
 }
 

@@ -1,18 +1,19 @@
 package com.parlor.app.shell.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,8 +24,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import com.parlor.designsystem.components.LibraryText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,7 +54,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
@@ -58,7 +64,12 @@ import com.parlor.app.resources.app_name
 import com.parlor.app.resources.catalog_empty_body
 import com.parlor.app.resources.catalog_empty_title
 import com.parlor.app.resources.catalog_nearby_only_meta
+import com.parlor.app.resources.catalog_mode_one_phone_wifi
+import com.parlor.app.resources.catalog_mode_wifi_only
+import com.parlor.app.resources.catalog_players_and_genre
 import com.parlor.app.resources.home_continue_label
+import com.parlor.app.resources.home_guest
+import com.parlor.app.resources.home_party_subtitle
 import com.parlor.app.resources.home_games_count
 import com.parlor.app.resources.home_local_lan_meta
 import com.parlor.app.resources.home_local_meta
@@ -85,9 +96,12 @@ import com.parlor.app.resources.resume_delete_action
 import com.parlor.app.resources.resume_delete_description
 import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBinding
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
+import com.parlor.app.shell.profile.OpenProfileButton
+import com.parlor.app.shell.profile.ProfileGreeting
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.SessionId
-import com.parlor.designsystem.components.CatalogArtworkBadge
+import com.parlor.designsystem.components.CatalogCover
 import com.parlor.designsystem.components.EmptyState
 import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.ParlorButton
@@ -96,12 +110,13 @@ import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorMark
 import com.parlor.designsystem.components.libraryFocusOutline
 import com.parlor.designsystem.components.parlorSafeContentPaddingValues
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** Game-first library. Recovery stays secondary and exposes metadata only. */
+/** The game library leads with recovery actions when a saved game or seat is available. */
 @Composable
 internal fun HomeScreen(
     games: List<GameShellBinding>,
@@ -110,6 +125,7 @@ internal fun HomeScreen(
     unfinishedSessions: List<LocalRecoveryEntry> = emptyList(),
     onResume: (SessionId) -> Unit = {},
     hasResumableMultiplayer: Boolean = false,
+    resumableMultiplayerGameId: GameId? = null,
     onResumeMultiplayer: () -> Unit = {},
     recoveryLoading: Boolean = false,
     recoveryUnavailable: Boolean = false,
@@ -118,6 +134,7 @@ internal fun HomeScreen(
     onDiscardMultiplayer: (String) -> Unit = {},
     recoveryActionsEnabled: Boolean = true,
     catalogScrollState: HomeCatalogScrollState = rememberHomeCatalogScrollState(),
+    onOpenProfile: (() -> Unit)? = null,
     onParty: (() -> Unit)? = null,
 ) {
     var selectedFilter by rememberSaveable { mutableStateOf(HomeCatalogFilter.All) }
@@ -129,39 +146,25 @@ internal fun HomeScreen(
     LaunchedEffect(catalogScrollState, recoveryLoading, itemKeys) {
         if (!recoveryLoading) catalogScrollState.restoreAfterRecovery(itemKeys)
     }
-    LibrarySurface(modifier.fillMaxSize()) {
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
         val padding = parlorSafeContentPaddingValues(
-            horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.l, bottom = ParlorTheme.spacing.xxl,
+            horizontal = ParlorTheme.spacing.m, top = ParlorTheme.spacing.m, bottom = ParlorTheme.spacing.xxl,
         )
         val columns = libraryColumns(maxWidth, padding)
+        val showFeatured = LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             state = catalogScrollState.listState,
             modifier = Modifier.widthIn(max = if (columns == 1) ReadingWidth else LibraryWidth).fillMaxSize(),
             contentPadding = padding,
             horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar() }
-            item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
-                Spacer(Modifier.fillMaxWidth().height(ParlorTheme.borders.hairline).background(ParlorTheme.colors.borderSubtle))
-            }
-
-            partyEntry(onParty)
-
-            when {
-                recoveryLoading -> item(span = { GridItemSpan(maxLineSpan) }, key = "recovery-loading") { RecoveryLoadingCard() }
-                recoveryUnavailable -> item(span = { GridItemSpan(maxLineSpan) }, key = "recovery-unavailable") {
-                    RecoveryUnavailableCard(onRetryRecovery)
-                }
-            }
+            item(span = { GridItemSpan(maxLineSpan) }, key = "home-top-bar") { HomeTopBar(onOpenProfile) }
 
             if (unfinishedSessions.isNotEmpty() || hasResumableMultiplayer) {
                 item(span = { GridItemSpan(maxLineSpan) }, key = "continue-label") {
-                    SectionHeading(
-                        label = stringResource(Res.string.home_continue_label),
-                        detail = stringResource(Res.string.home_saved_on_device),
-                    )
+                    RecoveryHeading()
                 }
                 itemsIndexed(
                     items = unfinishedSessions,
@@ -186,6 +189,8 @@ internal fun HomeScreen(
                             contentDescription = stringResource(
                                 Res.string.home_resume_multiplayer_description,
                             ),
+                            artwork = games.firstOrNull { it.definition.id == resumableMultiplayerGameId }
+                                ?.catalogPresentation()?.artwork,
                             onTap = onResumeMultiplayer,
                             onDiscard = onDiscardMultiplayer,
                             enabled = recoveryActionsEnabled,
@@ -194,14 +199,23 @@ internal fun HomeScreen(
                 }
             }
 
+            partyEntry(onParty)
+
+            item(span = { GridItemSpan(maxLineSpan) }, key = "home-lead") {
+                if (showFeatured && games.size > 1) FeaturedGames(games, onGameSelected)
+            }
+
+            when {
+                recoveryLoading -> item(span = { GridItemSpan(maxLineSpan) }, key = "recovery-loading") { RecoveryLoadingCard() }
+                recoveryUnavailable -> item(span = { GridItemSpan(maxLineSpan) }, key = "recovery-unavailable") {
+                    RecoveryUnavailableCard(onRetryRecovery)
+                }
+            }
+
             item(span = { GridItemSpan(maxLineSpan) }, key = "games-label") {
                 Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
-                    SectionHeading(
-                        label = stringResource(Res.string.home_title),
-                        library = true,
-                        detail = catalogGameCount(filteredGames.size),
-                    )
-                    CatalogFilters(selectedFilter) {
+                    CatalogHeading(catalogGameCount(filteredGames.size))
+                    CatalogFilters(selectedFilter, games) {
                         catalogScrollState.cancelPendingRestoration()
                         selectedFilter = it
                     }
@@ -265,46 +279,71 @@ private fun LazyGridScope.partyEntry(onParty: (() -> Unit)?) {
 }
 
 @Composable
-private fun HomeTopBar() {
+private fun HomeTopBar(onOpenProfile: (() -> Unit)?) {
+    val name = LocalPreferredDisplayName.current ?: stringResource(Res.string.home_guest)
     Row(
         modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
+        Column(Modifier.weight(1f)) {
+            ProfileGreeting(name, Modifier.testTag(HOME_BRAND_TEST_TAG))
             LibraryText(
-                text = stringResource(Res.string.app_name),
-                style = ParlorTheme.typography.headingMedium,
-                color = ParlorTheme.colors.textPrimary,
-                modifier = Modifier.testTag(HOME_BRAND_TEST_TAG),
+                text = stringResource(Res.string.home_party_subtitle),
+                style = ParlorTheme.typography.bodySmall.copy(fontSize = 11.5.sp, lineHeight = 15.sp),
+                color = ParlorTheme.colors.textSecondary,
             )
+        }
+        if (onOpenProfile != null) {
+            OpenProfileButton(onOpenProfile)
+        } else {
+            val brand = stringResource(Res.string.app_name)
+            Box(Modifier.semantics { contentDescription = brand }) {
+                ParlorMark(modifier = Modifier.size(ParlorTheme.spacing.xxl))
+            }
         }
     }
 }
 
 @Composable
-private fun SectionHeading(label: String, detail: String, library: Boolean = false) {
+private fun CatalogHeading(detail: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(Modifier.weight(1f).semantics { heading() }) {
+            LibraryText(
+                text = stringResource(Res.string.app_name),
+                style = ParlorTheme.typography.labelLarge,
+                color = ParlorTheme.colors.textPrimary,
+            )
+            LibraryText(
+                text = stringResource(Res.string.home_title),
+                style = ParlorTheme.typography.headingMedium,
+                color = ParlorTheme.colors.accentEmber,
+            )
+        }
+        CatalogBadge(detail)
+    }
+}
+
+@Composable
+private fun RecoveryHeading() {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
     ) {
         LibraryText(
-            text = label,
-            style = if (library) ParlorTheme.typography.displayMedium else ParlorTheme.typography.headingMedium,
-            color = ParlorTheme.colors.textPrimary,
-            modifier = Modifier.weight(1f).semantics { heading() },
+            text = stringResource(Res.string.home_continue_label),
+            style = ParlorTheme.typography.headingMedium,
+            color = ParlorTheme.colors.accentEmber,
+            modifier = Modifier.align(Alignment.CenterVertically).semantics { heading() },
         )
-        LibraryText(
-            text = detail,
-            style = ParlorTheme.typography.bodySmall,
-            color = ParlorTheme.colors.textTertiary,
-            textAlign = TextAlign.End,
-            modifier = Modifier.padding(start = ParlorTheme.spacing.s),
-        )
+        Box(Modifier.align(Alignment.CenterVertically)) {
+            CatalogBadge(stringResource(Res.string.home_saved_on_device))
+        }
     }
 }
 
@@ -366,7 +405,8 @@ private fun LocalResumeTile(
     val binding = entry.gameId?.let { gameId ->
         games.firstOrNull { game -> game.definition.id == gameId }
     }
-    val gameTitle = binding?.catalogPresentation()?.title
+    val presentation = binding?.catalogPresentation()
+    val gameTitle = presentation?.title
     val title = if (gameTitle == null) {
         stringResource(Res.string.home_resume_tile_title)
     } else {
@@ -394,6 +434,7 @@ private fun LocalResumeTile(
             stringResource(Res.string.home_resume_tile_position, position, total)
         },
         contentDescription = contentDescription,
+        artwork = presentation?.artwork,
         onTap = { onResume(entry.sessionId) },
         onDiscard = { onDiscard(entry.sessionId, it) },
         enabled = enabled,
@@ -405,6 +446,7 @@ private fun ResumeTile(
     title: String,
     subtitle: String,
     contentDescription: String,
+    artwork: ParlorArtwork?,
     onTap: () -> Unit,
     onDiscard: (String) -> Unit,
     enabled: Boolean,
@@ -419,9 +461,15 @@ private fun ResumeTile(
                 modifier = Modifier.fillMaxWidth()
                     .semantics { this.contentDescription = contentDescription }
                     .clickable(enabled = enabled, role = Role.Button, onClick = onTap),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                artwork?.let {
+                    CatalogCover(it, Modifier.padding(start = ParlorTheme.spacing.xs).size(42.dp)
+                        .clip(RoundedCornerShape(10.dp)))
+                }
                 Column(
-                    modifier = Modifier.heightIn(min = ParlorTheme.spacing.xxl).padding(ParlorTheme.spacing.s),
+                    modifier = Modifier.weight(1f).heightIn(min = ParlorTheme.spacing.xxl)
+                        .padding(ParlorTheme.spacing.s),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     LibraryText(title, style = ParlorTheme.typography.headingMedium, color = ParlorTheme.colors.textPrimary)
@@ -431,23 +479,35 @@ private fun ResumeTile(
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val remove: @Composable () -> Unit = {
-                ParlorButton(
-                    label = stringResource(Res.string.resume_delete_action),
-                    contentDescription = removeDescription,
+                val danger = ParlorTheme.colors.semanticDanger
+                val shape = RoundedCornerShape(ParlorTheme.radii.subtle)
+                TextButton(
                     onClick = { onDiscard("$title — $subtitle") },
                     enabled = enabled,
-                    variant = com.parlor.designsystem.components.ParlorButtonVariant.Ghost,
-                    modifier = Modifier.libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.subtle)),
-                )
+                    shape = shape,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = danger,
+                        containerColor = danger.copy(alpha = 0.10f),
+                    ),
+                    border = BorderStroke(ParlorTheme.borders.hairline, danger.copy(alpha = 0.35f)),
+                    contentPadding = PaddingValues(horizontal = ParlorTheme.spacing.s),
+                    modifier = Modifier.heightIn(min = ParlorTheme.spacing.xxl)
+                        .semantics { this.contentDescription = removeDescription }.libraryFocusOutline(shape),
+                ) {
+                    Text(stringResource(Res.string.resume_delete_action), style = ParlorTheme.typography.labelLarge)
+                }
             }
             val resumeOutline = Modifier.libraryFocusOutline(RoundedCornerShape(ParlorTheme.radii.subtle))
             if (maxWidth < RecoveryRowWidth || LocalDensity.current.fontScale >= HOME_COMPACT_INTRODUCTION_FONT_SCALE) {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs)) {
                     Box(resumeOutline) { resume() }
                     remove()
                 }
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
+                ) {
                     Box(Modifier.weight(1f).then(resumeOutline)) { resume() }
                     remove()
                 }
@@ -489,9 +549,19 @@ private fun GameHeroCard(
             .clickable(role = Role.Button) { onOpen(focused) },
         contentPadding = 0.dp,
     ) {
-        Column {
+        if (compact && LocalDensity.current.fontScale < HOME_COMPACT_INTRODUCTION_FONT_SCALE) {
+            CompactGameRow(
+                presentation = presentation,
+                details = presentation.genre?.let { stringResource(Res.string.catalog_players_and_genre, it, players) } ?: players,
+                mode = catalogModeLabel(supportsLocal, supportsLan),
+                compatibleLocally = supportsLocal,
+            )
+        } else Column {
             if (!compact) {
-                CatalogArtworkBadge(presentation.artwork, Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO))
+                CatalogCover(
+                    presentation.artwork,
+                    Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO),
+                )
             }
             Column(
                 modifier = Modifier.padding(ParlorTheme.spacing.m),
@@ -502,7 +572,7 @@ private fun GameHeroCard(
                         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CatalogArtworkBadge(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxl))
+                        CatalogCover(presentation.artwork, Modifier.size(ParlorTheme.spacing.xxxl))
                         CatalogGameTitle(presentation.title)
                     }
                 } else {
@@ -530,6 +600,56 @@ private fun GameHeroCard(
                 if (compact) CatalogTagline(presentation.tagline)
             }
         }
+    }
+}
+
+@Composable
+private fun CompactGameRow(presentation: GameCatalogPresentation, details: String, mode: String, compatibleLocally: Boolean) {
+    val colors = ParlorTheme.colors
+    val coverShape = RoundedCornerShape(13.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CatalogCover(
+            presentation.artwork,
+            Modifier.size(56.dp).clip(coverShape).border(1.dp, colors.borderSubtle, coverShape),
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LibraryText(
+                presentation.title,
+                ParlorTheme.typography.headingMedium.copy(fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold),
+                colors.textPrimary,
+            )
+            LibraryText(details, ParlorTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp), colors.textSecondary)
+            CatalogBadge(mode, if (compatibleLocally) colors.semanticSuccess else colors.accentEmber)
+        }
+        Icon(ParlorIcons.ChevronNext, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+internal fun catalogModeLabel(local: Boolean, nearby: Boolean): String = stringResource(when {
+    local && nearby -> Res.string.catalog_mode_one_phone_wifi
+    nearby -> Res.string.catalog_mode_wifi_only
+    else -> Res.string.home_local_meta
+})
+
+@Composable
+internal fun CatalogBadge(text: String, dot: androidx.compose.ui.graphics.Color? = null) {
+    val colors = ParlorTheme.colors
+    Row(
+        modifier = Modifier.background(colors.surfaceHigher, CircleShape)
+            .border(1.dp, colors.borderSubtle, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (dot != null) Box(Modifier.size(6.dp).background(dot, CircleShape))
+        LibraryText(
+            text, ParlorTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
+            colors.textSecondary,
+        )
     }
 }
 
@@ -565,7 +685,7 @@ internal fun playerRangeLabel(range: IntRange): String =
     }
 
 private const val HOME_COMPACT_INTRODUCTION_FONT_SCALE = 1.5f
-private val TwoCoverWidth = 336.dp
+private val TwoCoverWidth = 440.dp
 private val ThreeCoverWidth = 688.dp
 private val ReadingWidth = 560.dp
 private val LibraryWidth = 960.dp

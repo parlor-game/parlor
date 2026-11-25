@@ -351,7 +351,7 @@ class AndroidReleaseLintContractTest {
             "composeApp/src/commonMain/kotlin/com/parlor/app/AppNavigationHost.kt",
         )
         assertContains(navigationHost, "icon = ParlorIcons.Settings")
-        assertContains(navigationHost, "icon = ParlorIcons.FolderOpen")
+        assertContains(navigationHost, "icon = ParlorIcons.GamesGrid")
 
         val privacy = read(
             "game-modes/whodunit/src/commonMain/kotlin/com/parlor/games/whodunit/ui/screens/safety/PrivacyConcernOverlay.kt",

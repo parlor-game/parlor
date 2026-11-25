@@ -100,16 +100,16 @@ internal fun homeCatalogItemKeys(
     hasPartyEntry: Boolean = false,
 ): List<String> = buildList {
     add("home-top-bar")
-    add("home-lead")
-    if (hasPartyEntry) add("party-entry")
-    when {
-        recoveryLoading -> add("recovery-loading")
-        recoveryUnavailable -> add("recovery-unavailable")
-    }
     if (unfinishedSessions.isNotEmpty() || hasResumableMultiplayer) {
         add("continue-label")
         unfinishedSessions.forEach { add("local:${it.sessionId.raw}") }
         if (hasResumableMultiplayer) add("multiplayer-resume")
+    }
+    if (hasPartyEntry) add("party-entry")
+    add("home-lead")
+    when {
+        recoveryLoading -> add("recovery-loading")
+        recoveryUnavailable -> add("recovery-unavailable")
     }
     add("games-label")
     if (filteredGames.isEmpty()) add("catalog-empty")

@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 /** Stable top-level destinations rendered by the application navigation bar. */
 internal enum class AppTopLevelDestination {
     Games,
+    Profile,
     Settings,
 }
 
@@ -47,6 +48,10 @@ internal sealed interface AppRoute : NavKey {
     data class LocalResumeFailure(val sessionId: SessionId) : AppRoute
 
     @Serializable
+    @SerialName("profile")
+    data object Profile : AppRoute
+
+    @Serializable
     @SerialName("party")
     data object Party : AppRoute
 
@@ -61,11 +66,12 @@ internal fun AppRoute.owner(): AppTopLevelDestination = when (this) {
     is AppRoute.Game,
     is AppRoute.LocalResumeFailure,
     -> AppTopLevelDestination.Games
+    AppRoute.Profile -> AppTopLevelDestination.Profile
     AppRoute.Settings -> AppTopLevelDestination.Settings
 }
 
 internal val AppRoute.isTopLevel: Boolean
-    get() = this == AppRoute.Home || this == AppRoute.Settings
+    get() = this == AppRoute.Home || this == AppRoute.Profile || this == AppRoute.Settings
 
 internal enum class AppNavigationMutation {
     Applied,
@@ -87,6 +93,7 @@ internal enum class AppNavigationMutation {
  */
 internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreParty: Boolean = false) {
     private val gamesBackStack = NavBackStack<AppRoute>(AppRoute.Home)
+    private val profileBackStack = NavBackStack<AppRoute>(AppRoute.Profile)
     private val settingsBackStack = NavBackStack<AppRoute>(AppRoute.Settings)
     private var selectedState by mutableStateOf(AppTopLevelDestination.Games)
     private var nextGameEntryId = 0L
@@ -113,6 +120,7 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreP
 
     fun backStack(destination: AppTopLevelDestination): List<AppRoute> = when (destination) {
         AppTopLevelDestination.Games -> gamesBackStack
+        AppTopLevelDestination.Profile -> profileBackStack
         AppTopLevelDestination.Settings -> settingsBackStack
     }
 
@@ -172,7 +180,7 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreP
             active.removeAt(active.lastIndex)
             return AppNavigationMutation.Applied
         }
-        if (selectedState == AppTopLevelDestination.Settings) {
+        if (selectedState != AppTopLevelDestination.Games) {
             selectedState = AppTopLevelDestination.Games
             return AppNavigationMutation.Applied
         }
@@ -192,6 +200,7 @@ internal class AppNavigator(initialGameLaunch: GameShellLaunch? = null, restoreP
     private fun mutableBackStack(destination: AppTopLevelDestination): NavBackStack<AppRoute> =
         when (destination) {
             AppTopLevelDestination.Games -> gamesBackStack
+            AppTopLevelDestination.Profile -> profileBackStack
             AppTopLevelDestination.Settings -> settingsBackStack
         }
 

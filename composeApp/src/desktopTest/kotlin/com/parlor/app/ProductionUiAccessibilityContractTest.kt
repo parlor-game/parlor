@@ -354,10 +354,9 @@ class ProductionUiAccessibilityContractTest {
             read("composeApp/src/commonMain/kotlin/com/parlor/app/AppNavigationHost.kt"),
             "icon = ParlorIcons.Settings",
         )
-        assertContains(
-            read("composeApp/src/commonMain/kotlin/com/parlor/app/AppNavigationHost.kt"),
-            "icon = ParlorIcons.FolderOpen",
-        )
+        val dock = read("composeApp/src/commonMain/kotlin/com/parlor/app/AppNavigationHost.kt")
+        assertContains(dock, "icon = ParlorIcons.GamesGrid")
+        assertContains(dock, "icon = ParlorIcons.Profile")
         assertContains(
             read("composeApp/src/commonMain/kotlin/com/parlor/app/shell/home/HomeScreen.kt"),
             "imageVector = ParlorIcons.Forward",

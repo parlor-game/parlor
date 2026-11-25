@@ -30,6 +30,7 @@ class AppNavigationTest {
             AppRoute.Game(gameId, entryId = 1L),
             AppRoute.LocalResumeFailure(SessionId("saved-game")),
             AppRoute.Settings,
+            AppRoute.Profile,
         )
 
         assertEquals(
@@ -38,6 +39,7 @@ class AppNavigationTest {
                 AppTopLevelDestination.Games,
                 AppTopLevelDestination.Games,
                 AppTopLevelDestination.Settings,
+                AppTopLevelDestination.Profile,
             ),
             routes.map(AppRoute::owner),
         )
@@ -203,6 +205,7 @@ class AppNavigationTest {
             AppRoute.Game(gameId, entryId = 9L),
             AppRoute.LocalResumeFailure(SessionId("saved-game")),
             AppRoute.Settings,
+            AppRoute.Profile,
         )
 
         routes.forEach { route ->

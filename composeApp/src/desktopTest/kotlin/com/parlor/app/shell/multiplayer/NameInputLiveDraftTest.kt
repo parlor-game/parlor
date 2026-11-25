@@ -49,6 +49,10 @@ class NameInputLiveDraftTest {
                     confirm()
                     assertEquals(listOf(current), submitted, "Confirmation must read the live draft, not a composition snapshot")
                 }
+                val seatPreview = if (language == AppLanguage.Arabic) {
+                    "الاسم الظاهر في الغرفة: $current"
+                } else "Seat label in room: $current"
+                onNodeWithContentDescription(seatPreview).assertExists()
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.parlor.designsystem.tokens
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -158,3 +159,49 @@ val ParlorColors.isLight: Boolean
     get() = surfaceCanvas.luminance() > 0.5f
 
 private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+
+
+/** Shell surfaces follow the approved Neon reference independently of game-stage palettes. */
+val NeonDarkShellPalette = CozyNoirPalette.copy(
+    surfaceCanvas = Color(0xFF0A0A0C),
+    surfaceElevated = Color(0xFF141418),
+    surfaceHigher = Color(0xFF1C1C22),
+    surfaceInset = Color(0xFF101013),
+    surfaceHero = Color(0xFF211811),
+    accentEmber = Color(0xFFF6B84E),
+    accentEmberGlow = Color(0xFFFFCA83),
+    accentEmberDeep = Color(0xFF753408),
+    textPrimary = Color(0xFFF6F6F7),
+    textSecondary = Color(0xFFA6A6AF),
+    textTertiary = Color(0xFF8C8C96),
+    semanticMuted = Color(0xFF1F1F26),
+    borderSubtle = Color(0xFF2B2B33),
+    borderElevated = Color(0xFF42424A),
+    borderGlow = Color(0x33F6B84E),
+    borderAccent = Color(0xFFF6B84E),
+)
+
+internal val NeonLightShellPalette = LightCozyNoirPalette.copy(
+    surfaceCanvas = Color(0xFFF5F2EC),
+    surfaceElevated = Color.White,
+    surfaceHigher = Color(0xFFECE7DE),
+    surfaceInset = Color(0xFFE1DAD0),
+    surfaceHero = Color(0xFFFFF1DC),
+    accentEmber = Color(0xFF9D480A),
+    textPrimary = Color(0xFF141417),
+    textSecondary = Color(0xFF4E4D54),
+    textTertiary = Color(0xFF6D6B73),
+    semanticMuted = Color(0xFFE2DDD4),
+    borderSubtle = Color(0xFFE2DCD2),
+    borderElevated = Color(0xFFCCC4B7),
+    borderGlow = Color(0x339D480A),
+    borderAccent = Color(0xFF9D480A),
+)
+
+internal val ParlorColors.neonShell: ParlorColors
+    get() = if (isLight) NeonLightShellPalette else NeonDarkShellPalette
+
+/** The shell's illuminated action has its own foreground on both themes. */
+val AmberActionBrush = Brush.horizontalGradient(listOf(Color(0xFFFFBA4E), Color(0xFFEE6D16)))
+val AmberActionInk = Color(0xFF140B04)
+val AmberActionGlow = Color(0xFFF17218)

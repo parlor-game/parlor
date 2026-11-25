@@ -25,6 +25,8 @@ import com.parlor.games.ghamza.resources.gh_title
 import com.parlor.games.ghamza.ui.GhamzaSettingsContent
 import com.parlor.games.ghamza.ui.GhamzaTable
 import com.parlor.session.multidevice.PlayerSnapshotPayload
+import com.parlor.app.resources.Res as AppRes
+import com.parlor.app.resources.catalog_genre_ghamza
 import org.jetbrains.compose.resources.stringResource
 
 /** Composition-root binding; the room, rejoin and authority machinery remains game-neutral. */
@@ -60,6 +62,7 @@ internal class GhamzaGameShellBinding(override val definition: GhamzaDefinition)
         title = stringResource(Res.string.gh_title), subtitle = stringResource(Res.string.gh_subtitle),
         tagline = stringResource(Res.string.gh_tagline), openLabel = stringResource(Res.string.gh_open),
         openContentDescription = stringResource(Res.string.gh_open_description),
+        genre = stringResource(AppRes.string.catalog_genre_ghamza),
         artwork = ParlorArtwork.Wink,
     )
 

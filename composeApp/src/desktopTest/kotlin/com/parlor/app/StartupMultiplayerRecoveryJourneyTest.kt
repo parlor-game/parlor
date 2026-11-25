@@ -11,16 +11,18 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -114,7 +116,12 @@ class StartupMultiplayerRecoveryJourneyTest {
                     // an explicit control, not a retry of a failed acceptance action.
                     onNodeWithContentDescription(fixture.settingsDescription).performClick()
                     onNode(fixture.settingsHeading).assertExists()
-                    onNodeWithContentDescription(fixture.gamesDescription).performClick()
+                    val gamesTab = onNodeWithContentDescription(fixture.gamesDescription)
+                    val tabSemantics = gamesTab.fetchSemanticsNode().config
+                    assertEquals(Role.Tab, tabSemantics[SemanticsProperties.Role])
+                    assertEquals(false, tabSemantics[SemanticsProperties.Selected])
+                    assertTrue(!tabSemantics.contains(SemanticsProperties.Text), "The tab already has its localized name")
+                    gamesTab.performClick()
                     assertStagedRecovery(fixture)
                 }
             }
@@ -147,7 +154,7 @@ class StartupMultiplayerRecoveryJourneyTest {
         waitForIdle()
         onNode(fixture.settingsHeading).assertDoesNotExist()
         onNodeWithContentDescription(fixture.localDiscardDescription).assertExists()
-        onNode(hasScrollToIndexAction()).performScrollToIndex(4)
+        onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(fixture.multiplayerDescription))
         onNodeWithContentDescription(fixture.multiplayerDescription).assertExists()
         assertEquals(2, fixture.snapshots.inventoryRequests.get())
         assertTrue(fixture.rendered.isEmpty(), "The explicit Settings decision prevents automatic recovery routing")
@@ -238,7 +245,7 @@ class StartupMultiplayerRecoveryJourneyTest {
             runComposeUiTest {
                 installApp(fixture)
                 waitUntil(timeoutMillis = 5_000) { fixture.transport.metadataRequests.get() == 1 }
-                onNode(hasScrollToIndexAction()).performScrollToIndex(4)
+                onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription("Open fixture game"))
                 onNodeWithContentDescription("Open fixture game").performClick()
                 waitUntil(timeoutMillis = 5_000) { fixture.rendered.size == 1 }
                 assertIs<GameShellLaunch.New>(fixture.rendered.single())
@@ -276,8 +283,9 @@ class StartupMultiplayerRecoveryJourneyTest {
     }
 
     private fun ComposeUiTest.manualResume() {
-        onNode(hasScrollToIndexAction()).performScrollToIndex(3)
-        onNodeWithContentDescription("Rejoin the previous multiplayer game.").performClick()
+        val description = "Rejoin the previous multiplayer game."
+        onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(description))
+        onNodeWithContentDescription(description).performClick()
     }
 
     private fun ComposeUiTest.assertSelectedResume(fixture: StartupJourneyFixture) {

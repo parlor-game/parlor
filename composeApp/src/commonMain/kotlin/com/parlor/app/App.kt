@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,8 @@ import com.parlor.app.shell.home.HomeScreen
 import com.parlor.app.shell.home.HomeRecoveryAvailability
 import com.parlor.app.shell.home.LocalResumeFailureScreen
 import com.parlor.app.shell.home.rememberHomeCatalogScrollState
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
+import com.parlor.app.shell.profile.ProfileScreen
 import com.parlor.app.shell.settings.SettingsScreen
 import com.parlor.core.ids.SessionId
 import com.parlor.designsystem.components.LocalParlorToastState
@@ -43,6 +46,7 @@ import com.parlor.designsystem.motion.rememberSystemReducedMotion
 import com.parlor.designsystem.motion.shouldReduceMotion
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
+import com.parlor.designsystem.tokens.isLight
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
 import com.parlor.session.lobby.ProcessPartySessionOwner
@@ -64,7 +68,8 @@ fun App() = App(koinInject<SettingsStore>())
 
 @Suppress("LongMethod") // Declarative root composition; stateful effects are separately tested.
 @Composable
-internal fun App(settings: SettingsStore) {
+internal fun App(settings: SettingsStore, onPaletteApplied: ((isLight: Boolean) -> Unit)? = null) {
+    val preferredDisplayName by settings.preferredDisplayName.collectAsState()
     val languageTag by settings.languageOverride.collectAsState(initial = null)
     val themeModeTag by settings.themeMode.collectAsState(initial = ThemeMode.Default.tag)
     val reducedMotion by settings.reducedMotion.collectAsState(initial = false)
@@ -100,7 +105,14 @@ internal fun App(settings: SettingsStore) {
             themeMode = themeMode,
             reducedMotion = effectiveReducedMotion,
         ) {
-            CompositionLocalProvider(LocalParlorToastState provides toastState) {
+            if (onPaletteApplied != null) {
+                val isLight = ParlorTheme.colors.isLight
+                SideEffect { onPaletteApplied(isLight) }
+            }
+            CompositionLocalProvider(
+                LocalParlorToastState provides toastState,
+                LocalPreferredDisplayName provides preferredDisplayName,
+            ) {
                 val resumeOpenFailedText = stringResource(Res.string.home_resume_open_failed)
                 val resumeDiscardFailedText = stringResource(
                     Res.string.local_resume_failure_discard_failed,
@@ -260,6 +272,10 @@ internal fun App(settings: SettingsStore) {
                                 HomeScreen(
                                     games = gameShellRegistry.all,
                                     catalogScrollState = homeScrollState,
+                                    onOpenProfile = {
+                                        localResumeCoordinator.invalidate()
+                                        navigator.selectTopLevel(AppTopLevelDestination.Profile)
+                                    },
                                     onParty = {
                                         resumeDeletion.invalidate()
                                         localResumeCoordinator.invalidate()
@@ -295,6 +311,9 @@ internal fun App(settings: SettingsStore) {
                                     hasResumableMultiplayer =
                                         (homeRecovery as? HomeRecoveryAvailability.Ready)
                                             ?.resumableMultiplayer != null,
+                                    resumableMultiplayerGameId =
+                                        (homeRecovery as? HomeRecoveryAvailability.Ready)
+                                            ?.resumableMultiplayer?.gameId,
                                     recoveryLoading =
                                         homeRecovery is HomeRecoveryAvailability.Loading,
                                     recoveryUnavailable =
@@ -371,6 +390,14 @@ internal fun App(settings: SettingsStore) {
                             settingsContent = {
                                 SettingsScreen(
                                     mutationScope = appScope,
+                                    modifier = Modifier.fillMaxSize(),
+                                    onOpenProfile = { navigator.selectTopLevel(AppTopLevelDestination.Profile) },
+                                )
+                            },
+                            profileContent = {
+                                ProfileScreen(
+                                    settings = settings,
+                                    scope = appScope,
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             },

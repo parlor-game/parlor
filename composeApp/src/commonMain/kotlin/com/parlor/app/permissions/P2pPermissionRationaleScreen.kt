@@ -2,10 +2,10 @@ package com.parlor.app.permissions
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -16,7 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.permission_back
 import com.parlor.app.resources.permission_back_description
@@ -31,11 +31,16 @@ import com.parlor.app.resources.permission_open_settings_description
 import com.parlor.app.resources.permission_permanently_denied_body
 import com.parlor.app.resources.permission_permanently_denied_eyebrow
 import com.parlor.app.resources.permission_title
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.app.resources.profile_saved_seat
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
+import com.parlor.app.shell.profile.SeatIdentityCard
+import com.parlor.designsystem.components.LibrarySurface
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.ScreenHeader
+import com.parlor.designsystem.components.StickyActionLayout
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import kotlinx.coroutines.launch
@@ -53,6 +58,8 @@ fun P2pPermissionRationaleScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    gameTitle: String? = null,
+    roomAction: String? = null,
 ) {
     val status by gate.status.collectAsState()
     val scope = rememberCoroutineScope()
@@ -66,97 +73,99 @@ fun P2pPermissionRationaleScreen(
         return
     }
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            EyebrowLabel(
-                text = if (status == PermissionStatus.DeniedActionable) {
-                    stringResource(Res.string.permission_permanently_denied_eyebrow)
-                } else if (status == PermissionStatus.FailureUnclassified) {
-                    stringResource(Res.string.permission_denied_eyebrow)
-                } else {
-                    stringResource(Res.string.permission_eyebrow)
-                },
-            )
+    val blocked = status == PermissionStatus.DeniedActionable || status == PermissionStatus.FailureUnclassified
+    LibrarySurface(modifier.fillMaxSize(), litHeader = false) {
+        StickyActionLayout(
+            content = {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                    Column(
+                        modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .parlorSafeContentPadding(ParlorTheme.spacing.m),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (roomAction != null) {
+                            ScreenHeader(
+                                title = roomAction,
+                                eyebrow = gameTitle,
+                                onBack = onBack,
+                                backContentDescription = stringResource(Res.string.permission_back_description),
+                                compact = true,
+                            )
+                            LocalPreferredDisplayName.current?.let { name ->
+                                SeatIdentityCard(name, stringResource(Res.string.profile_saved_seat))
+                            }
+                        }
+                        PermissionExplanation(status)
+                    }
+                }
+            },
+            actions = {
+                Column(
+                    modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                ) {
+                    if (blocked && gate.canOpenNetworkSettings) {
+                        ParlorButton(
+                            label = stringResource(Res.string.permission_open_settings),
+                            contentDescription = stringResource(Res.string.permission_open_settings_description),
+                            onClick = gate::openAppSettings,
+                            modifier = Modifier.fillMaxWidth(),
+                            illuminated = true,
+                        )
+                    }
+                    val primaryContinue = !blocked || !gate.canOpenNetworkSettings
+                    ParlorButton(
+                        label = stringResource(Res.string.permission_continue),
+                        contentDescription = stringResource(Res.string.permission_continue_description),
+                        onClick = {
+                            // On iOS, retry the real network operation to learn whether access works.
+                            scope.launch {
+                                val next = gate.request()
+                                if (next.mayAttemptNetwork) onContinue()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = if (primaryContinue) ParlorButtonVariant.Primary else ParlorButtonVariant.Secondary,
+                        illuminated = primaryContinue,
+                    )
+                    ParlorButton(
+                        label = stringResource(Res.string.permission_back),
+                        contentDescription = stringResource(Res.string.permission_back_description),
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = ParlorButtonVariant.Secondary,
+                    )
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PermissionExplanation(status: PermissionStatus) {
+    val eyebrow = when (status) {
+        PermissionStatus.DeniedActionable -> Res.string.permission_permanently_denied_eyebrow
+        PermissionStatus.FailureUnclassified -> Res.string.permission_denied_eyebrow
+        else -> Res.string.permission_eyebrow
+    }
+    val explanation = when (status) {
+        PermissionStatus.DeniedActionable -> Res.string.permission_permanently_denied_body
+        PermissionStatus.FailureUnclassified -> Res.string.permission_denied_body
+        else -> Res.string.permission_body
+    }
+    ParlorCard(modifier = Modifier.fillMaxWidth(), contentPadding = ParlorTheme.spacing.m) {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            EyebrowLabel(stringResource(eyebrow))
             Text(
                 text = stringResource(Res.string.permission_title),
-                style = ParlorTheme.typography.displayLarge,
+                style = ParlorTheme.typography.headingLarge,
                 color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
             )
-
-            ParlorCard(
-                modifier = Modifier.fillMaxWidth(),
-                cornerRadius = ParlorTheme.radii.elevated,
-                contentPadding = ParlorTheme.spacing.xl,
-                hero = true,
-            ) {
-                Text(
-                    text = when (status) {
-                        PermissionStatus.DeniedActionable ->
-                            stringResource(Res.string.permission_permanently_denied_body)
-                        PermissionStatus.FailureUnclassified ->
-                            stringResource(Res.string.permission_denied_body)
-                        else ->
-                            stringResource(Res.string.permission_body)
-                    },
-                    style = ParlorTheme.typography.bodyLarge,
-                    color = ParlorTheme.colors.textPrimary,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(ParlorTheme.spacing.m))
-
-            if (
-                status == PermissionStatus.DeniedActionable ||
-                status == PermissionStatus.FailureUnclassified
-            ) {
-                ParlorButton(
-                    label = stringResource(Res.string.permission_open_settings),
-                    contentDescription = stringResource(Res.string.permission_open_settings_description),
-                    onClick = { gate.openAppSettings() },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                ParlorButton(
-                    label = stringResource(Res.string.permission_continue),
-                    contentDescription = stringResource(Res.string.permission_continue_description),
-                    onClick = {
-                        // iOS cannot preflight Local Network access after the
-                        // user returns. Retry the real operation instead.
-                        scope.launch {
-                            val next = gate.request()
-                            if (next.mayAttemptNetwork) onContinue()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    variant = ParlorButtonVariant.Secondary,
-                )
-            } else {
-                ParlorButton(
-                    label = stringResource(Res.string.permission_continue),
-                    contentDescription = stringResource(Res.string.permission_continue_description),
-                    onClick = {
-                        scope.launch {
-                            val next = gate.request()
-                            if (next.mayAttemptNetwork) onContinue()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            ParlorButton(
-                label = stringResource(Res.string.permission_back),
-                contentDescription = stringResource(Res.string.permission_back_description),
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                variant = ParlorButtonVariant.Ghost,
+            Text(
+                text = stringResource(explanation),
+                style = ParlorTheme.typography.bodySmall,
+                color = ParlorTheme.colors.textSecondary,
             )
         }
     }

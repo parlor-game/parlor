@@ -187,7 +187,8 @@ def retire_owned_children(*, term_seconds: float = TERM_SECONDS,
     return receipt
 
 
-def supervise(command: list[str], receipt_path: Path, *, isolate_avd: bool = False) -> int:
+def supervise(command: list[str], receipt_path: Path, *, isolate_avd: bool = False,
+              setup_command: list[str] | None = None) -> int:
     receipt = {"schema": 1, "runtime_exit_code": None, "interrupted_signal": None,
                "cleanup": {"result": "NOT_STARTED"}, "result": "FAIL", "errors": [],
                "scope": "Only direct/adopted descendants of this Linux build supervisor; "
@@ -222,10 +223,22 @@ def supervise(command: list[str], receipt_path: Path, *, isolate_avd: bool = Fal
                     receipt["avd_home"] = {"path": str(avd[0]), "result": "RETAINED",
                                            "reason": "Awaiting successful runtime and descendant retirement"}
                     environment["env"] = dict(os.environ, ANDROID_AVD_HOME=str(avd[0]))
-                process = subprocess.Popen(command, start_new_session=True, **environment)
-                while process.poll() is None and receipt["interrupted_signal"] is None:
-                    time.sleep(POLL_SECONDS)
-                receipt["runtime_exit_code"] = process.returncode
+                if setup_command is not None:
+                    process = subprocess.Popen(setup_command, start_new_session=True, **environment)
+                    while process.poll() is None and receipt["interrupted_signal"] is None:
+                        time.sleep(POLL_SECONDS)
+                    setup_status = process.returncode
+                    setup_cleanup = retire_owned_children()
+                    process.poll()
+                    process = None
+                    receipt["setup"] = {"exit_code": setup_status, "cleanup": setup_cleanup}
+                    if setup_status != 0 or setup_cleanup["result"] != "PASS":
+                        receipt["errors"].append({"code": "AVD_SETUP_OR_RETIREMENT_FAILED"})
+                if not receipt["errors"] and receipt["interrupted_signal"] is None:
+                    process = subprocess.Popen(command, start_new_session=True, **environment)
+                    while process.poll() is None and receipt["interrupted_signal"] is None:
+                        time.sleep(POLL_SECONDS)
+                    receipt["runtime_exit_code"] = process.returncode
         except (OSError, RuntimeError, ValueError) as error:
             receipt["errors"].append({"code": type(error).__name__,
                                       "errno": getattr(error, "errno", None)})
@@ -274,13 +287,23 @@ def main() -> int:
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--isolated-avd", action="store_true",
                         help="Use and retire only a fresh private AVD home after a successful build")
+    parser.add_argument("--gradle-setup-task",
+                        help="Run this setup task in the private AVD before the Gradle runtime command")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("a command is required after --")
+    setup_command = None
+    if args.gradle_setup_task:
+        if not args.isolated_avd or len(command) < 2 or command[0] != "./gradlew":
+            parser.error("--gradle-setup-task requires an isolated Gradle invocation")
+        setup_command = [command[0], args.gradle_setup_task, *command[2:]]
+        # AGP declares no outputs for this task and would start its setup
+        # emulators again. The same task has already run in this private AVD.
+        command.extend(("-x", args.gradle_setup_task))
     try:
-        return supervise(command, args.receipt, isolate_avd=args.isolated_avd)
+        return supervise(command, args.receipt, isolate_avd=args.isolated_avd, setup_command=setup_command)
     except OSError as error:
         print(json.dumps({"result": "FAIL", "error": type(error).__name__,
                           "errno": error.errno}), file=sys.stderr)

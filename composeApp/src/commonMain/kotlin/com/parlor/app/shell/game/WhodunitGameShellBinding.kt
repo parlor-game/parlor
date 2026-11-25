@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_whodunit
 import com.parlor.app.resources.party_rules_whodunit
 import com.parlor.app.resources.home_whodunit_open
 import com.parlor.app.resources.home_whodunit_open_description
@@ -73,6 +74,7 @@ internal class WhodunitGameShellBinding(
         openLabel = stringResource(Res.string.home_whodunit_open),
         openContentDescription = stringResource(Res.string.home_whodunit_open_description),
         kicker = stringResource(Res.string.home_whodunit_kicker),
+        genre = stringResource(Res.string.catalog_genre_whodunit),
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.CaseFile,
     )
@@ -154,45 +156,15 @@ private fun WhodunitShellContent(
     var localCaseId by remember(launch) { mutableStateOf(DEFAULT_CASE_ID) }
     var localPlayMode: PlayMode by remember(launch) { mutableStateOf(PlayMode.PassAndPlay) }
     val resumeSessionId = (launch as? GameShellLaunch.ResumeLocal)?.sessionId
-    var hostName by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Host }
-                ?.displayName
-                .orEmpty(),
-        )
-    }
-    var hostCaseId by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Host }
-                ?.contentId
-                .orEmpty(),
-        )
-    }
+    val restoredHost = restoredRoute?.takeIf { it.role == MultiplayerSessionRole.Host }
+    var hostName by remember(launch) { mutableStateOf(restoredHost?.displayName.orEmpty()) }
+    var hostCaseId by remember(launch) { mutableStateOf(restoredHost?.contentId.orEmpty()) }
     var hostCaseModes by remember(launch) { mutableStateOf<List<String>>(emptyList()) }
     var hostCasePlayerCounts by remember(launch) { mutableStateOf<IntRange?>(null) }
     var hostModeId by remember(launch) {
-        mutableStateOf(
-            restoredRoute
-                ?.takeIf { it.role == MultiplayerSessionRole.Host }
-                ?.modeId
-                ?.let(::ModeId)
-                ?: WhodunitIds.ClassicVoteModeId,
-        )
+        mutableStateOf(restoredHost?.modeId?.let(::ModeId) ?: WhodunitIds.ClassicVoteModeId)
     }
-    var peerName by remember(launch) {
-        mutableStateOf(
-            when (launch) {
-                is GameShellLaunch.ResumeMultiplayer -> launch.displayName
-                is GameShellLaunch.RestoreOwnedMultiplayer -> launch.route
-                    .takeIf { it.role == MultiplayerSessionRole.Peer }
-                    ?.displayName
-                    .orEmpty()
-                else -> ""
-            },
-        )
-    }
+    var peerName by remember(launch) { mutableStateOf(launch.initialWhodunitPeerName()) }
     val invitation = launch.joinInvitation
     var discoveredRoom by remember(launch) { mutableStateOf(restoredRoute?.discoveredRoom) }
     var pendingJoinCode by remember(launch) {
@@ -256,6 +228,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = WhodunitShellScreen.HostName },
             onBack = onExit,
         )
@@ -323,6 +297,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = WhodunitShellScreen.JoinName },
             onBack = onExit,
         )
@@ -343,6 +319,8 @@ private fun WhodunitShellContent(
 
         WhodunitShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == WhodunitShellScreen.JoinPrompt) screen = WhodunitShellScreen.JoinName },
             transport = transport,
             game = HostedGameProtocol(WhodunitIds.GameId, WhodunitHostRoomBridge.GAME_VERSION),
             onConfirm = { code, selection ->
@@ -397,6 +375,15 @@ private fun WhodunitShellContent(
 
 private fun whodunitRouteAfterPeerName(hasInvitation: Boolean): WhodunitShellScreen =
     if (hasInvitation) WhodunitShellScreen.PeerLobby else WhodunitShellScreen.JoinPrompt
+
+private fun GameShellLaunch.initialWhodunitPeerName(): String = when (this) {
+    is GameShellLaunch.ResumeMultiplayer -> displayName
+    is GameShellLaunch.RestoreOwnedMultiplayer -> route
+        .takeIf { it.role == MultiplayerSessionRole.Peer }
+        ?.displayName
+        .orEmpty()
+    else -> ""
+}
 
 private fun GameShellLaunch.initialWhodunitScreen(): WhodunitShellScreen = when (this) {
     is GameShellLaunch.JoinByInvitation -> WhodunitShellScreen.JoinPermission

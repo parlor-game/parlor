@@ -54,6 +54,9 @@ class AndroidLocaleConfigurationRuntimeTest : InstrumentationTestCase() {
             val ui = AndroidPublicRecoveryUi(instrumentation, evidence::capture)
             ui.clickDescription(if (uiLanguage == "ar") "افتح الإعدادات." else "Open settings.")
             val heading = if (uiLanguage == "ar") "الإعدادات" else "Settings"
+            instrumentation.waitForIdleSync()
+            // The navigation settled, but UiAutomation can still hold the Home tree.
+            instrumentation.uiAutomation.clearCache()
             ui.awaitHeading(heading)
             // Framework resets read the Application, not Compose's LocalContext.
             // This must already be correct, before any configuration callback.

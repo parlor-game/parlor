@@ -8,10 +8,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -164,7 +165,7 @@ class ResumeGameBindingTest {
                         else "Rejoin the previous multiplayer game."
                     waitUntil(timeoutMillis = 5_000) { transport.metadataRequests.get() > 0 }
                     waitForIdle()
-                    onNode(hasScrollToIndexAction()).performScrollToIndex(3)
+                    onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription(description))
                     onNodeWithContentDescription(description).performClick()
                 }
                 waitUntil(timeoutMillis = 5_000) { owner.state.value is ProcessMultiplayerState.Failed }

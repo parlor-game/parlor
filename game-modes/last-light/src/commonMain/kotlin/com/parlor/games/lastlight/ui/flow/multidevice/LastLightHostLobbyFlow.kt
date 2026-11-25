@@ -32,9 +32,9 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.RoomCodeWithCopy
 import com.parlor.designsystem.components.InviteToLobbyButton
 import com.parlor.designsystem.components.LobbyRoomTag
-import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.designsystem.components.SessionExitBackAction
@@ -388,7 +388,7 @@ private fun LastLightHostLobbyContent(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
                             EyebrowLabel(text = stringResource(Res.string.md_host_room_code), accent = false)
-                            RoomCodeText(code = info.code)
+                            RoomCodeWithCopy(code = info.code)
                             LobbyRoomTag(info.roomTag)
                             if (info.roomTag != null) InviteToLobbyButton(room::createJoinLink)
                             Text(

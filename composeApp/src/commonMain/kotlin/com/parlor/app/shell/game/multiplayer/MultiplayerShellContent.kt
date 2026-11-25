@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalViewConfiguration
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.shell.game.GameCatalogPresentation
 import com.parlor.app.shell.game.GameShellBackRequest
@@ -24,6 +25,8 @@ import com.parlor.engine.state.GameState
 import com.parlor.networking.transport.HostedGameProtocol
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.MultiplayerSessionRole
+import com.parlor.session.multidevice.MultiplayerSessionRoute
+import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
 private enum class ShellStep { Setup, HostPermission, HostName, Host, JoinPermission, JoinName, JoinCode, Peer, ResumePermission, Resume }
@@ -57,6 +60,16 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             else -> ShellStep.Setup
         })
     }
+    // Entry and room footers occupy the same space. Suppress a follow-up tap
+    // from the submit gesture while allowing keyboard/system Back as usual.
+    var roomActionsReady by remember(launch) { mutableStateOf(true) }
+    val doubleTapTimeout = LocalViewConfiguration.current.doubleTapTimeoutMillis
+    LaunchedEffect(launch, roomActionsReady) {
+        if (!roomActionsReady) {
+            delay(doubleTapTimeout)
+            roomActionsReady = true
+        }
+    }
     var activeBack by remember(launch) { mutableStateOf(0L) }
     LaunchedEffect(backRequest.id) {
         if (backRequest.id > 0L) {
@@ -75,8 +88,12 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
             onBack = onExit, capabilities = capabilities,
             supportedPlayerCounts = spec.definition.supportedPlayerCounts, modifier = modifier,
         )
-        ShellStep.HostPermission -> P2pPermissionRoute(gate, { step = ShellStep.HostName }, onExit)
-        ShellStep.JoinPermission -> P2pPermissionRoute(gate, { step = ShellStep.JoinName }, onExit)
+        ShellStep.HostPermission -> P2pPermissionRoute(
+            gate, { step = ShellStep.HostName }, onExit, gameTitle = presentation.title, isHost = true,
+        )
+        ShellStep.JoinPermission -> P2pPermissionRoute(
+            gate, { step = ShellStep.JoinName }, onExit, gameTitle = presentation.title, isHost = false,
+        )
         ShellStep.ResumePermission -> P2pPermissionRoute(gate, { step = ShellStep.Resume }, onExit)
         ShellStep.HostName, ShellStep.JoinName -> {
             val nameStep = step
@@ -88,9 +105,13 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
                     // confirmation. Admit it only in the phase that created it.
                     if (step == nameStep) {
                         name = it
+                        if (nameStep == ShellStep.HostName) roomActionsReady = false
                         step = when {
                             nameStep == ShellStep.HostName -> ShellStep.Host
-                            invitation != null -> ShellStep.Peer
+                            invitation != null -> {
+                                roomActionsReady = false
+                                ShellStep.Peer
+                            }
                             else -> ShellStep.JoinCode
                         }
                     }
@@ -100,6 +121,8 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
         }
         ShellStep.JoinCode -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = name,
+            onChangeName = { if (step == ShellStep.JoinCode) step = ShellStep.JoinName },
             transport = transport,
             game = HostedGameProtocol(spec.definition.id, spec.version),
             onConfirm = { entered, selection ->
@@ -108,20 +131,22 @@ internal fun <S : GameState, A : GameAction, E : GameEvent> MultiplayerShellCont
                 if (step == ShellStep.JoinCode) {
                     code = entered
                     discoveredRoom = selection
+                    roomActionsReady = false
                     step = ShellStep.Peer
                 }
             },
             onCancel = onExit, modifier = modifier,
         )
         ShellStep.Host -> if (name.isBlank()) InvalidGameRouteFallback(onExit) else
-            HostedGameLobby(spec, transport, name, onExit, settings, activeBack, modifier)
+            HostedGameLobby(spec, transport, name, onExit, settings, activeBack, modifier, presentation, roomActionsReady)
         ShellStep.Peer, ShellStep.Resume -> if (name.isBlank() || (step == ShellStep.Peer && code.isBlank())) {
             InvalidGameRouteFallback(onExit)
         } else {
-            PeerGameLobby(
-                spec, transport, code, name, step == ShellStep.Resume, onExit, settings, activeBack, modifier,
-                resumeSelection, discoveredRoom, invitation,
-            )
+            val resume = step == ShellStep.Resume
+            val route = remember(spec.definition.id, code, name, resume, resumeSelection, discoveredRoom, invitation) {
+                MultiplayerSessionRoute.peer(spec.definition.id, name, code, resume, resumeSelection, discoveredRoom, invitation)
+            }
+            PeerGameLobby(spec, transport, route, onExit, settings, activeBack, modifier, presentation, roomActionsReady)
         }
     }
 }

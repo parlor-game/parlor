@@ -76,9 +76,9 @@ import com.parlor.designsystem.components.LocalParlorToastState
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.components.RoomCodeWithCopy
 import com.parlor.designsystem.components.InviteToLobbyButton
 import com.parlor.designsystem.components.LobbyRoomTag
-import com.parlor.designsystem.components.RoomCodeText
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.ParlorToastSeverity
 import com.parlor.designsystem.components.SessionExitBackAction
@@ -444,7 +444,7 @@ private fun HostLobbyContent(
                                 text = stringResource(Res.string.host_room_code_eyebrow),
                                 accent = false,
                             )
-                            RoomCodeText(code = info.code)
+                            RoomCodeWithCopy(code = info.code)
                             LobbyRoomTag(info.roomTag)
                             if (info.roomTag != null) InviteToLobbyButton(room::createJoinLink)
                             Text(

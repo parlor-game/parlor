@@ -265,6 +265,41 @@ class AndroidManagedDeviceSupervisionTest(unittest.TestCase):
                     self.assertEqual(os.environ['ANDROID_AVD_HOME'], str(old_home))
                     delete.assert_not_called()
 
+    def test_setup_children_retire_before_runtime_in_the_same_private_avd(self):
+        for setup_code, cleanup_result, runs_runtime in ((0, "PASS", True), (23, "PASS", False), (0, "FAIL", False)):
+            with self.subTest(setup_code=setup_code, cleanup_result=cleanup_result):
+                root = self.base / f"setup-{setup_code}-{cleanup_result}"
+                root.mkdir(mode=0o700)
+                receipt = root / "result.json"
+                events = []
+
+                def launch(command, **kwargs):
+                    self.assertEqual(kwargs["env"]["ANDROID_AVD_HOME"], str(root))
+                    phase = command[0]
+                    events.append(phase)
+                    code = setup_code if phase == "setup" else 0
+                    child = Mock(returncode=code)
+                    child.poll.return_value = code
+                    return child
+
+                def retire():
+                    events.append("retire")
+                    return {"result": cleanup_result if events == ["setup", "retire"] else "PASS"}
+
+                with patch.object(supervision, "owned_children", return_value=[]), \
+                        patch.object(supervision, "enable_subreaper"), \
+                        patch.object(supervision, "create_avd_home", return_value=(root, root.lstat())), \
+                        patch.object(supervision.subprocess, "Popen", side_effect=launch), \
+                        patch.object(supervision, "retire_owned_children", side_effect=retire), \
+                        patch.object(supervision, "retire_avd_home", return_value={"result": "PASS"}) as delete, \
+                        redirect_stdout(io.StringIO()):
+                    status = supervision.supervise(["runtime"], receipt, isolate_avd=True, setup_command=["setup"])
+                self.assertEqual(status == 0, runs_runtime)
+                self.assertEqual(events, ["setup", "retire", "runtime", "retire"] if runs_runtime else
+                                 ["setup", "retire", "retire"])
+                self.assertEqual(delete.call_count, int(runs_runtime))
+                self.assertEqual(json.loads(receipt.read_text())["setup"]["exit_code"], setup_code)
+
     def test_avd_retirement_failure_invalidates_an_otherwise_successful_runtime(self):
         root = self.base / 'retained-avd'; root.mkdir(mode=0o700)
         child = Mock(returncode=0); child.poll.return_value = 0

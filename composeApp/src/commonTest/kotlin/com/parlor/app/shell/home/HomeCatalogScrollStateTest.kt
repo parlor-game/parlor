@@ -18,11 +18,12 @@ class HomeCatalogScrollStateTest {
         val rows = listOf(LocalRecoveryEntry(SessionId("synthetic-save"), GameId("whodunit")))
         val ready = homeCatalogItemKeys(games, rows, true, false, true)
         assertEquals(
-            listOf("home-top-bar", "home-lead", "recovery-unavailable", "continue-label",
-                "local:synthetic-save", "multiplayer-resume", "games-label",
+            listOf("home-top-bar", "continue-label", "local:synthetic-save", "multiplayer-resume",
+                "home-lead", "recovery-unavailable", "games-label",
                 "game:egyptian-dominoes", "game:ghamza"),
             ready,
         )
+        assertEquals(4 to 12, HomeCatalogAnchor("home-lead", 12).target(ready))
         val anchor = HomeCatalogAnchor("game:ghamza", 23)
         assertEquals(8 to 23, anchor.target(ready))
         assertEquals(4 to 23, anchor.target(homeCatalogItemKeys(games, emptyList(), false, false, false)))

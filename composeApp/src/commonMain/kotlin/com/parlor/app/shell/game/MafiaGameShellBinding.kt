@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_mafia
 import com.parlor.app.resources.party_rules_mafia
 import com.parlor.app.resources.home_mafia_open
 import com.parlor.app.resources.home_mafia_open_description
@@ -65,6 +66,7 @@ internal class MafiaGameShellBinding(
         openLabel = stringResource(Res.string.home_mafia_open),
         openContentDescription = stringResource(Res.string.home_mafia_open_description),
         kicker = stringResource(Res.string.home_mafia_kicker),
+        genre = stringResource(Res.string.catalog_genre_mafia),
         accent = ParlorAccent.Crimson,
         artwork = ParlorArtwork.Moon,
     )
@@ -208,6 +210,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = MafiaShellScreen.HostName },
             onBack = onExit,
         )
@@ -243,6 +247,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = MafiaShellScreen.JoinName },
             onBack = onExit,
         )
@@ -267,6 +273,8 @@ private fun MafiaShellContent(
 
         MafiaShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == MafiaShellScreen.JoinPrompt) screen = MafiaShellScreen.JoinName },
             transport = transport,
             game = HostedGameProtocol(launch.gameId, MafiaHostRoomBridge.GAME_VERSION),
             onConfirm = { code, selection ->

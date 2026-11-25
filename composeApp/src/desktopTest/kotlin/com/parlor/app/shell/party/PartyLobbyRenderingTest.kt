@@ -17,10 +17,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.parlor.app.shell.game.DefaultGameShellRegistry
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.PlayerId
@@ -140,6 +142,32 @@ class PartyLobbyRenderingTest {
     }
 
     @Test
+    fun party_join_prefills_the_saved_name_and_allows_a_room_alias() = runTest {
+        val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
+        val transport = LobbyTransport(PlayerId("host"), PlayerId("player"))
+        val owner = ProcessPartySessionOwner(transport, backgroundScope)
+        runComposeUiTest {
+            setContent {
+                ProvideAppLanguage(AppLanguage.English) {
+                    ParlorTheme(reducedMotion = true) {
+                        CompositionLocalProvider(LocalPreferredDisplayName provides "Nour") {
+                            PartyEntry(owner, transport, mapOf(game to "Mafia"), null, 0) {}
+                        }
+                    }
+                }
+            }
+            val name = onNode(hasSetTextAction() and hasText("Your player name"))
+            name.assertIsDisplayed()
+            onNodeWithText("Nour").assertIsDisplayed()
+            name.performTextReplacement("Party alias")
+            onNode(hasSetTextAction() and hasText("Room code")).performTextInput("ABCDEF")
+            onNodeWithText("Request to join").assertIsDisplayed().assertIsEnabled().performClick()
+            waitUntil { owner.session.value is ProcessPartySession.Peer }
+            runOnIdle { assertEquals("Party alias", transport.joinName) }
+        }
+    }
+
+    @Test
     fun privacy_cover_temporarily_hides_the_in_window_leave_confirmation() = runTest {
         val game = PartyGame(GameProtocolRef(GameId("mafia"), 1), 5..16)
         val transport = LobbyTransport(PlayerId("host"), PlayerId("player"))
@@ -185,6 +213,8 @@ class PartyLobbyRenderingTest {
     ) : RoomTransport {
         override val capability = TransportCapability(false, 0, 16_384)
         val foregroundReady = MutableStateFlow(true)
+        var joinName: String? = null
+            private set
         private val room = object : LocalRoom {
             override val info = MutableStateFlow(RoomInfo("ABCDEF", "Host", host, RoomInfo.Status.Joined,
                 partyId = PartyId("a".repeat(32))))
@@ -202,7 +232,9 @@ class PartyLobbyRenderingTest {
         override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = Result.Failure(NetError.Unauthorized)
         override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> =
             Result.Failure(NetError.Unauthorized)
-        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> =
-            joinError?.let { Result.Failure(it) } ?: Result.Success(room)
+        override suspend fun join(config: JoinConfig): Result<LocalRoom, NetError> {
+            joinName = config.displayName
+            return joinError?.let { Result.Failure(it) } ?: Result.Success(room)
+        }
     }
 }

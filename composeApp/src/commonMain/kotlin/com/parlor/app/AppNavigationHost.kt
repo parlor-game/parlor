@@ -13,8 +13,11 @@ import androidx.navigation3.ui.NavDisplay
 import com.parlor.app.resources.Res
 import com.parlor.app.resources.navigation_games_description
 import com.parlor.app.resources.navigation_games_label
+import com.parlor.app.resources.navigation_profile_description
+import com.parlor.app.resources.navigation_profile_label
 import com.parlor.app.resources.navigation_settings_description
 import com.parlor.app.resources.navigation_settings_label
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.designsystem.components.ParlorBottomTab
 import com.parlor.designsystem.components.ParlorBottomTabBar
 import com.parlor.designsystem.icons.ParlorIcons
@@ -33,6 +36,7 @@ internal fun AppNavDisplay(
     navigator: AppNavigator,
     homeContent: @Composable () -> Unit,
     settingsContent: @Composable () -> Unit,
+    profileContent: @Composable () -> Unit,
     recoveryContent: @Composable (AppRoute.LocalResumeFailure) -> Unit,
     gameContent: @Composable (AppRoute.Game) -> Unit,
     onBack: (AppRoute) -> Unit,
@@ -41,12 +45,14 @@ internal fun AppNavDisplay(
 ) {
     val latestPartyContent = rememberUpdatedState(partyContent)
     val latestHomeContent = rememberUpdatedState(homeContent)
+    val latestProfileContent = rememberUpdatedState(profileContent)
     val latestSettingsContent = rememberUpdatedState(settingsContent)
     val latestRecoveryContent = rememberUpdatedState(recoveryContent)
     val latestGameContent = rememberUpdatedState(gameContent)
     val routeProvider = remember {
         entryProvider<AppRoute> {
             entry<AppRoute.Home> { latestHomeContent.value() }
+            entry<AppRoute.Profile> { latestProfileContent.value() }
             entry<AppRoute.Settings> { latestSettingsContent.value() }
             entry<AppRoute.Party> { latestPartyContent.value() }
             entry<AppRoute.LocalResumeFailure> { route ->
@@ -68,9 +74,16 @@ internal fun AppNavDisplay(
         entryDecorators = remember(settingsDecorator) { listOf(settingsDecorator) },
         entryProvider = routeProvider,
     )
+    val profileDecorator = rememberSaveableStateHolderNavEntryDecorator<AppRoute>()
+    val profileEntries = rememberDecoratedNavEntries(
+        backStack = navigator.backStack(AppTopLevelDestination.Profile),
+        entryDecorators = remember(profileDecorator) { listOf(profileDecorator) },
+        entryProvider = routeProvider,
+    )
     val currentRoute = navigator.currentRoute
     val activeEntries = when (navigator.selectedDestination) {
         AppTopLevelDestination.Games -> gamesEntries
+        AppTopLevelDestination.Profile -> profileEntries
         AppTopLevelDestination.Settings -> settingsEntries
     }
     val visibleEntries = visibleEntriesForBack(currentRoute, activeEntries)
@@ -115,7 +128,7 @@ internal fun AppNavDisplay(
     )
 }
 
-/** Localized presentation of the two real top-level destinations. */
+/** Localized application dock. */
 @Composable
 internal fun AppNavigationBar(
     selectedDestination: AppTopLevelDestination,
@@ -127,7 +140,13 @@ internal fun AppNavigationBar(
         ParlorBottomTab(
             label = stringResource(Res.string.navigation_games_label),
             contentDescription = stringResource(Res.string.navigation_games_description),
-            icon = ParlorIcons.FolderOpen,
+            icon = ParlorIcons.GamesGrid,
+        ),
+        ParlorBottomTab(
+            label = stringResource(Res.string.navigation_profile_label),
+            contentDescription = stringResource(Res.string.navigation_profile_description),
+            icon = ParlorIcons.Profile,
+            hasBadge = LocalPreferredDisplayName.current != null,
         ),
         ParlorBottomTab(
             label = stringResource(Res.string.navigation_settings_label),

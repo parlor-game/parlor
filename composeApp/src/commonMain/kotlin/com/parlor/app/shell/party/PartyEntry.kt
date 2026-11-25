@@ -28,6 +28,7 @@ import com.parlor.app.resources.party_settings_game
 import com.parlor.app.resources.party_network_settings
 import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.shell.game.multiplayer.roomGameError
+import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.core.result.Result
 import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.ParlorButtonVariant
@@ -65,7 +66,8 @@ internal fun PartyEntry(
     var problem by remember { mutableStateOf<NetError?>(null) }
     var approval by remember { mutableStateOf<ApprovalWait?>(null) }
     var saved by remember { mutableStateOf<ResumablePartySessionInfo?>(null) }
-    var name by remember { mutableStateOf("") }
+    val preferredName = LocalPreferredDisplayName.current
+    var name by remember { mutableStateOf(preferredName.orEmpty()) }
     var roomName by remember { mutableStateOf("") }
     var code by remember(invitation) { mutableStateOf(invitation?.code.orEmpty()) }
     val first = titles.keys.firstOrNull()

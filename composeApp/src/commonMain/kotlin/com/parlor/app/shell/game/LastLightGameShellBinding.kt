@@ -17,6 +17,7 @@ import com.parlor.games.lastlight.ui.LastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightProcessVisibility
 import com.parlor.games.lastlight.ui.LocalLastLightVisibilityReader
 import com.parlor.app.resources.Res
+import com.parlor.app.resources.catalog_genre_last_light
 import com.parlor.app.resources.party_rules_last_light
 import com.parlor.app.resources.home_lastlight_open
 import com.parlor.app.resources.home_lastlight_open_description
@@ -71,6 +72,7 @@ internal class LastLightGameShellBinding(
         openLabel = stringResource(Res.string.home_lastlight_open),
         openContentDescription = stringResource(Res.string.home_lastlight_open_description),
         kicker = stringResource(Res.string.home_lastlight_kicker),
+        genre = stringResource(Res.string.catalog_genre_last_light),
         accent = ParlorAccent.Amber,
         artwork = ParlorArtwork.Cards,
     )
@@ -241,6 +243,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.HostPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = true,
             onContinue = { screen = LastLightShellScreen.HostName },
             onBack = onExit,
         )
@@ -276,6 +280,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.JoinPermission -> P2pPermissionRoute(
             gate = permissionGate,
+            gameTitle = presentation.title,
+            isHost = false,
             onContinue = { screen = LastLightShellScreen.JoinName },
             onBack = onExit,
         )
@@ -300,6 +306,8 @@ private fun LastLightShellContent(
 
         LastLightShellScreen.JoinPrompt -> JoinPromptScreen(
             gameTitle = presentation.title,
+            seatName = peerName,
+            onChangeName = { if (screen == LastLightShellScreen.JoinPrompt) screen = LastLightShellScreen.JoinName },
             transport = transport,
             game = HostedGameProtocol(launch.gameId, LastLightHostRoomBridge.GAME_VERSION),
             onConfirm = { code, selection ->

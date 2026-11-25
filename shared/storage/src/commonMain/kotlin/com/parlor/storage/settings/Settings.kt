@@ -1,6 +1,7 @@
 package com.parlor.storage.settings
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /** A platform preference store rejected or could not apply a requested value. */
 class SettingsPersistenceException(
@@ -19,6 +20,7 @@ class SettingsPersistenceException(
 interface SettingsStore {
     val reducedMotion: Flow<Boolean>
     val languageOverride: Flow<String?>
+    val preferredDisplayName: StateFlow<String?>
 
     /**
      * Theme appearance tag — `"system"`, `"light"`, or `"dark"`. Stored as a
@@ -30,4 +32,5 @@ interface SettingsStore {
     suspend fun setReducedMotion(enabled: Boolean)
     suspend fun setLanguageOverride(language: String?)
     suspend fun setThemeMode(tag: String)
+    suspend fun setPreferredDisplayName(name: String?)
 }

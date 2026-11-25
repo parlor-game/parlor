@@ -7,6 +7,17 @@ import kotlin.test.assertEquals
 
 class AppBackPolicyTest {
     @Test
+    fun back_from_profile_returns_to_games_and_does_not_rearm_startup_recovery() {
+        val navigator = AppNavigator()
+        assertEquals(AppNavigationMutation.Applied, navigator.selectTopLevel(AppTopLevelDestination.Profile))
+        assertEquals(AppRoute.Profile, navigator.currentRoute)
+        assertEquals(AppBackAction.NavigateGames, appBackAction(navigator.currentRoute))
+        assertEquals(AppNavigationMutation.Applied, navigator.navigateBack(AppRoute.Profile))
+        assertEquals(AppRoute.Home, navigator.currentRoute)
+        assertEquals(false, navigator.permitsStartupRecovery)
+    }
+
+    @Test
     fun home_allows_the_platform_to_finish_the_application() {
         assertEquals(AppBackAction.AllowPlatformExit, appBackAction(AppRoute.Home))
     }

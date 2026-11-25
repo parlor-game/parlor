@@ -25,6 +25,8 @@ import com.parlor.games.wordimpostor.resources.wi_title
 import com.parlor.games.wordimpostor.ui.WordImpostorSettingsContent
 import com.parlor.games.wordimpostor.ui.WordImpostorTable
 import com.parlor.session.multidevice.PlayerSnapshotPayload
+import com.parlor.app.resources.Res as AppRes
+import com.parlor.app.resources.catalog_genre_word_impostor
 import org.jetbrains.compose.resources.stringResource
 
 /** Composition-root binding; the room, rejoin and authority machinery remains game-neutral. */
@@ -60,6 +62,7 @@ internal class WordImpostorGameShellBinding(override val definition: WordImposto
         title = stringResource(Res.string.wi_title), subtitle = stringResource(Res.string.wi_subtitle),
         tagline = stringResource(Res.string.wi_tagline), openLabel = stringResource(Res.string.wi_open),
         openContentDescription = stringResource(Res.string.wi_open_description),
+        genre = stringResource(AppRes.string.catalog_genre_word_impostor),
         artwork = ParlorArtwork.Conversation,
     )
 

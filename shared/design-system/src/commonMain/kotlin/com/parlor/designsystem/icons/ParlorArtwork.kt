@@ -6,10 +6,29 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.DrawableResource
+import parlor.shared.design_system.generated.resources.Res
+import parlor.shared.design_system.generated.resources.cover_whodunit
+import parlor.shared.design_system.generated.resources.cover_blur_whodunit
+import parlor.shared.design_system.generated.resources.cover_mafia
+import parlor.shared.design_system.generated.resources.cover_blur_mafia
+import parlor.shared.design_system.generated.resources.cover_last_light
+import parlor.shared.design_system.generated.resources.cover_blur_last_light
+import parlor.shared.design_system.generated.resources.cover_egyptian_dominoes
+import parlor.shared.design_system.generated.resources.cover_blur_egyptian_dominoes
+import parlor.shared.design_system.generated.resources.cover_ghamza
+import parlor.shared.design_system.generated.resources.cover_blur_ghamza
+import parlor.shared.design_system.generated.resources.cover_word_impostor
+import parlor.shared.design_system.generated.resources.cover_blur_word_impostor
 
 /** Original miniature prints. The objects keep their physical orientation in either language. */
-enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
-    CaseFile(Plum, print("Sealed envelope") {
+enum class ParlorArtwork(
+    val cover: DrawableResource,
+    val blurredCover: DrawableResource,
+    val pigment: Color,
+    val imageVector: ImageVector,
+) {
+    CaseFile(Res.drawable.cover_whodunit, Res.drawable.cover_blur_whodunit, Plum, print("Sealed envelope") {
         ink(PaleInk, "M.4,4.2 Q5.6,1 10.6,3.2 T22.6,2.7 V3 Q17,5.8 10.6,3.6 T.4,4.6 Z")
         ink(PaleInk, "M.4,5.4 Q5.6,2.2 10.6,4.4 T22.6,3.9 V4.2 Q17,7 10.6,4.8 T.4,5.8 Z")
         ink(PaleInk, "M13.6,20.7 H23.2 V21 H13.6 Z M16.4,21.8 H23.2 V22.1 H16.4 Z")
@@ -21,7 +40,7 @@ enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
             ink(Paper, "M14.9,12 l.6,-.8 .6,.8 -.6,.8 Z")
         }
     }),
-    Moon(Midnight, print("Windows after dark") {
+    Moon(Res.drawable.cover_mafia, Res.drawable.cover_blur_mafia, Midnight, print("Windows after dark") {
         ink(PaleInk, "M1,22 H12 V23 H1 Z M13,1 l.35,.9 .9,.35 -.9,.35 -.35,.9 -.35,-.9 -.9,-.35 .9,-.35 Z")
         ink(Paper, "M21.8,1.2 l.2,.6 .6,.2 -.6,.2 -.2,.6 -.2,-.6 -.6,-.2 .6,-.2 Z")
         ink(Paper, "M2,19 V7 Q2,3 6.3,3 Q10.6,3 10.6,7 V19 Z M13.4,21 V9 Q13.4,5 17.7,5 Q22,5 22,9 V21 Z")
@@ -29,7 +48,7 @@ enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
         ink(Paper, "M6.9,5.2 Q4.8,8.3 8.6,8.6 Q6.3,10.4 5.4,8.5 Q4.4,6.3 6.9,5.2 Z M1,19.7 H11.6 V20.4 H1 Z M12.4,21.7 H23 V22.4 H12.4 Z")
         ink(Midnight, "M14,20 V16.5 L15.8,14.5 L17.2,16 V20 Z M18.5,20 V17.8 L20,16 L21.4,17.6 V20 Z")
     }),
-    Cards(Amber, print("Last ember") {
+    Cards(Res.drawable.cover_last_light, Res.drawable.cover_blur_last_light, Amber, print("Last ember") {
         ink(PaleInk, "M1,14 L2.8,12 L2.3,14.6 Z M18,2.3 L19,0 L19,2 Z M21.6,5 L23.5,3.3 L22.7,5.8 Z M1,18 L2.2,16 L1.9,18.7 Z")
         group(rotate = -19f, pivotX = 10f, pivotY = 12f) {
             ink(Paper, "M4,4 H15 V20 H4 Z")
@@ -43,7 +62,7 @@ enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
             ink(Amber, "M9,4 H12 V4.4 H9 Z M16,19.6 H19 V20 H16 Z")
         }
     }),
-    Tiles(Blue, print("Double six") {
+    Tiles(Res.drawable.cover_egyptian_dominoes, Res.drawable.cover_blur_egyptian_dominoes, Blue, print("Double six") {
         ink(PaleInk, "M16,3 l.5,.1 -.5,3.1 -.5,-.1 Z M17.3,3.2 l.5,.1 -.5,3.1 -.5,-.1 Z M18.6,3.4 l.5,.1 -.5,3.1 -.5,-.1 Z")
         ink(PaleInk, "M15,5.4 l5.1,-1 .1,.4 -5.1,1 Z M0,21 H6.2 V21.3 H0 Z M0,22 H4.3 V22.3 H0 Z")
         group(rotate = -16f, pivotX = 12f, pivotY = 12f) {
@@ -62,7 +81,7 @@ enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
             pip(18.9f, 8.5f)
         }
     }),
-    Wink(Lagoon, print("Across the table") {
+    Wink(Res.drawable.cover_ghamza, Res.drawable.cover_blur_ghamza, Lagoon, print("Across the table") {
         ink(PaleInk, "M.3,15 Q5,20 10,15.2 Q5.2,21 .3,15 Z M14,3 Q18,0 22,2 Q18,1.2 14,3 Z")
         ink(Paper, "M.6,11.8 Q5.6,3 11.8,10.3 Q6.6,18 .6,11.8 Z")
         ink(Lagoon, "M4.4,10.4 a2.5,2.5 0,1 0,5,0 a2.5,2.5 0,1 0,-5,0")
@@ -70,7 +89,7 @@ enum class ParlorArtwork(val pigment: Color, val imageVector: ImageVector) {
         ink(Paper, "M2,7 Q6.1,2.4 9.8,4.6 Q5.4,4.1 2,7 Z M16,7.8 Q19,4.5 22.5,5.2 Q18.7,6.1 16,7.8 Z")
         ink(Paper, "M12.9,16.4 l.7,1.8 1.8,.7 -1.8,.7 -.7,1.8 -.7,-1.8 -1.8,-.7 1.8,-.7 Z")
     }),
-    Conversation(Mulberry, print("Missing line") {
+    Conversation(Res.drawable.cover_word_impostor, Res.drawable.cover_blur_word_impostor, Mulberry, print("Missing line") {
         ink(PaleInk, "M1,19 H5 V19.35 H1 Z M1,20 H4 V20.35 H1 Z M19,3 H23 V3.35 H19 Z M18,4 H23 V4.35 H18 Z")
         group(rotate = -12f, pivotX = 12f, pivotY = 12f) {
             ink(Paper, "M2,4 H17 V13 H7 L3,16 V13 H2 Z")

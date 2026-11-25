@@ -66,8 +66,11 @@ fun L08UiObservation(): String = kotlinx.serialization.json.buildJsonObject {
 }.toString()
 '''
     if path == APP:
-        text = once(text, '            CompositionLocalProvider(LocalParlorToastState provides toastState) {',
-                    '            CompositionLocalProvider(LocalParlorToastState provides toastState) {\n'
+        providers = '''            CompositionLocalProvider(
+                LocalParlorToastState provides toastState,
+                LocalPreferredDisplayName provides preferredDisplayName,
+            ) {'''
+        text = once(text, providers, providers + '\n'
                     '                if (com.parlor.app.readiness.L08UiSeam.renderHostIfActive()) return@CompositionLocalProvider')
         return once(text, '                                    navigator.showLocalResumeFailure(destination.sessionId)',
                     '                                    navigator.showLocalResumeFailure(destination.sessionId)\n'
