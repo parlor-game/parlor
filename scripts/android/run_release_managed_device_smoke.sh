@@ -67,10 +67,22 @@ if [[ "$(uname -s)" == Linux ]]; then
   # build's kernel-owned descendants, including helpers detached with setsid.
   # A fresh ANDROID_AVD_HOME is retired only after that proof and a passing
   # runtime. API35's completed writable images must not overlap API34's peak.
+  release_status=0
   python3 -B scripts/android/supervise_managed_device.py \
     --receipt build/ci-evidence/android-managed-device-supervision.json \
     --isolated-avd \
-    -- "${gradle_command[@]}"
+    -- "${gradle_command[@]}" || release_status=$?
+  if ((release_status != 0)); then
+    # Run only after the managed supervisor has proved its children are gone.
+    if [[ "${GITHUB_ACTIONS:-}" == true ]] &&
+      jq -e '.cleanup.result == "PASS" and .runtime_exit_code == 1' \
+        build/ci-evidence/android-managed-device-supervision.json >/dev/null; then
+      python3 -B scripts/android/supervise_managed_device.py \
+        --receipt build/ci-evidence/android-release-cold-supervision.json \
+        --isolated-avd -- python3 -B -m scripts.android.release_cold_probe || true
+    fi
+    exit "$release_status"
+  fi
 else
   # Preserve the existing non-Linux invocation; it makes no subreaper claim.
   "${gradle_command[@]}"
