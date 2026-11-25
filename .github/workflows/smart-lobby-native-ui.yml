@@ -28,6 +28,7 @@ jobs:
       rules_restore_android: ${{ steps.plan.outputs.rules_restore_android }}
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
+      build_only: ${{ steps.plan.outputs.build_only }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
       staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
@@ -96,6 +97,7 @@ jobs:
     needs: [plan, build]
     if: >-
       ${{ always() && !cancelled() && needs.plan.result == 'success' &&
+          needs.plan.outputs.build_only != 'true' &&
           (needs.build.result == 'success' ||
             (needs.build.result == 'skipped' && needs.plan.outputs.reuse_candidate == 'true')) }}
     strategy:
