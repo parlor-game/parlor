@@ -101,6 +101,7 @@ if [[ "$(uname -s)" == Linux ]]; then
   navigation_status=0
   python3 -B scripts/android/supervise_managed_device.py \
     --receipt build/ci-evidence/android-navigation-device-supervision.json \
+    --gradle-setup-task :composeApp:pixel2Api34Setup \
     --isolated-avd \
     -- "${navigation_command[@]}" || navigation_status=$?
   oom_after=$(awk '$1 == "oom_kill" {print $2}' /proc/vmstat || true)
