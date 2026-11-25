@@ -33,7 +33,11 @@ internal class AndroidPublicRecoveryUi(
 
     /** A shared navigation caption is not evidence that its destination was composed. */
     fun awaitHeading(text: String) {
-        awaitNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }.recycle()
+        awaitObservation {
+            // Navigation can leave UiAutomation's observer on the previous window tree.
+            instrumentation.uiAutomation.clearCache()
+            findNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }
+        }.recycle()
     }
 
     /** Fixed public heading probe for failure-only evidence, never a tree/text dump. */
