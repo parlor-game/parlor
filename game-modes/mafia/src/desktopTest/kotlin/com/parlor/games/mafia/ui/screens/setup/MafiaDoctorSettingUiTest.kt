@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -61,11 +62,11 @@ class MafiaDoctorSettingUiTest {
         }
         val toggle = onNodeWithText(repeatLabel)
         toggle.performScrollTo().assertIsOff().performClick().assertIsOn()
-        onNodeWithContentDescription(startDescription).performScrollTo().performClick()
+        onNodeWithContentDescription(startDescription).assertIsDisplayed().performClick()
         assertEquals(base.copy(doctorCanProtectSamePlayerConsecutively = true), selected)
 
         toggle.performScrollTo().performClick().assertIsOff()
-        onNodeWithContentDescription(startDescription).performScrollTo().performClick()
+        onNodeWithContentDescription(startDescription).assertIsDisplayed().performClick()
         assertEquals(base, selected)
     }
 }

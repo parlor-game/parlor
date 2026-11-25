@@ -2,6 +2,7 @@ package com.parlor.games.mafia.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -22,14 +24,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
+import com.parlor.designsystem.tokens.CozyNoirPalette
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.handoff_confirm_description_format
 import com.parlor.games.mafia.resources.handoff_confirm_format
@@ -51,60 +56,63 @@ fun MafiaCandlelitCover(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(ParlorTheme.colors.coverScreen),
-    ) {
+    MafiaTableTheme {
+        val colors = ParlorTheme.colors
+        val shape = RoundedCornerShape(ParlorTheme.radii.card)
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
+                .background(colors.coverScreen)
                 .verticalScroll(rememberScrollState())
                 .parlorSafeContentPadding(ParlorTheme.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xl),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ContextRibbon(
-                label = stringResource(Res.string.handoff_private_turn),
-                detail = stringResource(Res.string.handoff_player_only_format, playerName),
-                tone = ParlorContextTone.Private,
-                inverted = true,
-            )
-            PrivacyGlyph()
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+                modifier = Modifier
+                    .widthIn(max = 460.dp)
+                    .fillMaxWidth()
+                    .background(colors.coverScreenTextPrimary.copy(alpha = 0.09f), shape)
+                    .border(ParlorTheme.borders.hairline, colors.coverScreenTextTertiary.copy(alpha = 0.55f), shape)
+                    .padding(ParlorTheme.spacing.l),
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                ContextRibbon(
+                    label = stringResource(Res.string.handoff_private_turn),
+                    detail = stringResource(Res.string.handoff_player_only_format, playerName),
+                    tone = ParlorContextTone.Private,
+                    inverted = true,
+                )
+                if (LocalDensity.current.fontScale < LARGE_COVER_TEXT_SCALE) {
+                    PrivacyGlyph()
+                }
                 Text(
                     text = stringResource(Res.string.handoff_pass_to_format, playerName).uppercase(),
                     modifier = Modifier.fillMaxWidth(),
                     style = ParlorTheme.typography.labelSmall,
-                    color = ParlorTheme.colors.coverScreenTextSecondary,
+                    color = colors.coverScreenTextSecondary,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(Res.string.handoff_cover_title),
-                    style = ParlorTheme.typography.displayMedium,
-                    color = ParlorTheme.colors.coverScreenTextPrimary,
+                    style = ParlorTheme.typography.headingLarge,
+                    color = colors.coverScreenTextPrimary,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(Res.string.handoff_keep_hidden),
                     style = ParlorTheme.typography.bodyMedium,
-                    color = ParlorTheme.colors.coverScreenTextSecondary,
+                    color = colors.coverScreenTextSecondary,
                     textAlign = TextAlign.Center,
                 )
+                ParlorButton(
+                    label = stringResource(Res.string.handoff_confirm_format, playerName),
+                    contentDescription = stringResource(Res.string.handoff_confirm_description_format, playerName),
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            ParlorButton(
-                label = stringResource(Res.string.handoff_confirm_format, playerName),
-                contentDescription = stringResource(
-                    Res.string.handoff_confirm_description_format,
-                    playerName,
-                ),
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }
@@ -112,24 +120,31 @@ fun MafiaCandlelitCover(
 @Composable
 private fun PrivacyGlyph() {
     val colors = ParlorTheme.colors
+    val glyphColor = CozyNoirPalette.semanticDanger
+    val pillShape = RoundedCornerShape(ParlorTheme.radii.pill)
     Box(
         modifier = Modifier
-            .size(ParlorTheme.spacing.xxxl + ParlorTheme.spacing.xxl)
-            .clip(RoundedCornerShape(ParlorTheme.radii.pill))
-            .background(colors.accentEmber.copy(alpha = PRIVACY_GLYPH_BACKGROUND_ALPHA))
+            .size(ParlorTheme.spacing.xxxl)
+            .clip(pillShape)
+            .background(glyphColor.copy(alpha = PRIVACY_GLYPH_BACKGROUND_ALPHA))
+            .border(
+                ParlorTheme.borders.hairline,
+                glyphColor.copy(alpha = PRIVACY_GLYPH_BORDER_ALPHA),
+                pillShape,
+            )
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(ParlorTheme.iconSize.xl)) {
             val strokeWidth = size.minDimension * PRIVACY_GLYPH_STROKE_RATIO
             drawOval(
-                color = colors.accentEmber,
+                color = glyphColor,
                 topLeft = Offset(0f, size.height * 0.22f),
                 size = Size(size.width, size.height * 0.56f),
                 style = Stroke(width = strokeWidth),
             )
             drawCircle(
-                color = colors.accentEmber,
+                color = glyphColor,
                 radius = size.minDimension * 0.11f,
             )
             drawLine(
@@ -140,7 +155,7 @@ private fun PrivacyGlyph() {
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = colors.accentEmber,
+                color = glyphColor,
                 start = Offset(size.width * 0.08f, size.height * 0.08f),
                 end = Offset(size.width * 0.92f, size.height * 0.92f),
                 strokeWidth = strokeWidth,
@@ -181,5 +196,7 @@ fun MafiaHideScreen(
     }
 }
 
+private const val LARGE_COVER_TEXT_SCALE = 1.3f
 private const val PRIVACY_GLYPH_BACKGROUND_ALPHA = 0.12f
+private const val PRIVACY_GLYPH_BORDER_ALPHA = 0.38f
 private const val PRIVACY_GLYPH_STROKE_RATIO = 0.055f

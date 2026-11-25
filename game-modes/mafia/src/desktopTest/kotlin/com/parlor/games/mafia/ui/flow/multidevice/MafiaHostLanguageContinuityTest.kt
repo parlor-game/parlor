@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onAllNodesWithText
@@ -171,7 +172,7 @@ class MafiaHostLanguageContinuityTest {
                 // Actual setup callback submits the atomic ConfigureAndStart through
                 // the publishing host controller. No direct phase/role injection.
                 onNodeWithContentDescription("Start the Mafia game with these settings")
-                    .performScrollTo().performClick()
+                    .assertIsDisplayed().performClick()
                 waitUntil(timeoutMillis = 5_000) {
                     lane.pump()
                     canonical.value.phase == MafiaPhase.RoleAssignment &&

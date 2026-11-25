@@ -113,11 +113,11 @@ fun L08UiObservation(): String = kotlinx.serialization.json.buildJsonObject {
                     '    com.parlor.games.mafia.readiness.L08MafiaSetupObservation.observeDraft(settings)')
         text = once(text, '''                checked = draft.doctorCanProtectSamePlayerConsecutively,
                 onCheckedChange = {
-                    draft = draft.copy(doctorCanProtectSamePlayerConsecutively = it)
+                    onDraftChange(draft.copy(doctorCanProtectSamePlayerConsecutively = it))
                 },''', '''                checked = draft.doctorCanProtectSamePlayerConsecutively,
                 onCheckedChange = {
                     com.parlor.games.mafia.readiness.L08MafiaSetupObservation.repeatChanged(it)
-                    draft = draft.copy(doctorCanProtectSamePlayerConsecutively = it)
+                    onDraftChange(draft.copy(doctorCanProtectSamePlayerConsecutively = it))
                 },
                 modifier = Modifier.testTag("l08-mafia-repeat"),''')
         text = once(text, '''                onClick = { onStart(settings) },

@@ -1,6 +1,7 @@
 package com.parlor.games.whodunit.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -60,12 +61,18 @@ fun TimerRibbon(
         remainingTime,
         totalTime,
     )
+    val ribbonShape = RoundedCornerShape(ParlorTheme.radii.card)
     Column(
         verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ParlorTheme.radii.subtle))
+            .clip(ribbonShape)
             .background(if (urgent) colors.accentEmber else colors.surfaceInset)
+            .border(
+                ParlorTheme.borders.hairline,
+                if (urgent) colors.accentEmber else colors.borderSubtle,
+                ribbonShape,
+            )
             .clearAndSetSemantics {
                 // The visual label, current value, and total form one timer value;
                 // presenting them as separate nodes makes it hard to follow.

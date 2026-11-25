@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.parlor.designsystem.theme.ParlorTheme
 
 @Composable
 fun DeckButton(
@@ -27,19 +28,20 @@ fun DeckButton(
     secondary: Boolean = false,
     accent: Color = LastLightColors.Citron,
 ) {
+    val colors = ParlorTheme.colors
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 56.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(28.dp),
-        border = if (secondary) BorderStroke(1.dp, LastLightColors.Outline) else null,
+        shape = RoundedCornerShape(ParlorTheme.radii.card),
+        border = if (secondary) BorderStroke(ParlorTheme.borders.hairline, colors.borderElevated) else null,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (secondary) Color.Transparent else accent,
-            contentColor = if (secondary) LastLightColors.Paper else LastLightColors.Ink,
-            disabledContainerColor = LastLightColors.Surface,
-            disabledContentColor = LastLightColors.Muted,
+            containerColor = if (secondary) colors.surfaceElevated else accent,
+            contentColor = if (secondary) colors.textPrimary else colors.textOnAccent,
+            disabledContainerColor = colors.surfaceHigher,
+            disabledContentColor = colors.textTertiary,
         ),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
     ) {
         Text(
             text = text,
@@ -60,7 +62,7 @@ fun SectionLabel(
         modifier = modifier,
         color = color,
         style = MaterialTheme.typography.labelSmall.copy(
-            letterSpacing = if (LocalLayoutDirection.current == LayoutDirection.Rtl) 0.sp else 1.8.sp,
+            letterSpacing = if (LocalLayoutDirection.current == LayoutDirection.Rtl) 0.sp else 1.4.sp,
         ),
     )
 }

@@ -1,19 +1,22 @@
 package com.parlor.games.mafia.ui.screens.setup
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -24,21 +27,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.parlor.designsystem.backdrop.HeroBackdrop
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorIconButton
 import com.parlor.designsystem.components.ParlorIconButtonVariant
-import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.components.parlorImePadding
-import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
+import com.parlor.designsystem.icons.ParlorIcons
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.domain.settings.MafiaKillTie
 import com.parlor.games.mafia.domain.settings.MafiaRoleCounts
@@ -51,11 +57,11 @@ import com.parlor.games.mafia.resources.role_civilian
 import com.parlor.games.mafia.resources.role_detective
 import com.parlor.games.mafia.resources.role_doctor
 import com.parlor.games.mafia.resources.role_mafia
-import com.parlor.games.mafia.resources.settings_error_duration_too_short_format
 import com.parlor.games.mafia.resources.settings_error_detective_above_max_format
 import com.parlor.games.mafia.resources.settings_error_detective_negative_format
 import com.parlor.games.mafia.resources.settings_error_doctor_above_max_format
 import com.parlor.games.mafia.resources.settings_error_doctor_negative_format
+import com.parlor.games.mafia.resources.settings_error_duration_too_short_format
 import com.parlor.games.mafia.resources.settings_error_mafia_below_one
 import com.parlor.games.mafia.resources.settings_error_mafia_not_minority_format
 import com.parlor.games.mafia.resources.settings_error_max_revotes_above_maximum_format
@@ -64,12 +70,12 @@ import com.parlor.games.mafia.resources.settings_error_not_enough_civilians_form
 import com.parlor.games.mafia.resources.settings_error_player_count_above_maximum_format
 import com.parlor.games.mafia.resources.settings_error_player_count_below_minimum_format
 import com.parlor.games.mafia.resources.settings_error_timers_not_supported
-import com.parlor.games.mafia.resources.settings_player_count_format
 import com.parlor.games.mafia.resources.settings_kill_tie_card
 import com.parlor.games.mafia.resources.settings_kill_tie_no_kill
 import com.parlor.games.mafia.resources.settings_kill_tie_random
 import com.parlor.games.mafia.resources.settings_kill_tie_revote
 import com.parlor.games.mafia.resources.settings_max_revotes
+import com.parlor.games.mafia.resources.settings_player_count_format
 import com.parlor.games.mafia.resources.settings_role_count_decrement_description_format
 import com.parlor.games.mafia.resources.settings_role_count_increment_description_format
 import com.parlor.games.mafia.resources.settings_roles_card
@@ -77,9 +83,9 @@ import com.parlor.games.mafia.resources.settings_start
 import com.parlor.games.mafia.resources.settings_start_description
 import com.parlor.games.mafia.resources.settings_title
 import com.parlor.games.mafia.resources.settings_toggle_allow_self_vote
-import com.parlor.games.mafia.resources.settings_toggle_doctor_self_heal
-import com.parlor.games.mafia.resources.settings_toggle_doctor_repeat
 import com.parlor.games.mafia.resources.settings_toggle_detective_self_inspect
+import com.parlor.games.mafia.resources.settings_toggle_doctor_repeat
+import com.parlor.games.mafia.resources.settings_toggle_doctor_self_heal
 import com.parlor.games.mafia.resources.settings_toggle_mafia_target_mafia
 import com.parlor.games.mafia.resources.settings_toggle_reveal_role
 import com.parlor.games.mafia.resources.settings_validation_card_title
@@ -88,6 +94,7 @@ import com.parlor.games.mafia.resources.settings_vote_tie_card
 import com.parlor.games.mafia.resources.settings_vote_tie_skip
 import com.parlor.games.mafia.resources.settings_vote_tie_tied_only
 import com.parlor.games.mafia.resources.setup_eyebrow
+import com.parlor.games.mafia.ui.components.MafiaTable
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -115,113 +122,148 @@ fun MafiaSetupScreen(
     val settings = draft.applyTo(initialSettings)
     val validation = settings.validate(playerCount)
     val canStart = validation is MafiaSettingsValidation.Valid
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .parlorImePadding()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.l),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            EyebrowLabel(text = stringResource(Res.string.setup_eyebrow), accent = false)
-            Text(
-                text = stringResource(Res.string.settings_title),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-            )
-            Text(
-                text = stringResource(Res.string.settings_player_count_format, playerCount),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-            )
-
-            RoleCountsEditorCard(
-                playerCount = playerCount,
-                roleCounts = draft.roleCounts,
-                onMafiaChange = { count ->
-                    draft = draft.copy(roleCounts = draft.roleCounts.copy(mafia = count))
-                },
-                onDetectiveChange = { count ->
-                    draft = draft.copy(roleCounts = draft.roleCounts.copy(detective = count))
-                },
-                onDoctorChange = { count ->
-                    draft = draft.copy(roleCounts = draft.roleCounts.copy(doctor = count))
-                },
-            )
-
-            if (validation is MafiaSettingsValidation.Invalid) {
-                ValidationMessagesCard(errors = validation.errors)
-            }
-
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_reveal_role),
-                checked = draft.revealRoleOnDeath,
-                onCheckedChange = { draft = draft.copy(revealRoleOnDeath = it) },
-            )
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_doctor_self_heal),
-                checked = draft.doctorCanSelfHeal,
-                onCheckedChange = { draft = draft.copy(doctorCanSelfHeal = it) },
-            )
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_doctor_repeat),
-                checked = draft.doctorCanProtectSamePlayerConsecutively,
-                onCheckedChange = {
-                    draft = draft.copy(doctorCanProtectSamePlayerConsecutively = it)
-                },
-            )
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_detective_self_inspect),
-                checked = draft.detectiveCanInspectSelf,
-                onCheckedChange = { draft = draft.copy(detectiveCanInspectSelf = it) },
-            )
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_allow_self_vote),
-                checked = draft.allowSelfVote,
-                onCheckedChange = { draft = draft.copy(allowSelfVote = it) },
-            )
-            ToggleRow(
-                label = stringResource(Res.string.settings_toggle_mafia_target_mafia),
-                checked = draft.mafiaCanTargetMafia,
-                onCheckedChange = { draft = draft.copy(mafiaCanTargetMafia = it) },
-            )
-
-            RuleChoiceCard(
-                title = stringResource(Res.string.settings_vote_tie_card),
-                options = mafiaSetupVoteTieOptions,
-                selected = draft.voteTieBehavior,
-                label = { voteTieLabel(it) },
-                onSelected = { draft = draft.copy(voteTieBehavior = it) },
-            )
-
-            ParlorCard(modifier = Modifier.fillMaxWidth()) {
-                RoleCountStepperRow(
-                    name = stringResource(Res.string.settings_max_revotes),
-                    count = draft.maxRevotes,
-                    onDecrement = { draft = draft.copy(maxRevotes = draft.maxRevotes - 1) },
-                    onIncrement = { draft = draft.copy(maxRevotes = draft.maxRevotes + 1) },
-                    decEnabled = draft.maxRevotes > 0,
-                    incEnabled = draft.maxRevotes < MafiaSettings.MAX_REVOTES,
-                )
-            }
-
-            RuleChoiceCard(
-                title = stringResource(Res.string.settings_kill_tie_card),
-                options = mafiaSetupKillTieOptions,
-                selected = draft.mafiaKillTieBehavior,
-                label = { killTieLabel(it) },
-                onSelected = { draft = draft.copy(mafiaKillTieBehavior = it) },
-            )
-
+    MafiaTable(
+        modifier = modifier.parlorImePadding(),
+        actions = {
             ParlorButton(
                 label = stringResource(Res.string.settings_start),
                 contentDescription = stringResource(Res.string.settings_start_description),
                 onClick = { onStart(settings) },
                 enabled = canStart,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!compactTypography) {
+                CatalogArtworkBadge(
+                    artwork = ParlorArtwork.Moon,
+                    modifier = Modifier.size(ParlorTheme.spacing.xxl),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xxs),
+            ) {
+                EyebrowLabel(text = stringResource(Res.string.setup_eyebrow), accent = false)
+                Text(
+                    text = stringResource(Res.string.settings_title),
+                    style = ParlorTheme.typography.headingLarge,
+                    color = ParlorTheme.colors.textPrimary,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(
+                    text = stringResource(Res.string.settings_player_count_format, playerCount),
+                    style = ParlorTheme.typography.bodyMedium,
+                    color = ParlorTheme.colors.textSecondary,
+                )
+            }
+        }
+
+        RoleCountsEditorCard(
+            playerCount = playerCount,
+            roleCounts = draft.roleCounts,
+            onMafiaChange = { count ->
+                draft = draft.copy(roleCounts = draft.roleCounts.copy(mafia = count))
+            },
+            onDetectiveChange = { count ->
+                draft = draft.copy(roleCounts = draft.roleCounts.copy(detective = count))
+            },
+            onDoctorChange = { count ->
+                draft = draft.copy(roleCounts = draft.roleCounts.copy(doctor = count))
+            },
+        )
+
+        if (validation is MafiaSettingsValidation.Invalid) {
+            ValidationMessagesCard(errors = validation.errors)
+        }
+
+        RuleTogglesCard(
+            draft = draft,
+            onDraftChange = { draft = it },
+        )
+
+        RuleChoiceCard(
+            title = stringResource(Res.string.settings_vote_tie_card),
+            options = mafiaSetupVoteTieOptions,
+            selected = draft.voteTieBehavior,
+            label = { voteTieLabel(it) },
+            onSelected = { draft = draft.copy(voteTieBehavior = it) },
+        )
+
+        ParlorCard(modifier = Modifier.fillMaxWidth()) {
+            RoleCountStepperRow(
+                name = stringResource(Res.string.settings_max_revotes),
+                count = draft.maxRevotes,
+                onDecrement = { draft = draft.copy(maxRevotes = draft.maxRevotes - 1) },
+                onIncrement = { draft = draft.copy(maxRevotes = draft.maxRevotes + 1) },
+                decEnabled = draft.maxRevotes > 0,
+                incEnabled = draft.maxRevotes < MafiaSettings.MAX_REVOTES,
+            )
+        }
+
+        RuleChoiceCard(
+            title = stringResource(Res.string.settings_kill_tie_card),
+            options = mafiaSetupKillTieOptions,
+            selected = draft.mafiaKillTieBehavior,
+            label = { killTieLabel(it) },
+            onSelected = { draft = draft.copy(mafiaKillTieBehavior = it) },
+        )
+    }
+}
+
+@Composable
+private fun RuleTogglesCard(
+    draft: MafiaSetupDraft,
+    onDraftChange: (MafiaSetupDraft) -> Unit,
+) {
+    ParlorCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        ) {
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_reveal_role),
+                checked = draft.revealRoleOnDeath,
+                onCheckedChange = { onDraftChange(draft.copy(revealRoleOnDeath = it)) },
+            )
+            HorizontalDivider(color = ParlorTheme.colors.borderSubtle, thickness = ParlorTheme.borders.hairline)
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_doctor_self_heal),
+                checked = draft.doctorCanSelfHeal,
+                onCheckedChange = { onDraftChange(draft.copy(doctorCanSelfHeal = it)) },
+            )
+            HorizontalDivider(color = ParlorTheme.colors.borderSubtle, thickness = ParlorTheme.borders.hairline)
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_doctor_repeat),
+                checked = draft.doctorCanProtectSamePlayerConsecutively,
+                onCheckedChange = {
+                    onDraftChange(draft.copy(doctorCanProtectSamePlayerConsecutively = it))
+                },
+            )
+            HorizontalDivider(color = ParlorTheme.colors.borderSubtle, thickness = ParlorTheme.borders.hairline)
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_detective_self_inspect),
+                checked = draft.detectiveCanInspectSelf,
+                onCheckedChange = { onDraftChange(draft.copy(detectiveCanInspectSelf = it)) },
+            )
+            HorizontalDivider(color = ParlorTheme.colors.borderSubtle, thickness = ParlorTheme.borders.hairline)
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_allow_self_vote),
+                checked = draft.allowSelfVote,
+                onCheckedChange = { onDraftChange(draft.copy(allowSelfVote = it)) },
+            )
+            HorizontalDivider(color = ParlorTheme.colors.borderSubtle, thickness = ParlorTheme.borders.hairline)
+            ToggleRow(
+                label = stringResource(Res.string.settings_toggle_mafia_target_mafia),
+                checked = draft.mafiaCanTargetMafia,
+                onCheckedChange = { onDraftChange(draft.copy(mafiaCanTargetMafia = it)) },
             )
         }
     }
@@ -235,6 +277,7 @@ private fun <T> RuleChoiceCard(
     label: @Composable (T) -> String,
     onSelected: (T) -> Unit,
 ) {
+    val optionShape = RoundedCornerShape(ParlorTheme.radii.subtle)
     ParlorCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -245,19 +288,40 @@ private fun <T> RuleChoiceCard(
             EyebrowLabel(text = title, accent = false)
             options.forEach { option ->
                 val optionLabel = label(option)
+                val isSelected = option == selected
+                val rowBg = if (isSelected) {
+                    ParlorTheme.colors.accentEmber.copy(alpha = SELECTED_ROW_BG_ALPHA)
+                } else {
+                    ParlorTheme.colors.surfaceElevated
+                }
+                val rowBorder = if (isSelected) {
+                    ParlorTheme.colors.accentEmber
+                } else {
+                    ParlorTheme.colors.borderSubtle
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(optionShape)
+                        .background(rowBg)
+                        .border(ParlorTheme.borders.hairline, rowBorder, optionShape)
                         .selectable(
-                            selected = option == selected,
+                            selected = isSelected,
                             role = Role.RadioButton,
                             onClick = { onSelected(option) },
                         )
-                        .padding(vertical = ParlorTheme.spacing.s),
+                        .padding(horizontal = ParlorTheme.spacing.m, vertical = ParlorTheme.spacing.s),
                     horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    RadioButton(selected = option == selected, onClick = null)
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = ParlorTheme.colors.accentEmber,
+                            unselectedColor = ParlorTheme.colors.textSecondary,
+                        ),
+                    )
                     Text(
                         text = optionLabel,
                         style = ParlorTheme.typography.bodyLarge,
@@ -527,3 +591,6 @@ private fun ToggleRow(
         )
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f
+private const val SELECTED_ROW_BG_ALPHA = 0.12f

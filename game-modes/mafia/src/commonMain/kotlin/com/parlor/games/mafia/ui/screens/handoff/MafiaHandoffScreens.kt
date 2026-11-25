@@ -5,20 +5,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.backdrop.HeroBackdrop
-import com.parlor.designsystem.components.EyebrowLabel
+import com.parlor.designsystem.components.CatalogArtworkBadge
 import com.parlor.designsystem.components.ContextRibbon
+import com.parlor.designsystem.components.EyebrowLabel
 import com.parlor.designsystem.components.ParlorButton
-import com.parlor.designsystem.components.ParlorButtonVariant
+import com.parlor.designsystem.components.ParlorCard
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
+import com.parlor.designsystem.icons.ParlorArtwork
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.handoff_hide_screen
@@ -33,6 +38,7 @@ import com.parlor.games.mafia.resources.waiting_night_eyebrow
 import com.parlor.games.mafia.resources.waiting_wait_quietly
 import com.parlor.games.mafia.ui.components.MafiaCandlelitCover
 import com.parlor.games.mafia.ui.components.MafiaHideScreen
+import com.parlor.games.mafia.ui.components.MafiaTable
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -82,42 +88,44 @@ fun MafiaRoleRevealGateScreen(
     onRevealed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceAround,
-        ) {
-            ContextRibbon(
-                label = stringResource(Res.string.handoff_private_turn),
-                detail = stringResource(Res.string.handoff_player_only_format, playerName),
-                tone = ParlorContextTone.Private,
-            )
-            EyebrowLabel(text = eyebrow, textAlign = TextAlign.Center)
-            Text(
-                text = playerName,
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
+    val largeText = LocalDensity.current.fontScale >= 1.3f
+    MafiaTable(modifier = modifier) {
+        ContextRibbon(
+            label = stringResource(Res.string.handoff_private_turn),
+            detail = stringResource(Res.string.handoff_player_only_format, playerName),
+            tone = ParlorContextTone.Private,
+        )
+        ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = stringResource(Res.string.handoff_keep_hidden),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            ParlorButton(
-                label = stringResource(Res.string.handoff_reveal),
-                onClick = onRevealed,
-                contentDescription = stringResource(Res.string.handoff_reveal_description_format, playerName),
-                modifier = Modifier.fillMaxWidth(),
-                variant = ParlorButtonVariant.Primary,
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+            ) {
+                if (!largeText) {
+                    CatalogArtworkBadge(artwork = ParlorArtwork.Moon, modifier = Modifier.size(48.dp))
+                }
+                EyebrowLabel(text = eyebrow, textAlign = TextAlign.Center)
+                Text(
+                    text = playerName,
+                    style = ParlorTheme.typography.headingLarge,
+                    color = ParlorTheme.colors.textPrimary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(Res.string.handoff_keep_hidden),
+                    style = ParlorTheme.typography.bodyMedium,
+                    color = ParlorTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ParlorButton(
+                    label = stringResource(Res.string.handoff_reveal),
+                    onClick = onRevealed,
+                    contentDescription = stringResource(Res.string.handoff_reveal_description_format, playerName),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
@@ -132,6 +140,7 @@ fun MafiaPrivateWaitingScreen(
     activePlayerName: String,
     modifier: Modifier = Modifier,
 ) {
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     HeroBackdrop(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -141,25 +150,34 @@ fun MafiaPrivateWaitingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            EyebrowLabel(text = stringResource(Res.string.waiting_night_eyebrow), textAlign = TextAlign.Center)
-            Text(
-                text = stringResource(Res.string.waiting_active_player_taking_turn_format, activePlayerName),
-                style = ParlorTheme.typography.displayMedium,
-                color = ParlorTheme.colors.textPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = ParlorTheme.spacing.m),
-            )
-            Text(
-                text = stringResource(Res.string.waiting_wait_quietly),
-                style = ParlorTheme.typography.bodyLarge,
-                color = ParlorTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = ParlorTheme.spacing.s),
-            )
+            ParlorCard(modifier = Modifier.fillMaxWidth(), hero = true) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
+                ) {
+                    if (!largeText) {
+                        CatalogArtworkBadge(artwork = ParlorArtwork.Moon, modifier = Modifier.size(56.dp))
+                    }
+                    EyebrowLabel(text = stringResource(Res.string.waiting_night_eyebrow), textAlign = TextAlign.Center)
+                    Text(
+                        text = stringResource(Res.string.waiting_active_player_taking_turn_format, activePlayerName),
+                        style = ParlorTheme.typography.displayMedium,
+                        color = ParlorTheme.colors.textPrimary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        text = stringResource(Res.string.waiting_wait_quietly),
+                        style = ParlorTheme.typography.bodyLarge,
+                        color = ParlorTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = ParlorTheme.spacing.xs),
+                    )
+                }
+            }
         }
     }
 }

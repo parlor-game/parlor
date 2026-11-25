@@ -3,17 +3,17 @@ package com.parlor.games.mafia.ui.screens.night
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -25,22 +25,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.parlor.core.ids.PlayerId
-import com.parlor.designsystem.backdrop.HeroBackdrop
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorContextTone
-import com.parlor.designsystem.components.parlorSafeContentPadding
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.private_do_not_pass
 import com.parlor.games.mafia.resources.private_screen_label
-import com.parlor.games.mafia.resources.vote_public_label
 import com.parlor.games.mafia.resources.vote_public_detail
+import com.parlor.games.mafia.resources.vote_public_label
+import com.parlor.games.mafia.ui.components.MafiaTable
 import org.jetbrains.compose.resources.stringResource
 
 data class PickableTarget(
@@ -73,61 +74,9 @@ fun TargetPickerScreen(
     var selected: PlayerId? by remember(selectableTargetIds) { mutableStateOf(null) }
     val validSelection = validTargetSelection(selected, targets)
 
-    HeroBackdrop(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.m),
-            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
-            ) {
-                Text(
-                    text = headline,
-                    style = ParlorTheme.typography.headingLarge,
-                    color = ParlorTheme.colors.textPrimary,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Text(
-                    text = eyebrow,
-                    style = ParlorTheme.typography.labelMedium,
-                    color = ParlorTheme.colors.textSecondary,
-                )
-                Text(
-                    text = instructions,
-                    style = ParlorTheme.typography.bodyMedium,
-                    color = ParlorTheme.colors.textSecondary,
-                )
-            }
-            ContextRibbon(
-                label = stringResource(
-                    if (privateSelection) Res.string.private_screen_label else Res.string.vote_public_label,
-                ),
-                detail = stringResource(
-                    if (privateSelection) Res.string.private_do_not_pass else Res.string.vote_public_detail,
-                ),
-                tone = if (privateSelection) ParlorContextTone.Private else ParlorContextTone.Public,
-            )
-            footer?.invoke()
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectableGroup(),
-                verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
-            ) {
-                targets.forEach { target ->
-                    TargetRow(
-                        target = target,
-                        selected = target.id == validSelection,
-                        onClick = { selected = target.id },
-                    )
-                }
-            }
-
+    MafiaTable(
+        modifier = modifier,
+        actions = {
             ParlorButton(
                 label = submitLabel,
                 contentDescription = submitLabel,
@@ -142,6 +91,53 @@ fun TargetPickerScreen(
                     onClick = { onSubmit(null) },
                     variant = ParlorButtonVariant.Secondary,
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        ) {
+            Text(
+                text = eyebrow,
+                style = ParlorTheme.typography.labelMedium,
+                color = ParlorTheme.colors.accentEmber,
+            )
+            Text(
+                text = headline,
+                style = ParlorTheme.typography.headingLarge,
+                color = ParlorTheme.colors.textPrimary,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = instructions,
+                style = ParlorTheme.typography.bodyMedium,
+                color = ParlorTheme.colors.textSecondary,
+            )
+        }
+        ContextRibbon(
+            label = stringResource(
+                if (privateSelection) Res.string.private_screen_label else Res.string.vote_public_label,
+            ),
+            detail = stringResource(
+                if (privateSelection) Res.string.private_do_not_pass else Res.string.vote_public_detail,
+            ),
+            tone = if (privateSelection) ParlorContextTone.Private else ParlorContextTone.Public,
+        )
+        footer?.invoke()
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
+        ) {
+            targets.forEach { target ->
+                TargetRow(
+                    target = target,
+                    selected = target.id == validSelection,
+                    onClick = { selected = target.id },
                 )
             }
         }
@@ -163,14 +159,21 @@ private fun TargetRow(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(ParlorTheme.radii.card)
+    val compactTypography = LocalDensity.current.fontScale >= COMPACT_FONT_SCALE_LIMIT
     val borderColor = if (selected) ParlorTheme.colors.accentEmber else ParlorTheme.colors.borderSubtle
+    val borderWidth = if (selected) ParlorTheme.borders.regular else ParlorTheme.borders.hairline
+    val backgroundColor = if (selected) {
+        ParlorTheme.colors.accentEmber.copy(alpha = SELECTED_BG_ALPHA)
+    } else {
+        ParlorTheme.colors.surfaceElevated
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ParlorTheme.spacing.xxl)
             .clip(shape)
-            .background(ParlorTheme.colors.surfaceElevated)
-            .border(ParlorTheme.borders.hairline, borderColor, shape)
+            .background(backgroundColor)
+            .border(borderWidth, borderColor, shape)
             .selectable(
                 selected = selected,
                 enabled = target.enabled,
@@ -181,6 +184,34 @@ private fun TargetRow(
         horizontalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!compactTypography) {
+            val initial = target.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+            val badgeBg = if (selected) {
+                ParlorTheme.colors.accentEmber
+            } else {
+                ParlorTheme.colors.surfaceHigher
+            }
+            val badgeInk = if (selected) {
+                ParlorTheme.colors.textOnAccent
+            } else {
+                ParlorTheme.colors.textSecondary
+            }
+            Box(
+                modifier = Modifier
+                    .size(ParlorTheme.spacing.xl + ParlorTheme.spacing.xs)
+                    .clip(CircleShape)
+                    .background(badgeBg)
+                    .border(ParlorTheme.borders.hairline, borderColor, CircleShape)
+                    .clearAndSetSemantics { },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initial,
+                    style = ParlorTheme.typography.labelMedium,
+                    color = badgeInk,
+                )
+            }
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.xs),
@@ -209,3 +240,6 @@ private fun TargetRow(
         )
     }
 }
+
+private const val COMPACT_FONT_SCALE_LIMIT = 1.3f
+private const val SELECTED_BG_ALPHA = 0.12f

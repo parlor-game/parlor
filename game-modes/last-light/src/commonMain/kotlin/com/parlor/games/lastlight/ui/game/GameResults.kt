@@ -146,7 +146,7 @@ internal fun ChallengeResult(
     val challenger = playerName(view, outcome.challengerId).asBidiArgument()
     val penalized = playerName(view, outcome.penalizedPlayerId).asBidiArgument()
     val verdict = stringResource(if (outcome.truthful) Res.string.game_truth_title else Res.string.game_bluff_title)
-    val accent = if (outcome.truthful) LastLightColors.Citron else LastLightColors.Copper
+    val accent = if (outcome.truthful) LastLightColors.Safe else LastLightColors.Copper
     Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TablePanel(Modifier.fillMaxWidth(), accent = accent.copy(alpha = 0.5f)) {
             SectionLabel(stringResource(Res.string.game_round_label, outcome.roundNumber))
@@ -223,8 +223,8 @@ private fun RevealedCards(outcome: RoundOutcome, largeText: Boolean) {
                     val description = stringResource(Res.string.game_revealed_card_description, rankName(card.rank), status)
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = LastLightColors.Paper,
-                        contentColor = LastLightColors.Ink,
+                        color = LastLightColors.CardPaper,
+                        contentColor = LastLightColors.CardInk,
                         modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
                     ) {
                         Row(
@@ -266,7 +266,7 @@ private fun RevealedCards(outcome: RoundOutcome, largeText: Boolean) {
                             Text(
                                 status,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (matches) LastLightColors.Citron else LastLightColors.Copper,
+                                color = if (matches) LastLightColors.Safe else LastLightColors.Copper,
                                 textAlign = TextAlign.Center,
                             )
                         }
@@ -288,7 +288,7 @@ private fun revealStatus(rank: CardRank, matches: Boolean): String = stringResou
 
 @Composable
 private fun FuseResult(outcome: RoundOutcome, penalized: String, largeText: Boolean) {
-    val accent = if (outcome.burnedOut) LastLightColors.Copper else LastLightColors.Citron
+    val accent = if (outcome.burnedOut) LastLightColors.Copper else LastLightColors.Safe
     TablePanel(Modifier.fillMaxWidth().testTag("game-fuse-result"), accent = accent.copy(alpha = 0.5f)) {
         SectionLabel(stringResource(Res.string.game_fuse_label), color = accent)
         val result: @Composable () -> Unit = {
@@ -475,6 +475,9 @@ private fun WinnerEmblem(winnerId: String?, diameter: Dp = 152.dp) {
         animationSpec = tween(if (reduceMotion) 0 else 240),
         label = "winner-ornament",
     )
+    val citron = LastLightColors.Citron
+    val copper = LastLightColors.Copper
+    val onAccent = LastLightColors.OnAccent
     Box(
         modifier = Modifier.size(diameter).clearAndSetSemantics { }
             .graphicsLayer { alpha = if (reduceMotion) 1f else 0.7f + entrance * 0.3f },
@@ -482,9 +485,9 @@ private fun WinnerEmblem(winnerId: String?, diameter: Dp = 152.dp) {
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height / 2f)
-            drawCircle(LastLightColors.Citron.copy(alpha = 0.07f), size.minDimension * 0.5f)
+            drawCircle(citron.copy(alpha = 0.07f), size.minDimension * 0.5f)
             drawCircle(
-                LastLightColors.Citron.copy(alpha = 0.35f), size.minDimension * 0.4f,
+                citron.copy(alpha = 0.35f), size.minDimension * 0.4f,
                 style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
             )
             repeat(12) { index ->
@@ -492,7 +495,7 @@ private fun WinnerEmblem(winnerId: String?, diameter: Dp = 152.dp) {
                 val inner = size.minDimension * 0.43f
                 val outer = size.minDimension * 0.48f
                 drawLine(
-                    color = if (index % 3 == 0) LastLightColors.Copper else LastLightColors.Citron,
+                    color = if (index % 3 == 0) copper else citron,
                     start = center + Offset((cos(angle) * inner).toFloat(), (sin(angle) * inner).toFloat()),
                     end = center + Offset((cos(angle) * outer).toFloat(), (sin(angle) * outer).toFloat()),
                     strokeWidth = 2.dp.toPx(),
@@ -501,10 +504,10 @@ private fun WinnerEmblem(winnerId: String?, diameter: Dp = 152.dp) {
             }
         }
         Box(
-            Modifier.size(diameter * (112f / 152f)).background(LastLightColors.Citron, CircleShape),
+            Modifier.size(diameter * (112f / 152f)).background(citron, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            RankSymbol(CardRank.CROWN, Modifier.size(diameter * 0.5f))
+            RankSymbol(CardRank.CROWN, Modifier.size(diameter * 0.5f), tint = onAccent)
         }
     }
 }

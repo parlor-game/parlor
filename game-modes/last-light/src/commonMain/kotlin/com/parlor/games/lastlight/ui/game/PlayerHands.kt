@@ -146,7 +146,10 @@ private fun PublicSeat(
             .clearAndSetSemantics { contentDescription = description }
             .background(
                 Brush.verticalGradient(
-                    listOf(if (active) LastLightColors.Citron.copy(alpha = 0.09f) else Color.Transparent, Color.Transparent),
+                    listOf(
+                        if (active) LastLightColors.Citron.copy(alpha = 0.12f) else LastLightColors.Transparent,
+                        LastLightColors.Transparent,
+                    ),
                 ),
                 RoundedCornerShape(16.dp),
             )
@@ -171,7 +174,7 @@ private fun PublicSeat(
 @Composable
 private fun SeatNameplate(name: String, player: PlayerView, active: Boolean, largeText: Boolean) {
     val foreground = when {
-        active -> LastLightColors.Ink
+        active -> LastLightColors.OnAccent
         player.eliminated -> LastLightColors.Muted
         else -> LastLightColors.Paper
     }
@@ -235,7 +238,7 @@ private fun PublicHandFan(player: PlayerView, active: Boolean, compact: Boolean)
                     .shadow(2.dp, RoundedCornerShape(3.dp))
                     .border(
                         1.dp,
-                        if (active) LastLightColors.Citron else LastLightColors.Paper.copy(alpha = 0.8f),
+                        if (active) LastLightColors.Citron else LastLightColors.CardPaper.copy(alpha = 0.8f),
                         RoundedCornerShape(3.dp),
                     )
                     .testTag("game-hand-back-${player.id}-$index"),

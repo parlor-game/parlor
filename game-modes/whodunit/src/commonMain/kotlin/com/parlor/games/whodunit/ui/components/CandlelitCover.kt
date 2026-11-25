@@ -1,6 +1,7 @@
 package com.parlor.games.whodunit.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,7 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.parlor.designsystem.components.ContextRibbon
 import com.parlor.designsystem.components.ParlorContextTone
 import com.parlor.designsystem.components.parlorSafeContentPadding
@@ -37,6 +41,8 @@ fun CandlelitCover(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = ParlorTheme.colors
+    val shape = RoundedCornerShape(ParlorTheme.radii.card)
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -47,33 +53,38 @@ fun CandlelitCover(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .parlorSafeContentPadding(ParlorTheme.spacing.xxl),
+                .parlorSafeContentPadding(ParlorTheme.spacing.l),
             verticalArrangement = Arrangement.spacedBy(
                 ParlorTheme.spacing.xl,
                 Alignment.CenterVertically,
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ContextRibbon(
-                label = stringResource(Res.string.private_screen_label),
-                detail = stringResource(Res.string.private_do_not_pass),
-                tone = ParlorContextTone.Private,
-                inverted = true,
-            )
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .widthIn(max = 460.dp)
+                    .fillMaxWidth()
+                    .background(colors.coverScreenTextPrimary.copy(alpha = 0.09f), shape)
+                    .border(ParlorTheme.borders.hairline, colors.coverScreenTextTertiary.copy(alpha = 0.55f), shape)
+                    .padding(ParlorTheme.spacing.l),
                 verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.m),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                ContextRibbon(
+                    label = stringResource(Res.string.private_screen_label),
+                    detail = stringResource(Res.string.private_do_not_pass),
+                    tone = ParlorContextTone.Private,
+                    inverted = true,
+                )
                 Text(
                     text = title,
-                    style = ParlorTheme.typography.displayMedium,
+                    style = ParlorTheme.typography.headingLarge,
                     color = ParlorTheme.colors.coverScreenTextPrimary,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = subtitle,
-                    style = ParlorTheme.typography.bodyLarge,
+                    style = ParlorTheme.typography.bodyMedium,
                     color = ParlorTheme.colors.coverScreenTextSecondary,
                     textAlign = TextAlign.Center,
                 )
