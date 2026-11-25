@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import com.parlor.app.lifecycle.AppLifecycleCoordinator
 import com.parlor.app.shell.multiplayer.IncomingJoinLinks
@@ -77,7 +78,10 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             } else {
-                App(loadedSettings)
+                App(loadedSettings) { isLight ->
+                    WindowCompat.getInsetsController(window, window.decorView)
+                        .isAppearanceLightStatusBars = isLight
+                }
             }
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import com.parlor.designsystem.motion.rememberSystemReducedMotion
 import com.parlor.designsystem.motion.shouldReduceMotion
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.designsystem.theme.ThemeMode
+import com.parlor.designsystem.tokens.isLight
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.session.multidevice.ProcessMultiplayerSessionOwner
 import com.parlor.session.lobby.ProcessPartySessionOwner
@@ -66,7 +68,7 @@ fun App() = App(koinInject<SettingsStore>())
 
 @Suppress("LongMethod") // Declarative root composition; stateful effects are separately tested.
 @Composable
-internal fun App(settings: SettingsStore) {
+internal fun App(settings: SettingsStore, onPaletteApplied: ((isLight: Boolean) -> Unit)? = null) {
     val preferredDisplayName by settings.preferredDisplayName.collectAsState()
     val languageTag by settings.languageOverride.collectAsState(initial = null)
     val themeModeTag by settings.themeMode.collectAsState(initial = ThemeMode.Default.tag)
@@ -103,6 +105,10 @@ internal fun App(settings: SettingsStore) {
             themeMode = themeMode,
             reducedMotion = effectiveReducedMotion,
         ) {
+            if (onPaletteApplied != null) {
+                val isLight = ParlorTheme.colors.isLight
+                SideEffect { onPaletteApplied(isLight) }
+            }
             CompositionLocalProvider(
                 LocalParlorToastState provides toastState,
                 LocalPreferredDisplayName provides preferredDisplayName,
