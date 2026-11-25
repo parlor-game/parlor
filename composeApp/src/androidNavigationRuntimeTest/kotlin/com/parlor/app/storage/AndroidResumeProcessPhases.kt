@@ -91,6 +91,10 @@ class AndroidResumeProcessPhases : InstrumentationTestCase() {
             assertEquals(EmptyOk, store.save(sibling))
             assertEquals(EmptyOk, secure.put(fixture.credentialKey, CREDENTIAL))
             membership?.seed()
+            // Games has just changed from selected (non-clickable to Android
+            // accessibility) to unselected. Query its current native action
+            // instead of reusing the node first observed on the library.
+            instrumentation.uiAutomation.clearCache()
             ui.clickDescription(if (fixture.language == "ar") "افتح مكتبة الألعاب." else "Open the game library.")
             // The local saved row proves Home has committed after Settings;
             // never scroll a stale Settings surface while navigation is pending.
