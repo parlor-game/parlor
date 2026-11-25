@@ -16,6 +16,7 @@ SCRIPT = "scripts/android/run_release_managed_device_smoke.sh"
 GPU = "-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader"
 RELEASE = "productionAndroidRuntimeCheck"
 NAVIGATION = "productionAndroidNavigationRuntimeCheck"
+ASSEMBLE = ":composeApp:assembleDebug"
 
 
 class AndroidManagedGpuTest(unittest.TestCase):
@@ -78,8 +79,8 @@ class AndroidManagedGpuTest(unittest.TestCase):
     def test_both_real_commands_use_supported_software_gpu_and_keep_gates(self) -> None:
         status, calls = self.run_wrapper()
         self.assertEqual(status, 0)
-        self.assertEqual([args[0] for args in calls], [RELEASE, NAVIGATION, "--stop"])
-        for args, variant in zip(calls[:2], ("release", "debug"), strict=True):
+        self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, NAVIGATION, "--stop"])
+        for args, variant in zip((calls[0], calls[2]), ("release", "debug"), strict=True):
             self.assertEqual(args.count(GPU), 1)
             self.assertEqual(args.count("--info"), 1)
             self.assertIn(f"-Pparlor.androidRuntimeTestVariant={variant}", args)
@@ -88,7 +89,12 @@ class AndroidManagedGpuTest(unittest.TestCase):
             self.assertIn("--max-workers=2", args)
         self.assertTrue(any(arg.startswith("-Pandroid.injected.signing.store.file=")
                             for arg in calls[0]))
-        self.assertFalse(any("signing" in arg for arg in calls[1]))
+        self.assertIn(":composeApp:assembleDebugAndroidTest", calls[1])
+        self.assertIn("--no-daemon", calls[1])
+        self.assertIn("--dependency-verification=strict", calls[1])
+        self.assertIn("-Pparlor.androidRuntimeTestVariant=debug", calls[1])
+        self.assertTrue(any(arg.startswith("-Dorg.gradle.jvmargs=-Xmx4g ") for arg in calls[2]))
+        self.assertFalse(any("signing" in arg for arg in calls[2]))
 
     def test_failed_release_propagates_without_replay_or_navigation(self) -> None:
         status, calls = self.run_wrapper(RELEASE)
@@ -97,9 +103,14 @@ class AndroidManagedGpuTest(unittest.TestCase):
         self.assertEqual(calls[0].count(GPU), 1)
         self.assertEqual(calls[0].count("--info"), 1)
 
+    def test_failed_debug_assembly_does_not_start_navigation_device(self) -> None:
+        status, calls = self.run_wrapper(ASSEMBLE)
+        self.assertEqual(status, 23)
+        self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, "--stop"])
+
     def test_failed_navigation_propagates_without_replaying_either_lane(self) -> None:
         status, calls = self.run_wrapper(NAVIGATION)
         self.assertEqual(status, 23)
-        self.assertEqual([args[0] for args in calls], [RELEASE, NAVIGATION, "--stop"])
-        self.assertEqual(calls[1].count(GPU), 1)
-        self.assertEqual(calls[1].count("--info"), 1)
+        self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, NAVIGATION, "--stop"])
+        self.assertEqual(calls[2].count(GPU), 1)
+        self.assertEqual(calls[2].count("--info"), 1)

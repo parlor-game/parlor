@@ -90,10 +90,22 @@ navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   --console=plain)
 
 if [[ "$(uname -s)" == Linux ]]; then
+  # APK compilation can retain a large JVM heap when AGP starts the emulator.
+  # Build the exact debug pair first and let that single-use JVM exit. Leave
+  # both managed-device gates, their APK inputs and assertions in place.
+  ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
+    -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
+    --no-daemon --max-workers=2 --console=plain
+  navigation_command+=('-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+UseParallelGC')
+  oom_before=$(awk '$1 == "oom_kill" {print $2}' /proc/vmstat || true)
+  navigation_status=0
   python3 -B scripts/android/supervise_managed_device.py \
     --receipt build/ci-evidence/android-navigation-device-supervision.json \
     --isolated-avd \
-    -- "${navigation_command[@]}"
+    -- "${navigation_command[@]}" || navigation_status=$?
+  oom_after=$(awk '$1 == "oom_kill" {print $2}' /proc/vmstat || true)
+  printf 'API 34 host oom_kill counter: before=%s after=%s\n' "${oom_before:-unavailable}" "${oom_after:-unavailable}"
+  exit "$navigation_status"
 else
   "${navigation_command[@]}"
 fi
