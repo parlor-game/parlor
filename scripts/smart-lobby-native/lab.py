@@ -74,14 +74,18 @@ def plan():
         candidate == "d2a55eb5f4880798b6e07377df249e370dd2ff11"
         and pairing == "mixed" and observe_reconnect
     )
+    exact_pr356 = (
+        candidate == "08c09f72f267b3fa7d83c381d813d1297e59f3c4"
+        and pairing == "mixed" and observe_reconnect and not reuse_candidate
+    )
     if visible_ios and not (
-        (reuse_party_night or fresh_presets or exact_pr355) and payload.get("require_native_ios") is False
+        (reuse_party_night or fresh_presets or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
     ):
         raise ValueError("The visible Simulator controller requires a pinned mixed-platform trial")
     if extended_match and not fresh_presets and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and not (fresh_presets or exact_pr355) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+    if observe_reconnect and not (fresh_presets or exact_pr355 or exact_pr356) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
                               candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
