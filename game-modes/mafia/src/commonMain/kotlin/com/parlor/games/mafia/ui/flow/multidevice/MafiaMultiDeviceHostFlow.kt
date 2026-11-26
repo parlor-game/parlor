@@ -20,6 +20,7 @@ import com.parlor.engine.state.Player
 import com.parlor.games.mafia.MafiaDefinition
 import com.parlor.games.mafia.domain.party.MafiaReadinessGate
 import com.parlor.games.mafia.domain.phase.MafiaPhase
+import com.parlor.games.mafia.domain.state.completedPartyMatch
 import com.parlor.games.mafia.resources.Res
 import com.parlor.games.mafia.resources.md_host_continue_without_description_format
 import com.parlor.games.mafia.resources.md_host_continue_without_dialog_body_format
@@ -260,9 +261,11 @@ fun MafiaMultiDeviceHostFlow(
                     session = session,
                     scope = scope,
                     onBackToHome = {
-                        val reason = if (onPartyEnd != null && state.phase == MafiaPhase.PostGame) {
-                            SessionEndReason.Completed
-                        } else SessionEndReason.HostLeft
+                        val reason = when {
+                            onPartyEnd == null || state.phase != MafiaPhase.PostGame -> SessionEndReason.HostLeft
+                            state.completedPartyMatch -> SessionEndReason.Completed
+                            else -> SessionEndReason.Cancelled
+                        }
                         exitToHome(reason)
                     },
                     modifier = modifier.fillMaxSize(),

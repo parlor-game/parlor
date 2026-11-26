@@ -39,6 +39,7 @@ import com.parlor.games.whodunit.domain.reducer.WhodunitReducerContext
 import com.parlor.games.whodunit.testing.validatedWhodunitCaseForTest
 import com.parlor.games.whodunit.domain.state.VoteState
 import com.parlor.games.whodunit.domain.state.WhodunitState
+import com.parlor.games.whodunit.domain.state.completedPartyMatch
 import com.parlor.games.whodunit.resources.Res
 import com.parlor.session.passandplay.PassAndPlaySessionController
 import io.ktor.client.HttpClient
@@ -183,6 +184,9 @@ class ContinueWithoutPlayerTest {
         assertThat(stateOf(session).public.disconnectedPlayers).isEmpty()
         assertThat(stateOf(session).public.droppedPlayers).contains(missing)
         val terminal = stateOf(session)
+        assertThat(terminal.completedPartyMatch).isEqualTo(false)
+        val resolved = terminal.copy(public = terminal.public.copy(verdict = Verdict.PlayersWin("killer")))
+        assertThat(resolved.completedPartyMatch).isEqualTo(true)
         session.submit(WhodunitAction.BeginReplay)
         assertThat(stateOf(session)).isEqualTo(terminal)
     }
