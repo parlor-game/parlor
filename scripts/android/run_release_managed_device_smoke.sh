@@ -46,11 +46,18 @@ keytool -genkeypair \
   -noprompt
 
 cd "$repo_root"
+# Both managed-device suites passed with Lavapipe on the hosted Linux runner.
+host_kernel=$(uname -s)
+managed_device_gpu=swiftshader
+if [[ "$host_kernel" == Linux ]]; then
+  managed_device_gpu=lavapipe
+fi
+
 # AGP retains only uppercase ERROR lines in snapshot-start exceptions. INFO
 # exposes both emulator streams, including loader/PANIC diagnostics it omits.
 gradle_command=(./gradlew productionAndroidRuntimeCheck \
   -Pparlor.androidRuntimeTestVariant=release \
-  -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader \
+  "-Pandroid.testoptions.manageddevices.emulator.gpu=$managed_device_gpu" \
   --dependency-verification=strict \
   --no-daemon \
   --max-workers=2 \
@@ -74,7 +81,7 @@ cold_probe() {
   fi
 }
 
-if [[ "$(uname -s)" == Linux ]]; then
+if [[ "$host_kernel" == Linux ]]; then
   # AGP's emulator exit request is not an exit guarantee. Retire only this
   # build's kernel-owned descendants, including helpers detached with setsid.
   # A fresh ANDROID_AVD_HOME is retired only after that proof and a passing
@@ -98,7 +105,7 @@ fi
 # without changing the optimized Release app or dropping its smoke tests.
 navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   -Pparlor.androidRuntimeTestVariant=debug \
-  -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader \
+  "-Pandroid.testoptions.manageddevices.emulator.gpu=$managed_device_gpu" \
   --dependency-verification=strict \
   --no-daemon \
   --max-workers=2 \
@@ -106,7 +113,7 @@ navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   --stacktrace \
   --console=plain)
 
-if [[ "$(uname -s)" == Linux ]]; then
+if [[ "$host_kernel" == Linux ]]; then
   # APK compilation can retain a large JVM heap when AGP starts the emulator.
   # Build the exact debug pair first and let that single-use JVM exit. Leave
   # both managed-device gates, their APK inputs and assertions in place.
