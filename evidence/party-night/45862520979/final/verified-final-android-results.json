@@ -1,0 +1,104 @@
+{
+  "run": 45862520979,
+  "workflow_id": 427081574,
+  "harness": "9111eaa22f5394677a8d47ef2f313c84edd18366",
+  "app": "dec09061e310b84054a6bebb23f9532e8e66c398",
+  "tree": "28119880addd3d43afd0c78e65678efc790c615e",
+  "retained_android_run": 45851051814,
+  "retained_android_artifact": 15133707950,
+  "job": 140057056169,
+  "apk_sha256": "9a9140205b2132a1bd07f12a3c5a5ace184d7d94914a73e133063d539d18a7e0",
+  "apk_archive_sha256": "3e98e5696d298ab0d5868f9219259902f1599feee7e78acef31ae7217cf8fc5d",
+  "controllers_verified": 2,
+  "topology": "two independently installed Android emulators on one hosted Linux runner",
+  "last_light_winner": "PeerQA",
+  "last_light_round": 2,
+  "guest_rejoin": [
+    {
+      "device": "android-1",
+      "progress": "1 of 2 matches completed",
+      "next": "Egyptian Dominoes",
+      "results": [
+        "Match 1 \u00b7 Last Light completed"
+      ],
+      "result_count": 1
+    },
+    {
+      "device": "android-2",
+      "progress": "1 of 2 matches completed",
+      "next": "Egyptian Dominoes",
+      "results": [
+        "Match 1 \u00b7 Last Light completed"
+      ],
+      "result_count": 1
+    }
+  ],
+  "dominoes": {
+    "android-1": {
+      "winner": "HostQA",
+      "points": [
+        "Points \u00b7 114",
+        "Points \u00b7 49"
+      ]
+    },
+    "android-2": {
+      "winner": "HostQA",
+      "points": [
+        "Points \u00b7 114",
+        "Points \u00b7 49"
+      ]
+    }
+  },
+  "dominoes_final_hand": 9,
+  "dominoes_placements_by_controller": {
+    "android-2": 93,
+    "android-1": 93
+  },
+  "party_final_standings": {
+    "android-1": {
+      "HostQA": {
+        "points": 1,
+        "played": 2
+      },
+      "PeerQA": {
+        "points": 1,
+        "played": 2
+      }
+    },
+    "android-2": {
+      "HostQA": {
+        "points": 1,
+        "played": 2
+      },
+      "PeerQA": {
+        "points": 1,
+        "played": 2
+      }
+    }
+  },
+  "host_relaunch": {
+    "host": [
+      "Party room",
+      "Request to join",
+      "Room name (optional)",
+      "Your player name"
+    ],
+    "guest": [
+      "Reconnecting"
+    ]
+  },
+  "guest_ended_notice": "The host closed the party.",
+  "guest_terminal_followup": null,
+  "redaction": "Dominoes screenshots crop everything below the public scorecards, including the tile racks.",
+  "files_sha256": {
+    "host-dominoes-scorecard.png": "9ed8bc267e8fca2d0669d2746f6e86fbefdcf377f3fb24325fe9bd40e227bdb9",
+    "guest-dominoes-scorecard.png": "3c15f773df3248f20baf34e10f0db58219869a89f533e6c9099cd183ebd8d90b",
+    "host-final-standings.png": "ab84f0c078bf9bb3cb3c6156bd4d4d0e4b01650d57593e74ae416ba392b7b389",
+    "guest-final-standings.png": "ab84f0c078bf9bb3cb3c6156bd4d4d0e4b01650d57593e74ae416ba392b7b389",
+    "host-relaunch.png": "180d2b141955844f4fbbc8be5e84a41abef18c37da538c1d0f7160a4d2e2de3c",
+    "guest-reconnecting.png": "fa517cff14fea97716f00c134a11278f0f0b9f52a0c440cf3a8c8fb211c7e357",
+    "guest-host-loss-terminal.png": "72f196e60a7f64fbbe0593da1d8e580654e240f68cc41b4d04309d54ddd73795",
+    "dominoes-actions.jsonl": "a6e9e15f758886a10619968c8cb2577a534537cefef4b07682c150181722a979",
+    "party-controller-actions.jsonl": "c92000b8d0878ee792566124becc8cfb92223337a95148df37f4381c6911553e"
+  }
+}

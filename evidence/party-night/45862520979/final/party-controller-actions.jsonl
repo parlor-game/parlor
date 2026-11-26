@@ -1,0 +1,60 @@
+{"utc": "2026-11-26T16:55:44.774+00:00", "platform": "android-1", "action": "Opened Party room from the library"}
+{"utc": "2026-11-26T16:55:51.557+00:00", "platform": "android-1", "action": "Focused the Party display name"}
+{"utc": "2026-11-26T16:55:57.179+00:00", "platform": "android-1", "action": "Displayed Party seat name verified"}
+{"utc": "2026-11-26T16:56:01.820+00:00", "platform": "android-1", "action": "Selected Last Light as the Party game"}
+{"utc": "2026-11-26T16:56:11.575+00:00", "platform": "android-1", "action": "Created the game-scoped Party as host"}
+{"utc": "2026-11-26T16:56:18.671+00:00", "platform": "android-2", "action": "Opened Party room from the library"}
+{"utc": "2026-11-26T16:56:25.379+00:00", "platform": "android-2", "action": "Focused the Party display name"}
+{"utc": "2026-11-26T16:56:30.970+00:00", "platform": "android-2", "action": "Displayed Party seat name verified"}
+{"utc": "2026-11-26T16:56:37.757+00:00", "platform": "android-2", "action": "Focused the visible Party room code field"}
+{"utc": "2026-11-26T16:56:44.253+00:00", "platform": "android-2", "action": "Submitted the visible host code through the Join UI"}
+{"utc": "2026-11-26T16:56:48.556+00:00", "platform": "android-1", "action": "Approved the real Party join request"}
+{"utc": "2026-11-26T16:56:51.849+00:00", "platform": "android-2", "action": "Observed the admitted Party guest seat"}
+{"utc": "2026-11-26T16:56:54.491+00:00", "platform": "android-1", "action": "Observed the admitted Party guest seat"}
+{"utc": "2026-11-26T16:57:09.694+00:00", "platform": "android-1", "action": "Make a playlist"}
+{"utc": "2026-11-26T16:57:13.679+00:00", "platform": "android-1", "action": "Add Egyptian Dominoes"}
+{"utc": "2026-11-26T16:57:27.231+00:00", "platform": "android-1", "action": "Add Last Light"}
+{"utc": "2026-11-26T16:57:46.387+00:00", "platform": "android-1", "action": "Save playlist"}
+{"utc": "2026-11-26T16:57:54.244+00:00", "platform": "android-1", "action": "initial: 0 of 2 matches completed; next Egyptian Dominoes; 0 completed result rows"}
+{"utc": "2026-11-26T16:57:54.246+00:00", "platform": "android-2", "action": "initial: 0 of 2 matches completed; next Egyptian Dominoes; 0 completed result rows"}
+{"utc": "2026-11-26T16:58:15.344+00:00", "platform": "android-1", "action": "Edit playlist"}
+{"utc": "2026-11-26T16:58:27.775+00:00", "platform": "android-1", "action": "The installed editor reopened the exact saved two-game order"}
+{"utc": "2026-11-26T16:58:31.767+00:00", "platform": "android-1", "action": "Remove 1\\s*[\u00b7\u2022.,:\u00ab\u2013\u2014-]?\\s*Egyptian Dominoes"}
+{"utc": "2026-11-26T16:58:45.191+00:00", "platform": "android-1", "action": "Add Egyptian Dominoes"}
+{"utc": "2026-11-26T16:59:04.457+00:00", "platform": "android-1", "action": "Save playlist"}
+{"utc": "2026-11-26T16:59:12.509+00:00", "platform": "android-2", "action": "reordered: 0 of 2 matches completed; next Last Light; 0 completed result rows"}
+{"utc": "2026-11-26T16:59:12.511+00:00", "platform": "android-1", "action": "reordered: 0 of 2 matches completed; next Last Light; 0 completed result rows"}
+{"utc": "2026-11-26T16:59:16.409+00:00", "platform": "android-2", "action": "Guest marked ready in the Party roster"}
+{"utc": "2026-11-26T16:59:18.970+00:00", "platform": "android-2", "action": "Observed the guest ready state"}
+{"utc": "2026-11-26T16:59:23.076+00:00", "platform": "android-1", "action": "Started Last Light with the admitted two-seat roster"}
+{"utc": "2026-11-26T16:59:29.175+00:00", "platform": "android-1", "action": "Observed the installed Party match turn"}
+{"utc": "2026-11-26T16:59:31.811+00:00", "platform": "android-2", "action": "Observed the installed Party match turn"}
+{"utc": "2026-11-26T17:00:19.310+00:00", "platform": "both", "action": "Matched terminal Last Light result: PeerQA wins."}
+{"utc": "2026-11-26T17:00:23.285+00:00", "platform": "android-1", "action": "Returned from Last Light to the same Party"}
+{"utc": "2026-11-26T17:00:31.036+00:00", "platform": "android-2", "action": "completed: 1 of 2 matches completed; next Egyptian Dominoes; 1 completed result rows"}
+{"utc": "2026-11-26T17:00:31.042+00:00", "platform": "android-1", "action": "completed: 1 of 2 matches completed; next Egyptian Dominoes; 1 completed result rows"}
+{"utc": "2026-11-26T17:00:38.583+00:00", "platform": "android-1", "action": "Confirmed public standings after 1 scored match(es)"}
+{"utc": "2026-11-26T17:00:38.616+00:00", "platform": "android-2", "action": "Confirmed public standings after 1 scored match(es)"}
+{"utc": "2026-11-26T17:00:39.237+00:00", "platform": "android-2", "action": "Closed the admitted guest app"}
+{"utc": "2026-11-26T17:00:45.845+00:00", "platform": "android-1", "action": "Observed the original guest seat reconnecting"}
+{"utc": "2026-11-26T17:00:47.979+00:00", "platform": "android-2", "action": "Relaunched the same install without clearing its app data"}
+{"utc": "2026-11-26T17:00:55.518+00:00", "platform": "android-2", "action": "Opened Party room after relaunch"}
+{"utc": "2026-11-26T17:01:02.129+00:00", "platform": "both", "action": "The original guest seat rejoined without another approval"}
+{"utc": "2026-11-26T17:01:10.093+00:00", "platform": "android-2", "action": "rejoined: 1 of 2 matches completed; next Egyptian Dominoes; 1 completed result rows"}
+{"utc": "2026-11-26T17:01:10.093+00:00", "platform": "android-1", "action": "rejoined: 1 of 2 matches completed; next Egyptian Dominoes; 1 completed result rows"}
+{"utc": "2026-11-26T17:01:17.737+00:00", "platform": "android-2", "action": "Confirmed public standings after 1 scored match(es)"}
+{"utc": "2026-11-26T17:01:17.812+00:00", "platform": "android-1", "action": "Confirmed public standings after 1 scored match(es)"}
+{"utc": "2026-11-26T17:01:32.819+00:00", "platform": "android-1", "action": "Selected Egyptian Dominoes on the saved playlist"}
+{"utc": "2026-11-26T17:01:42.082+00:00", "platform": "android-2", "action": "Guest marked ready in the Party roster"}
+{"utc": "2026-11-26T17:01:44.612+00:00", "platform": "android-2", "action": "Observed the guest ready state"}
+{"utc": "2026-11-26T17:01:48.569+00:00", "platform": "android-1", "action": "Started Egyptian Dominoes without another join"}
+{"utc": "2026-11-26T17:57:29.601+00:00", "platform": "both", "action": "Recorded matching Egyptian Dominoes results on both installed apps"}
+{"utc": "2026-11-26T17:57:33.567+00:00", "platform": "android-1", "action": "Returned from Egyptian Dominoes to the same Party"}
+{"utc": "2026-11-26T17:57:41.419+00:00", "platform": "android-2", "action": "Confirmed public standings after 2 scored match(es)"}
+{"utc": "2026-11-26T17:57:41.421+00:00", "platform": "android-1", "action": "Confirmed public standings after 2 scored match(es)"}
+{"utc": "2026-11-26T17:57:42.009+00:00", "platform": "android-1", "action": "Closed the host app after saving both scorecards"}
+{"utc": "2026-11-26T17:57:58.381+00:00", "platform": "android-1", "action": "Relaunched the same host install and observed the library"}
+{"utc": "2026-11-26T17:58:45.984+00:00", "platform": "android-1", "action": "Opened Party room after host relaunch"}
+{"utc": "2026-11-26T18:00:11.368+00:00", "platform": "android-2", "action": "Observed guest recovery state more than two minutes after host process ended"}
+{"utc": "2026-11-26T18:00:38.116+00:00", "platform": "android-2", "action": "Left the terminal guest session"}
+{"utc": "2026-11-26T18:02:16.724+00:00", "platform": "android-2", "action": "Confirmed leaving the ended Party"}
