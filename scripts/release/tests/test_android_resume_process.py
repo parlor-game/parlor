@@ -563,7 +563,7 @@ class AndroidResumeProcessEmulatorOwnershipTest(unittest.TestCase):
                 else:
                     launched.assert_called_once()
                     arguments = launched.call_args.args[0]
-                    self.assertEqual(arguments[arguments.index("-gpu") + 1], "swiftshader")
+                    self.assertEqual(arguments[arguments.index("-gpu") + 1], "lavapipe")
                     self.assertEqual(arguments[arguments.index("-port") + 1], str(driver.EMULATOR_PORT))
                     process.terminate.assert_called_once()
                     self.assertEqual([command[-1] for command in calls].count("kill-server"), 1)

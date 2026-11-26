@@ -157,7 +157,9 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
         code = run_logged([str(adb), "-P", str(ADB_PORT), "-s", SERIAL,
                            *fixture.arguments(method, component)], log, timeout=PHASE_SECONDS,
                           output_limit=contract.MAX_PHASE_OUTPUT, env=env)
-        contract.require(code == 0, "Native phase command failed; retain its log, never retry")
+        if code != 0:
+            raise RuntimeError(f"Native phase command failed (ADB exit {code}, emulator exit {process.poll()}); "
+                               "retain its log, never retry")
         result = contract.phase_result(log.read_bytes(), fixture, method)
         return dict(result, log=log.name, log_sha256=digest(log), elapsed_seconds=time.monotonic() - started)
 
@@ -169,7 +171,7 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
             server_owned = True
             process = subprocess.Popen([str(emulator), "-avd", name, "-port", str(EMULATOR_PORT),
                                         "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
-                                        "-gpu", "swiftshader", "-no-metrics"],
+                                        "-gpu", "lavapipe", "-no-metrics"],
                                        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env)
             deadline = time.monotonic() + 300
             while True:
