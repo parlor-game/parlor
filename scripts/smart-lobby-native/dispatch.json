@@ -2,11 +2,12 @@
   "candidate": "dec09061e310b84054a6bebb23f9532e8e66c398",
   "pairing": "mixed",
   "token_digests": [
-    "2c08d722d9fd9913a72483f4e1ce1e459e4aa1c974c0dc9802237f5375474985",
-    "bd72e132abb658a6dbdab317d047a471895089195d8711be1900bc7b199dfa1f"
+    "22aef78e13b7e1b0949a97e78022f06630712fdbabec0563de14f1325db9e759",
+    "fa7c8d05da21c59dc8620b15f10ef6fba27be1e9c55aada901d9ba1f0e548fe9"
   ],
   "observe_reconnect": true,
   "visible_ios_window": true,
   "require_native_ios": false,
-  "extended_match": true
+  "extended_match": true,
+  "reuse_standings_android": true
 }

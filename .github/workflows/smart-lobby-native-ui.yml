@@ -28,6 +28,7 @@ jobs:
       rules_restore_android: ${{ steps.plan.outputs.rules_restore_android }}
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
+      reuse_standings_android: ${{ steps.plan.outputs.reuse_standings_android }}
       build_only: ${{ steps.plan.outputs.build_only }}
       reuse_pr356: ${{ steps.plan.outputs.reuse_pr356 }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
@@ -208,7 +209,10 @@ jobs:
           name: candidate-ios-1
           path: ${{ runner.temp }}/parlor-package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        if: needs.plan.outputs.reuse_candidate != 'true' && (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios' || needs.plan.outputs.rules_restore_android == 'true')
+        if: >-
+          needs.plan.outputs.reuse_candidate != 'true' &&
+          (matrix.target != 'android' || needs.plan.outputs.reuse_standings_android != 'true') &&
+          (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios' || needs.plan.outputs.rules_restore_android == 'true')
         with:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
@@ -250,14 +254,27 @@ jobs:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - name: Verify and extract the retained UI candidate package
-        if: needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true' || needs.plan.outputs.reuse_playlist_edit == 'true'
+        if: >-
+          needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true' || needs.plan.outputs.reuse_playlist_edit == 'true' ||
+          (matrix.target == 'android' && needs.plan.outputs.reuse_standings_android == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           SHARED_SHELL_PACKAGE: ${{ needs.plan.outputs.reuse_pr356 }}
           PLAYLIST_EDIT_PACKAGE: ${{ needs.plan.outputs.reuse_playlist_edit }}
+          STANDINGS_ANDROID_PACKAGE: ${{ needs.plan.outputs.reuse_standings_android }}
         run: |
           retained=repos/parlor-game/parlor/actions
-          if [[ "$PLAYLIST_EDIT_PACKAGE" == true ]]; then
+          if [[ "$STANDINGS_ANDROID_PACKAGE" == true ]]; then
+            [[ "$TARGET" == android ]]
+            producer=45851051814
+            harness=b85b3b45ad40bf1e36d204527d8c40b2065fc749
+            tree=28119880addd3d43afd0c78e65678efc790c615e
+            job=140017365576
+            name='build (android, ubuntu-24.04)'
+            artifact=15133707950
+            digest=3e98e5696d298ab0d5868f9219259902f1599feee7e78acef31ae7217cf8fc5d
+            package_digest=9a9140205b2132a1bd07f12a3c5a5ace184d7d94914a73e133063d539d18a7e0
+          elif [[ "$PLAYLIST_EDIT_PACKAGE" == true ]]; then
             producer=45829639313
             harness=3bc1f0f63bf3aee14a42635c6738c94c14073a0b
             tree=ce48c2a7d519a16894dd4994dae682e90720b220

@@ -79,6 +79,9 @@ def plan():
         candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE, STANDINGS_CANDIDATE}
         and pairing == "mixed" and not reuse_candidate and observe_reconnect
     )
+    reuse_standings_android = payload.get("reuse_standings_android") is True
+    if reuse_standings_android and not (fresh_playlist and candidate == STANDINGS_CANDIDATE and visible_ios):
+        raise ValueError("The retained standings APK requires the matching mixed-platform trial")
     exact_pr355 = (
         candidate == "d2a55eb5f4880798b6e07377df249e370dd2ff11"
         and pairing == "mixed" and observe_reconnect
@@ -106,13 +109,20 @@ def plan():
     if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
-    builds = [{"target": target, "runner": runner} for target, runner in
-              (("android", "ubuntu-24.04"), ("ios", "macos-26")) if target in targets]
-    labs = [dict(entry, pairing=pairing, count=1 if pairing == "mixed" else len(digests))
-            for entry in builds]
+    ios_runner = "macos-15" if reuse_standings_android else "macos-26"
+    runners = {"android": "ubuntu-24.04", "ios": ios_runner}
+    builds = [
+        {"target": target, "runner": runners[target]} for target in targets
+        if target == "ios" or ((observe_reconnect or rules_restore_android) and not reuse_standings_android)
+    ]
+    labs = [
+        {"target": target, "runner": runners[target], "pairing": pairing, "count": 1 if pairing == "mixed" else len(digests)}
+        for target in targets
+    ]
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
-        print(f"build={json.dumps([entry for entry in builds if observe_reconnect or rules_restore_android or entry['target'] == 'ios'], separators=(',', ':'))}", file=stream)
+        print(f"build={json.dumps(builds, separators=(',', ':'))}", file=stream)
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
+        print(f"reuse_standings_android={str(reuse_standings_android).lower()}", file=stream)
         print(f"rules_restore_android={str(rules_restore_android).lower()}", file=stream)
         print(f"reuse_presets_android={str(reuse_presets_android).lower()}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
