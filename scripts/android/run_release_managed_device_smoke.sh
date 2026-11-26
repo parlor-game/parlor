@@ -98,7 +98,7 @@ fi
 # without changing the optimized Release app or dropping its smoke tests.
 navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   -Pparlor.androidRuntimeTestVariant=debug \
-  -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader \
+  -Pandroid.testoptions.manageddevices.emulator.gpu=lavapipe \
   --dependency-verification=strict \
   --no-daemon \
   --max-workers=2 \
