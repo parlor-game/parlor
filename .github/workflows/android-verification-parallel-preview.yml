@@ -29,8 +29,10 @@ jobs:
           java-version: "21"
           check-latest: false
           problem-matcher: true
-      - name: Reclaim unused standard Linux runner toolchains
-        run: python3 -B scripts/ci/hosted_linux_capacity.py
+      - name: Record available disk for the single API 34 image
+        run: |
+          mkdir -p build/ci-evidence
+          df -Pk "$ANDROID_HOME" "$GITHUB_WORKSPACE" > build/ci-evidence/disk-before-sdk.txt
       - name: Restore reviewed Gradle dependencies
         id: dependency_cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -124,7 +126,6 @@ jobs:
             build/ci-evidence/
             **/build/reports/tests/
             **/build/test-results/**/*.xml
-            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-hosted-disk.json
             **/build/reports/androidTests/managedDevice/
             **/build/outputs/androidTest-results/managedDevice/
             !remediation-runs/**
