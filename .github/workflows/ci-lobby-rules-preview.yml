@@ -1,0 +1,46 @@
+name: Lobby rules Desktop preview
+
+on:
+  push:
+    branches: [work/party-night-main-integration]
+    paths:
+      - .github/workflows/ci-lobby-rules-preview.yml
+      - composeApp/src/commonMain/kotlin/com/parlor/app/shell/game/multiplayer/RoomGameLobbyUi.kt
+      - composeApp/src/desktopTest/kotlin/com/parlor/app/shell/game/multiplayer/RoomGameLobbyRenderingTest.kt
+
+permissions:
+  contents: read
+
+jobs:
+  lobby:
+    name: Room lobby rules and responsive actions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact integration source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Verify the redesigned lobby and rule restoration
+        env:
+          GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [[ ! -d "$ANDROID_HOME/platforms/android-36" ]]; then
+            sdkmanager --install 'platforms;android-36'
+          fi
+          ./gradlew :composeApp:desktopTest --tests '*RoomGameLobbyRenderingTest' \
+            --dependency-verification=strict --no-daemon --stacktrace --console=plain
+      - name: Retain lobby JUnit reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lobby-rules-desktop-preview
+          path: composeApp/build/test-results/desktopTest/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 14
