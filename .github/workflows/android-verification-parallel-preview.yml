@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-          ref: d7ef26d1dabc31497d11c34d0b71a99974113942
+          ref: f37bcb956fd3285c3e0f4b0744651967ce600ebd
           persist-credentials: false
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
         with:
@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'd7ef26d1dabc31497d11c34d0b71a99974113942'
+          test "$(git rev-parse HEAD)" = 'f37bcb956fd3285c3e0f4b0744651967ce600ebd'
           test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
           test -z "$(git status --porcelain)"
           mkdir -p build/ci-evidence
