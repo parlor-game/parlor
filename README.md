@@ -42,3 +42,8 @@ revision has its own [focused Desktop run 45785588407](https://github.com/parlor
 benchmark's targeted contract correction at `08d853e6`. The exact
 Release runtime experiment source remains `c1850dda`. The scoped Linux
 check is [run 45787194920](https://github.com/parlor-game/parlor/actions/runs/45787194920).
+
+`branches-with-lobby-rules-preview.tsv` records the exact `b4281ab6`
+candidate of the lobby rules integration, preserved as a parent.
+[Run 45787593246](https://github.com/parlor-game/parlor/actions/runs/45787593246)
+tests only the affected room lobby rendering on that source.
