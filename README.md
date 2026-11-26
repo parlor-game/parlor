@@ -61,3 +61,9 @@ records validation separately from this source archive.
 `branches-retired-2026-11-26.tsv` lists the three benchmark and preview
 refs retired after their exact tips were verified in the archive.
 Recover them with the same object-ID restoration command above.
+
+`branches-after-kotlin-2421-preview.tsv` records the remaining source tips
+after retiring the completed Kotlin preview. Its three exact-source CI jobs
+passed, and optimized Release link steps took 58m59s on ARM64 device and
+57m45s on x64 simulator. Restore the tested source at the object ID in
+`branches-retired-2026-11-26.tsv`.
