@@ -212,6 +212,9 @@ interface RetainedMultiplayerCheckpoint {
 interface RetainedMultiplayerRuntime {
     val runtimeKind: String
 
+    /** Read only the authoritative reducer. Peer runtimes never prove completion. */
+    val isMatchCompleted: Boolean get() = false
+
     suspend fun terminate(reason: SessionEndReason)
 
     suspend fun close()

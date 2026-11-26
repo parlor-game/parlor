@@ -8,6 +8,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
@@ -81,6 +82,24 @@ class PartyLobbyTest {
         assertEquals(Result.Failure(PartyRejection.IncompatibleGame), full.selectGame(word))
         assertEquals(Result.Failure(PartyRejection.DuplicatePlayer), full.admit(seat(peer)))
         assertEquals(word, full.removeSeat(peer).value().selectGame(word).value().game)
+    }
+
+    @Test
+    fun a_playlist_is_bounded_and_requires_compatible_games_for_the_current_party() {
+        val incompatible = partyWithPeer(capabilities = setOf(mafia.protocol))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), incompatible.configurePlaylist(listOf(mafia, word)))
+        val large = partyWithPeer().admit(seat(other)).value()
+        assertEquals(Result.Failure(PartyRejection.IneligibleCount), large.configurePlaylist(listOf(mafia, small)))
+        val party = partyWithPeer()
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), party.configurePlaylist(emptyList()))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame),
+            party.configurePlaylist(List(MAX_PARTY_PLAYLIST_MATCHES + 1) { mafia }))
+
+        val games = mutableListOf(mafia, mafia, word)
+        val configured = party.configurePlaylist(games).value()
+        games.clear()
+        assertEquals(listOf(mafia, mafia, word), configured.playlist?.games)
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), configured.configurePlaylist(listOf(word)))
     }
 
     @Test

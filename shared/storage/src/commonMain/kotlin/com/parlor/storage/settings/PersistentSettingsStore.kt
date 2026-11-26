@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
 
 /**
  * Minimal typed persistence boundary implemented by each platform.
@@ -42,6 +43,9 @@ class PersistentSettingsStore(
     private val _themeMode = MutableStateFlow(
         SettingsPolicy.canonicalStoredTheme(backing.readString(KEY_THEME)),
     )
+    private val _partyPlaylistPresets = MutableStateFlow(
+        PartyPlaylistPresetPolicy.decode(backing.readString(KEY_PARTY_PLAYLIST_PRESETS)),
+    )
 
     private val _preferredDisplayName = MutableStateFlow(
         SettingsPolicy.canonicalStoredDisplayName(backing.readString(KEY_DISPLAY_NAME)),
@@ -51,6 +55,7 @@ class PersistentSettingsStore(
     override val languageOverride = _language.asStateFlow()
     override val themeMode = _themeMode.asStateFlow()
     override val preferredDisplayName = _preferredDisplayName.asStateFlow()
+    override val partyPlaylistPresets = _partyPlaylistPresets.asStateFlow()
 
     override suspend fun setReducedMotion(enabled: Boolean) {
         writes.withLock {
@@ -83,11 +88,29 @@ class PersistentSettingsStore(
         }
     }
 
+    override suspend fun savePartyPlaylistPreset(preset: PartyPlaylistPreset) = updatePresets { saved ->
+        PartyPlaylistPresetPolicy.add(saved, preset)
+    }
+
+    override suspend fun removePartyPlaylistPreset(preset: PartyPlaylistPreset) = updatePresets { saved -> saved - preset }
+
+    private suspend fun updatePresets(change: (List<PartyPlaylistPreset>) -> List<PartyPlaylistPreset>) {
+        writes.withLock {
+            val current = _partyPlaylistPresets.value
+            val updated = change(current)
+            if (updated != current) {
+                backing.writeString(KEY_PARTY_PLAYLIST_PRESETS, updated.takeIf { it.isNotEmpty() }?.let { Json.encodeToString(it) })
+                _partyPlaylistPresets.value = updated
+            }
+        }
+    }
+
     private companion object {
         const val KEY_REDUCED_MOTION = "reduced_motion"
         const val KEY_LANGUAGE = "language_override"
         const val KEY_THEME = "theme_mode"
         const val KEY_DISPLAY_NAME = "preferred_display_name"
+        const val KEY_PARTY_PLAYLIST_PRESETS = "party_playlist_presets_v1"
 
         const val DEFAULT_REDUCED_MOTION = false
     }

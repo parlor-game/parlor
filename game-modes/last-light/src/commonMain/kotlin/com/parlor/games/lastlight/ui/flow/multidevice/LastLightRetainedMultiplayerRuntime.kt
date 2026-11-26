@@ -13,6 +13,7 @@ import com.parlor.games.lastlight.LastLightDefinition
 import com.parlor.games.lastlight.LastLightIds
 import com.parlor.games.lastlight.domain.action.LastLightAction
 import com.parlor.games.lastlight.domain.event.LastLightEvent
+import com.parlor.games.lastlight.domain.model.GamePhase
 import com.parlor.games.lastlight.domain.state.LastLightState
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.SessionEndReason
@@ -93,6 +94,9 @@ internal class LastLightHostRuntime(
     fun beginExit() {
         _startGate.value = _startGate.value.beginExit()
     }
+
+    override val isMatchCompleted: Boolean
+        get() = rawSession.canonicalState.value.phase == GamePhase.FINISHED
 
     override suspend fun terminate(reason: SessionEndReason) = bridge.terminate(reason)
 

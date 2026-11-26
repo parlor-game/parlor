@@ -89,6 +89,12 @@ internal class PartyHostRoomBinding(
 
     suspend fun reject(player: PlayerId): Result<Unit, NetError> = room.rejectAdmission(player)
 
+    suspend fun configurePlaylist(games: List<PartyGame>): Result<PartyLobby, PartyRejection> = transactions.withLock {
+        if (!room.acceptsLocalGameCommands) return@withLock Result.Failure(PartyRejection.InvalidPhase)
+        reconcileMembers()
+        host.configurePlaylist(games)
+    }
+
     suspend fun selectGame(game: PartyGame): Result<PartyLobby, PartyRejection> = transactions.withLock {
         if (!room.acceptsLocalGameCommands) return@withLock Result.Failure(PartyRejection.InvalidPhase)
         reconcileMembers()
@@ -115,10 +121,10 @@ internal class PartyHostRoomBinding(
         host.commitMatch(match)
     }
 
-    suspend fun returnToLobby(match: SessionId): Result<PartyLobby, PartyRejection> = transactions.withLock {
+    suspend fun returnToLobby(match: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> = transactions.withLock {
         if (active?.first != match) return@withLock Result.Failure(PartyRejection.StaleMatch)
         withContext(NonCancellable) {
-            host.returnToLobby(match).also { result ->
+            host.returnToLobby(match, completed).also { result ->
                 if (result is Result.Success) {
                     active?.second?.leave()
                     active = null

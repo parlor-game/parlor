@@ -3,6 +3,7 @@ package com.parlor.networking.invitation
 import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PartyId
 import com.parlor.core.ids.RoomId
+import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.ProtocolVersion
 import com.parlor.networking.transport.HostedGameProtocol
 import kotlin.test.Test
@@ -63,7 +64,9 @@ class JoinLinkCodecTest {
         assertNull(JoinLinkCodec.decodeParty(canonical))
         assertNull(JoinLinkCodec.decodeParty(link + "&g=mafia"))
         assertNull(JoinLinkCodec.decodeParty(link + "&party=" + partyId.raw))
-        assertNull(JoinLinkCodec.decodeParty(link.replace("p=5.0", "p=4.3")))
+        val currentVersion = "p=${PARTY_WIRE_VERSION.major}.${PARTY_WIRE_VERSION.minor}"
+        assertNull(JoinLinkCodec.decodeParty(link.replace(currentVersion, "p=4.3")))
+        assertNull(JoinLinkCodec.decodeParty(link.replace(currentVersion, "p=5.0")))
         assertNull(JoinLinkCodec.decodeParty(link.replace(partyId.raw, "G".repeat(32))))
     }
 

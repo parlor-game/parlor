@@ -17,20 +17,25 @@ import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
+import com.parlor.networking.room.PeerEvent
 import com.parlor.networking.room.RoomInfo
 import com.parlor.networking.room.RoomMember
 import com.parlor.networking.room.SendTarget
 import com.parlor.networking.transport.HostConfig
 import com.parlor.networking.transport.RoomTransport
 import com.parlor.networking.transport.TransportCapability
+import com.parlor.session.multidevice.ProcessMultiplayerSession
+import com.parlor.session.multidevice.RetainedMultiplayerRuntime
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.TestScope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -167,11 +172,24 @@ class PartyHostRoomBindingTest {
                 room.messages.send(ready(index + 1L, revision))
                 runCurrent()
 
-                val session = assertIs<Result.Success<*>>(host.start()).data
+                val session = assertIs<Result.Success<ProcessMultiplayerSession>>(host.start()).data
                 assertEquals(host.match.value, session)
                 val matchId = checkNotNull(room.frozen)
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
+                val runtime = CompletionRuntime().apply { isMatchCompleted = true }
+                session.getOrCreateRuntime(runtime.runtimeKind) { runtime }
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
                 assertEquals(Result.Success(Unit), host.confirmStarted(matchId))
+                runtime.isMatchCompleted = false
+                assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.returnToLobby(matchId))
+                assertEquals(session, host.match.value)
+                assertEquals(null, runtime.termination)
+                assertNull(host.lastCompletedGame.value)
+
+                runtime.isMatchCompleted = reason == SessionEndReason.Completed
                 assertEquals(Result.Success(Unit), host.returnToLobby(matchId, reason))
+                assertEquals(reason, runtime.termination)
+                assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(matchId, reason))
                 assertEquals(mafia.protocol.gameId.takeIf { reason == SessionEndReason.Completed }, host.lastCompletedGame.value)
                 runCurrent()
             }
@@ -181,6 +199,120 @@ class PartyHostRoomBindingTest {
         } finally {
             host.leave()
         }
+    }
+
+    @Test
+    fun host_records_each_played_match_once_and_rejoins_on_the_next_playlist_game() = runTest {
+        val room = HostRoom()
+        val host = ProcessPartySession.Host(room, mafia, setOf(mafia, word), backgroundScope, roomName = null)
+        val peer = RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList())
+        try {
+            room.members.value = listOf(peer)
+            runCurrent()
+            assertEquals(Result.Success(Unit), host.configurePlaylist(listOf(mafia, word)))
+            assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.selectGame(word))
+            val first = startPlaylistMatch(host, room, sequence = 1)
+            room.reopenFailures = 1
+
+            assertEquals(Result.Failure(PartyRejection.WaitingForReadiness), host.returnToLobby(first))
+            assertEquals(mafia, host.playlist?.nextGame)
+            assertEquals(emptyList(), host.playlist?.results)
+            assertEquals(first, room.frozen)
+
+            room.members.value = listOf(peer.copy(connected = false))
+            runCurrent()
+            // Retrying from the leave path preserves the first accepted completion.
+            assertEquals(Result.Success(Unit), host.returnToLobby(first, SessionEndReason.Cancelled))
+            val firstResult = PartyMatchResult(first, mafia.protocol)
+            assertEquals(listOf(firstResult), host.playlist?.results)
+            assertEquals(word, host.playlist?.nextGame)
+            assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.start())
+            assertEquals(Result.Success(Unit), host.selectGame(word))
+
+            runCurrent()
+            room.members.value = listOf(peer)
+            runCurrent()
+            val priorFrames = room.sent.size
+            room.events.emit(PeerEvent.PeerReconnected(playerId, peer.displayName))
+            runCurrent()
+            val replay = room.sent.drop(priorFrames).filterIsInstance<HostMessage.PartySnapshot>().single()
+            assertEquals(word.protocol, replay.lobby.selectedGame)
+            assertEquals(listOf(first), replay.lobby.playlist?.completedMatchIds)
+            assertEquals(word.protocol, replay.lobby.playlist?.nextGame)
+            assertTrue(replay.lobby.members.single { it.playerId == playerId }.connected)
+            assertFalse(replay.lobby.members.single { it.playerId == playerId }.ready)
+            assertEquals(listOf(firstResult), host.playlist?.results)
+
+            val second = startPlaylistMatch(host, room, sequence = 2)
+            assertNotEquals(first, second)
+            assertEquals(Result.Success(Unit), host.returnToLobby(first))
+            assertEquals(second, room.frozen)
+            val left = async { host.returnToLobby(second) }
+            val right = async { host.returnToLobby(second) }
+            assertEquals(Result.Success(Unit), left.await())
+            assertEquals(Result.Success(Unit), right.await())
+            assertEquals(listOf(firstResult, PartyMatchResult(second, word.protocol)), host.playlist?.results)
+            assertNull(host.playlist?.nextGame)
+            assertEquals(listOf(first, first, second), room.reopenAttempts)
+            assertEquals(0, room.leaveCount)
+        } finally {
+            host.leave()
+        }
+    }
+
+    @Test
+    fun retrying_a_cancelled_return_cannot_record_a_completed_playlist_match() = runTest {
+        val room = HostRoom()
+        val host = ProcessPartySession.Host(room, mafia, setOf(mafia, word), backgroundScope, roomName = null)
+        try {
+            room.members.value = listOf(RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList()))
+            runCurrent()
+            assertEquals(Result.Success(Unit), host.configurePlaylist(listOf(mafia, word)))
+            val first = startPlaylistMatch(host, room, sequence = 1)
+            room.reopenFailures = 1
+            assertEquals(
+                Result.Failure(PartyRejection.WaitingForReadiness),
+                host.returnToLobby(first, SessionEndReason.Cancelled),
+            )
+            assertEquals(Result.Success(Unit), host.returnToLobby(first))
+            assertEquals(Result.Failure(PartyRejection.StaleMatch), host.returnToLobby(first))
+            assertEquals(emptyList(), host.playlist?.results)
+            assertEquals(mafia, host.playlist?.nextGame)
+            assertNull(host.lastCompletedGame.value)
+        } finally {
+            host.leave()
+        }
+    }
+
+    private suspend fun TestScope.startPlaylistMatch(
+        host: ProcessPartySession.Host,
+        room: HostRoom,
+        sequence: Long,
+    ): SessionId {
+        runCurrent()
+        val lastRevision = room.sent.filterIsInstance<HostMessage.PartySnapshot>().last().revision
+        room.messages.send(ready(sequence, lastRevision))
+        runCurrent()
+        val session = assertIs<Result.Success<ProcessMultiplayerSession>>(host.start()).data
+        val runtime = CompletionRuntime().apply { isMatchCompleted = true }
+        session.getOrCreateRuntime(runtime.runtimeKind) { runtime }
+        val id = requireNotNull(room.frozen)
+        assertEquals(Result.Success(Unit), host.confirmStarted(id))
+        return id
+    }
+
+    private class CompletionRuntime : RetainedMultiplayerRuntime {
+        override val runtimeKind = "completion-test"
+        override var isMatchCompleted = false
+        var termination: SessionEndReason? = null
+            private set
+
+        override suspend fun terminate(reason: SessionEndReason) {
+            check(termination == null || termination == reason) { "The terminal reason changed during a retry" }
+            termination = reason
+        }
+
+        override suspend fun close() = Unit
     }
 
     private fun ready(sequence: Long, revision: Long) = PeerMessage.PartySetReady(
@@ -195,11 +327,15 @@ class PartyHostRoomBindingTest {
         override val isHost = true
         val messages = Channel<RoomMessage>(16)
         override val incoming = messages.receiveAsFlow()
+        val events = MutableSharedFlow<PeerEvent>(extraBufferCapacity = 16)
+        override val peerEvents = events
         val sent = mutableListOf<HostMessage>()
         var beforeSend: suspend (HostMessage) -> Unit = {}
         var selected = mafia.protocol
         var frozen: SessionId? = null
         var leaveCount = 0
+        var reopenFailures = 0
+        val reopenAttempts = mutableListOf<SessionId>()
         override val partyMatches: PartyMatchAdmission = object : PartyMatchAdmission {
             override val partyId = identity
 
@@ -221,7 +357,12 @@ class PartyHostRoomBindingTest {
             }
 
             override suspend fun reopenMatch(id: SessionId): Result<Unit, NetError> {
+                reopenAttempts += id
                 if (frozen != id) return Result.Failure(NetError.StaleRoom)
+                if (reopenFailures > 0) {
+                    reopenFailures--
+                    return Result.Failure(NetError.CommandInFlight)
+                }
                 frozen = null
                 return Result.Success(Unit)
             }
