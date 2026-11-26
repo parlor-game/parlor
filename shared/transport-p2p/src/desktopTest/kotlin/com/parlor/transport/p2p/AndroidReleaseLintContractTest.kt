@@ -63,7 +63,7 @@ class AndroidReleaseLintContractTest {
         val properties = read("gradle.properties")
         val settings = read("settings.gradle.kts")
 
-        assertContains(catalog, "kotlin = \"2.4.10\"")
+        assertContains(catalog, "kotlin = \"2.4.21\"")
         assertContains(properties, "android.experimental.lint.version=9.1.1")
         assertContains(properties, "parlor.android.r8.version=9.1.41")
         assertContains(
@@ -135,7 +135,7 @@ class AndroidReleaseLintContractTest {
         ).forEach { pluginId ->
             assertContains(
                 accepted,
-                "DependencyUpdate|gradle/libs.versions.toml|A newer version of $pluginId than 2.4.10",
+                "DependencyUpdate|gradle/libs.versions.toml|A newer version of $pluginId than 2.4.21",
             )
         }
         listOf("json", "cbor").forEach { format ->

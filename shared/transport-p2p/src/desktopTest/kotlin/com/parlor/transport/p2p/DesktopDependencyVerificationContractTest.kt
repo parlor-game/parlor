@@ -151,7 +151,7 @@ class DesktopDependencyVerificationContractTest {
     )
 
     private companion object {
-        const val KOTLIN_VERSION = "2.4.10"
+        const val KOTLIN_VERSION = "2.4.21"
         const val COMPOSE_VERSION = "1.10.3"
         const val SKIKO_VERSION = "0.9.37.4"
         const val AGP_VERSION = "8.13.2"

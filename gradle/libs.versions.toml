@@ -6,7 +6,7 @@
 qrcode-kotlin = "4.5.0"
 
 # Kotlin and KMP
-kotlin = "2.4.10"
+kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.7.1"

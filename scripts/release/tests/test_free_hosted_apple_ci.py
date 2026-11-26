@@ -180,7 +180,7 @@ class FreeHostedCIContractTest(unittest.TestCase):
 
     def test_cache_fallback_requires_the_same_platform_toolchain_and_dependency_pins(self):
         prefix, = set(re.findall(r"(?m)^            (parlor-deps-v2-.*)$", self.workflow))
-        for token in ("runner.arch", "kotlin2.4.10", "gradle/verification-metadata.xml", "gradle/libs.versions.toml"):
+        for token in ("runner.arch", "kotlin2.4.21", "gradle/verification-metadata.xml", "gradle/libs.versions.toml"):
             self.assertIn(token, prefix)
             changed = self.workflow.replace("            " + prefix, "            " + prefix.replace(token, ""), 1)
             with self.subTest(token=token), self.assertRaisesRegex(RuntimeError, "dependency-only cache"):

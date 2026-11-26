@@ -578,8 +578,8 @@ class ProductionVerificationWorkflowContractTest {
         )
         verifyComponent(
             componentMarker =
-                "<component group=\"org.jetbrains.kotlin\" name=\"kotlin-native-prebuilt\" version=\"2.4.10\">",
-            artifactName = "kotlin-native-prebuilt-2.4.10-linux-x86_64.tar.gz",
+                "<component group=\"org.jetbrains.kotlin\" name=\"kotlin-native-prebuilt\" version=\"2.4.21\">",
+            artifactName = "kotlin-native-prebuilt-2.4.21-linux-x86_64.tar.gz",
             sha256 = "c9e356e8518144f275f1514cfe38b07db949f93e47e054832b8974fff1fd33e0",
         )
         verifyComponent(

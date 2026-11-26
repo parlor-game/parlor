@@ -6,10 +6,10 @@
   "resource_count": 27,
   "catalog": {
     "path": "gradle/libs.versions.toml",
-    "sha256": "b42ac5ad5f559355ac21aed14742d21e533a0c0f1e2f6702601d6b19336fbddd",
+    "sha256": "80eae7de30e2e0f441b965d2c9eeba4e943bfcb255fa31aba5a5cd627fd4eccc",
     "pins": {
       "qrcode-kotlin": "4.5.0",
-      "kotlin": "2.4.10",
+      "kotlin": "2.4.21",
       "kotlinx-coroutines": "1.11.0",
       "kotlinx-serialization": "1.11.0",
       "kotlinx-datetime": "0.7.1",
@@ -37,8 +37,8 @@
     "skia_pack": "m138-80d088a-1",
     "skia_pack_commit": "9481c9b3b8e740d240c7f300cf3a0398abbdb052",
     "skia_commit": "80d088ad6ee869e6b511763b5238cff5de72684d",
-    "kotlin_native": "2.4.10",
-    "kotlin_commit": "5687445832cd835b4509b9fbc264cdf1a8201093",
+    "kotlin_native": "2.4.21",
+    "kotlin_commit": "9180ce6a7a7d3627f88b424717583f28ddca052d",
     "icu_commit": "364118a1d9da24bb5b770ac3d762ac144d6da5a4",
     "harfbuzz_commit": "08b52ae2e44931eef163dbad71697f911fadc323",
     "expat_commit": "8e49998f003d693213b538ef765814c7d21abada",
@@ -79,8 +79,8 @@
       "applicability": "Shared Apache License 2.0 text; component-specific notices and other licenses are retained separately. This is not a claim that every dependency is Apache-licensed.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/license/LICENSE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/license/LICENSE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
         "source_bytes": 11358
       }
@@ -268,7 +268,7 @@
       "name": "INDEX.txt",
       "kind": "index",
       "bytes": 5228,
-      "sha256": "2a702537ed36a07b6ee498d8b801c119a0b454d3af87f8e3b17871876831c400",
+      "sha256": "91c18dc16ab06dc04530f130b73a532d408d26737ce7b348dbbd34261096614d",
       "components": [
         "Parlor dependency-input notice supplement"
       ],
@@ -299,8 +299,8 @@
       "applicability": "Boost-derived runtime utilities and UTFCPP have a machine-executable object-code notice exception. Included as a helpful license copy, not an independently mandatory binary-only acknowledgement.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/license/third_party/boost_LICENSE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/license/third_party/boost_LICENSE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "8d8291caf1cee26d23acf3eb67c9f9a2d58f1c681b16a4fbe8cbfb9e3c0b5a9b",
         "source_bytes": 1337
       }
@@ -320,8 +320,8 @@
       "applicability": "Native regex and native floating-point parsing/conversion derive from Apache Harmony; runtime inputs include dtoa. Apache-2.0 terms are in the shared license file.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/kotlin-native/licenses/third_party/harmony_NOTICE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/kotlin-native/licenses/third_party/harmony_NOTICE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "8a6725437c8f16af6322496d8e22169fdb8988ad43c5b300350ef867fd7d48e4",
         "source_bytes": 563
       }
@@ -341,8 +341,8 @@
       "applicability": "The pinned default concurrent-mark-and-sweep runtime uses ConcurrentMark, ParallelProcessor and BoundedQueue. This preserves the exact BSD notice, without asserting every path executes.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/kotlin-native/licenses/third_party/mpmc_queue_LICENSE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/kotlin-native/licenses/third_party/mpmc_queue_LICENSE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "bd41bc36bf821736a2ad3a2f081da9acc9c53ab96c9e375191003c7176d2ef96",
         "source_bytes": 1537
       }
@@ -359,11 +359,11 @@
         "ios"
       ],
       "classification": "STDLIB_INPUT_LICENSE",
-      "applicability": "Kotlin/Native 2.4.10 Instant derives from ThreeTenBP. Parlor uses kotlin.time.Instant for clocks and snapshot timestamps.",
+      "applicability": "Kotlin/Native 2.4.21 Instant derives from ThreeTenBP. Parlor uses kotlin.time.Instant for clocks and snapshot timestamps.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/license/third_party/threetenbp_license.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/license/third_party/threetenbp_license.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "d1bc53b493a3ab387b42717ed5c4b1976a5048996f81154278100bff86d39331",
         "source_bytes": 1520
       }
@@ -383,8 +383,8 @@
       "applicability": "Four native regex range/set sources retain these legacy Unicode notices. The implementation contains upstream Kotlin/Native adaptations; Parlor has not authored modifications to Unicode data. This is separate from modern generated character tables.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/kotlin-native/licenses/third_party/unicode_LICENSE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/kotlin-native/licenses/third_party/unicode_LICENSE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "1c3ddd6cc94ad4357e76a589325dd46520850348770536ef66bf8f2b56c77463",
         "source_bytes": 3397
       }
@@ -401,11 +401,11 @@
         "ios"
       ],
       "classification": "NATIVE_INPUT_LICENSE",
-      "applicability": "Kotlin 2.4.10 CompilerOutput collects libbacktrace runtime modules for Apple targets based on target support, independently of NOOP source-information dispatch. Default iOS input inclusion is established; final optimized code survival is not asserted.",
+      "applicability": "Kotlin 2.4.21 CompilerOutput collects libbacktrace runtime modules for Apple targets based on target support, independently of NOOP source-information dispatch. Default iOS input inclusion is established; final optimized code survival is not asserted.",
       "provenance": {
         "method": "full-text",
-        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/5687445832cd835b4509b9fbc264cdf1a8201093/kotlin-native/licenses/third_party/libbacktrace_LICENSE.txt",
-        "accessed_on": "2026-09-07",
+        "url": "https://raw.githubusercontent.com/JetBrains/kotlin/9180ce6a7a7d3627f88b424717583f28ddca052d/kotlin-native/licenses/third_party/libbacktrace_LICENSE.txt",
+        "accessed_on": "2026-11-26",
         "source_sha256": "660729a7713d03d375b81ec8126f9c801b11d1eacefbe9685185d4c6a24e79cf",
         "source_bytes": 1470
       }

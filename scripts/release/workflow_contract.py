@@ -922,7 +922,7 @@ def verify_free_ci_dependency_cache(text: str) -> None:
     """GitHub-owned dependency cache; only protected main pushes can write."""
     lanes = ("desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
              "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64")
-    prefix = ("parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-"
+    prefix = ("parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.21-xcode26.3-"
               "${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-")
     key = prefix + "${{ hashFiles('**/*.gradle.kts') }}"
     expected = ('        if: ' + FULL_VERIFICATION_SCOPE + '\n'
