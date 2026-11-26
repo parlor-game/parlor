@@ -20,3 +20,9 @@ restores the exact merged admission tip.
 inventory at main 0c1b8241. Reachability describes ancestry before this
 archive update. The four previously unpreserved tips are parents of this
 archive commit. No branch was deleted by this archive update.
+
+`branches-after-initializer-benchmark.tsv` records the November 26 remote
+inventory. The simulator-only Kotlin/Native experiment at 0ef20ab6 is
+preserved as an archive parent. It rebuilt the unsigned simulator wrapper
+in 27m58s including setup and packaging. The optimized app was not run by
+the Debug Swift-host test lane, so the flag was not promoted to main.
