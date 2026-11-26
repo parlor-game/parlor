@@ -1,0 +1,111 @@
+name: PR 362 iOS rationale tap investigation
+
+on:
+  push:
+    branches: [diagnostic/pr362-rationale-tap]
+    paths:
+      - .github/workflows/pr362-rationale-tap-probe.yml
+      - scripts/verification/ios-input-boundaries/pr362_rationale_tap_overlay.py
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: macos-15
+    timeout-minutes: 48
+    env:
+      APP_SOURCE: f37bcb956fd3285c3e0f4b0744651967ce600ebd
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: "21"
+          check-latest: false
+      - name: Build the exact source once with public callback tracing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          out="$RUNNER_TEMP/rationale-evidence"
+          mkdir "$out"
+          git worktree add --detach "$RUNNER_TEMP/rationale-source" "$APP_SOURCE"
+          cd "$RUNNER_TEMP/rationale-source"
+          test "$(git rev-parse HEAD)" = "$APP_SOURCE"
+          git rev-parse HEAD 'HEAD^{tree}' > "$out/source.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$out/harness.txt"
+          xcodebuild -version | tee "$out/xcode.txt"
+          grep -Fx 'Build version 17C529' "$out/xcode.txt"
+          xcrun simctl list --json runtimes > "$out/runtimes.json"
+          jq -e '.runtimes[] | select(.isAvailable and .identifier == "com.apple.CoreSimulator.SimRuntime.iOS-18-5")' "$out/runtimes.json" >/dev/null
+          python3 "$GITHUB_WORKSPACE/scripts/verification/ios-input-boundaries/pr362_rationale_tap_overlay.py" .
+          test "$(git diff --name-only | wc -l | tr -d ' ')" = 3
+          git diff --check
+          git diff > "$out/instrumentation.patch"
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' ARCHS=arm64 -derivedDataPath "$RUNNER_TEMP/rationale-build" \
+            -parallel-testing-enabled NO build-for-testing | tee "$out/build.log"
+      - name: Compare the original gestures on two clean simulator profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/rationale-evidence"
+          bundle="$(find "$RUNNER_TEMP/rationale-build/Build/Products" -maxdepth 1 -name '*.xctestrun' -print)"
+          test -f "$bundle"
+          udid=
+          stream_pid=
+          cleanup() {
+            if [[ -n "$stream_pid" ]]; then
+              kill "$stream_pid" 2>/dev/null || true
+              wait "$stream_pid" 2>/dev/null || true
+              stream_pid=
+            fi
+            if [[ -n "$udid" ]]; then
+              xcrun simctl shutdown "$udid" || true
+              xcrun simctl delete "$udid"
+              udid=
+            fi
+          }
+          trap cleanup EXIT
+          status=0
+          for profile in 1 2; do
+            udid="$(xcrun simctl create "Parlor-rationale-$GITHUB_RUN_ID-$profile" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
+            printf '%s\t%s\n' "$profile" "$udid" | tee -a "$out/simulators.tsv"
+            xcrun simctl boot "$udid"
+            /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], timeout=240, check=True)' "$udid" \
+              | tee "$out/profile-$profile-boot.log"
+            xcrun simctl spawn "$udid" log stream --style compact --level info \
+              --predicate 'eventMessage BEGINSWITH "ParlorJoinTap "' \
+              > "$out/profile-$profile-callbacks.log" 2> "$out/profile-$profile-log-stderr.log" &
+            stream_pid=$!
+            result="$out/profile-$profile.xcresult"
+            if xcodebuild -xctestrun "$bundle" -destination "platform=iOS Simulator,id=$udid" \
+              -parallel-testing-enabled NO -destination-timeout 120 \
+              -only-testing:iosAppUITests/IOSAppLaunchUITests/testArabicDisplayNameAndAsciiRoomCodeThroughNativeInput \
+              -only-testing:iosAppUITests/IOSAppLaunchUITests/testKeyboardInsetsOnNameAndRoomCodeInArabic \
+              -resultBundlePath "$result" test-without-building | tee "$out/profile-$profile.log"; then
+              echo "$profile PASS" | tee -a "$out/outcomes.txt"
+            else
+              echo "$profile FAIL" | tee -a "$out/outcomes.txt"
+              status=1
+            fi
+            if [[ -d "$result" ]]; then
+              xcrun xcresulttool export attachments --path "$result" --output-path "$out/profile-$profile-attachments" || status=1
+            fi
+            cleanup
+          done
+          exit "$status"
+      - name: Retain exact source, callback timeline and XCTest evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pr362-rationale-tap-diagnostic
+          path: ${{ runner.temp }}/rationale-evidence/
+          if-no-files-found: error
+          retention-days: 14
