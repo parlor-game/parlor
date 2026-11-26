@@ -67,6 +67,10 @@ def plan():
     ):
         raise ValueError("The saved presets fallback requires the verified retained APK and two Android installs")
     reuse_party_night = reuse_candidate and candidate == PARTY_NIGHT_SOURCE
+    reuse_playlist_edit = (
+        candidate == PLAYLIST_EDIT_CANDIDATE and pairing == "mixed"
+        and reuse_candidate and observe_reconnect and not extended_match
+    )
     visible_ios = payload.get("visible_ios_window") is True
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
         raise ValueError("The retained Party Night builds require the mixed reconnect topology")
@@ -86,13 +90,13 @@ def plan():
     if build_only and (not exact_pr356 or reuse_candidate):
         raise ValueError("Package-only qualification requires the exact shared shell source")
     if visible_ios and not (
-        (reuse_party_night or fresh_playlist or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
+        (reuse_party_night or reuse_playlist_edit or fresh_playlist or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
     ):
         raise ValueError("The visible Simulator controller requires a pinned mixed-platform trial")
     if extended_match and not fresh_playlist and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and not (fresh_playlist or exact_pr355 or exact_pr356) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+    if observe_reconnect and not (fresh_playlist or reuse_playlist_edit or exact_pr355 or exact_pr356) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
                               candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
@@ -118,6 +122,7 @@ def plan():
         print(f"retained_party_night_run={PARTY_NIGHT_PRODUCER if reuse_party_night else ''}", file=stream)
         print(f"build_only={str(build_only).lower()}", file=stream)
         print(f"reuse_pr356={str(exact_pr356 and reuse_candidate).lower()}", file=stream)
+        print(f"reuse_playlist_edit={str(reuse_playlist_edit).lower()}", file=stream)
         print(f"reuse_pr355={str(exact_pr355 and reuse_candidate).lower()}", file=stream)
         print(f"visible_ios_window={str(visible_ios).lower()}", file=stream)
         print(f"candidate={candidate}", file=stream)

@@ -31,6 +31,7 @@ jobs:
       build_only: ${{ steps.plan.outputs.build_only }}
       reuse_pr356: ${{ steps.plan.outputs.reuse_pr356 }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
+      reuse_playlist_edit: ${{ steps.plan.outputs.reuse_playlist_edit }}
       observe_reconnect: ${{ steps.plan.outputs.observe_reconnect }}
       staged_ios_pair: ${{ steps.plan.outputs.staged_ios_pair }}
       extended_match: ${{ steps.plan.outputs.extended_match }}
@@ -124,7 +125,7 @@ jobs:
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
       VISIBLE_IOS_WINDOW: ${{ needs.plan.outputs.visible_ios_window }}
-      PARLOR_UI_DURATION: ${{ needs.plan.outputs.extended_match == 'true' && '150' || '80' }}
+      PARLOR_UI_DURATION: ${{ needs.plan.outputs.extended_match == 'true' && '150' || (needs.plan.outputs.reuse_playlist_edit == 'true' && '40' || '80') }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
     defaults:
@@ -249,13 +250,31 @@ jobs:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
       - name: Verify and extract the retained UI candidate package
-        if: needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true'
+        if: needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true' || needs.plan.outputs.reuse_playlist_edit == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SHARED_SHELL_PACKAGE: ${{ needs.plan.outputs.reuse_pr356 }}
+          PLAYLIST_EDIT_PACKAGE: ${{ needs.plan.outputs.reuse_playlist_edit }}
         run: |
           retained=repos/parlor-game/parlor/actions
-          if [[ "$SHARED_SHELL_PACKAGE" == true ]]; then
+          if [[ "$PLAYLIST_EDIT_PACKAGE" == true ]]; then
+            producer=45829639313
+            harness=3bc1f0f63bf3aee14a42635c6738c94c14073a0b
+            tree=ce48c2a7d519a16894dd4994dae682e90720b220
+            if [[ "$TARGET" == android ]]; then
+              job=139942918423
+              name='build (android, ubuntu-24.04)'
+              artifact=15122761397
+              digest=654dfdebc8f0cce5c5c346bd3e7cab8c1fb53617956287271bec5b1f3e11d382
+              package_digest=606997e0306c536e42e0fb08879af41430da1f6ac308d4b03a96b41decd059dc
+            else
+              job=139942918596
+              name='build (ios, macos-26)'
+              artifact=15122434158
+              digest=91c4d29b16c719543b1d787f31ee1f0dc8e9b81861a03d086e86f655c9771e15
+              package_digest=6180f96d49e07d694b3eee5a647d728e03baabf531838d5850613617f6ef2fd0
+            fi
+          elif [[ "$SHARED_SHELL_PACKAGE" == true ]]; then
             producer=45542121396
             harness=6e8e1f5361ede328a9f3e90783fc9b7c7308f603
             tree=3d7d9c15a24edf137f9d7606aa86df6e86e78a63
@@ -318,7 +337,10 @@ jobs:
         working-directory: ui-client
         run: |
           bash verification/mobile-lan/trial.sh identity "$TARGET"
-          if [[ "$TARGET" == android ]]; then bash verification/mobile-lan/trial.sh rendezvous "$TARGET"; fi
+          if [[ "$TARGET" == android ]] && ! bash verification/mobile-lan/trial.sh rendezvous "$TARGET"; then
+            python3 "$GITHUB_WORKSPACE/scripts/smart-lobby-native/relay-start-receipt.py" "$RUNNER_TEMP"
+            exit 1
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: matrix.pairing == 'mixed'
         with:
