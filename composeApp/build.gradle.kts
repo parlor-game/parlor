@@ -114,6 +114,8 @@ require(androidRuntimeTestVariant in setOf("debug", "release")) {
 }
 
 val profileIosReleaseLink = providers.gradleProperty("parlor.profileIosReleaseLink").orNull == "true"
+val previewIosSimulatorReleaseInitializerCalls =
+    providers.gradleProperty("parlor.previewIosSimulatorReleaseInitializerCalls").orNull == "true"
 
 kotlin {
     androidTarget {
@@ -132,6 +134,11 @@ kotlin {
             isStatic = false
             if (profileIosReleaseLink && iosTarget.name == "iosSimulatorArm64" && buildType == NativeBuildType.RELEASE) {
                 freeCompilerArgs += "-Xprofile-phases"
+            }
+            if (previewIosSimulatorReleaseInitializerCalls &&
+                iosTarget.name == "iosSimulatorArm64" && buildType == NativeBuildType.RELEASE
+            ) {
+                freeCompilerArgs += "-Xdisable-phases=RemoveRedundantCallsToStaticInitializersPhase"
             }
         }
     }
