@@ -22,6 +22,7 @@ DUAL_IOS_PRODUCER = 45121464371
 PARTY_NIGHT_SOURCE = "3154ed26fe18831c5b5a08f1bfa31faa353cbda0"
 PARTY_NIGHT_PRODUCER = 45343614595
 PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
+PLAYLIST_EDIT_CANDIDATE = "eddc1b1f773be8499e05464e08e2b51937f3957a"
 
 
 def configuration():
@@ -69,7 +70,10 @@ def plan():
     visible_ios = payload.get("visible_ios_window") is True
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
         raise ValueError("The retained Party Night builds require the mixed reconnect topology")
-    fresh_presets = candidate == PRESETS_CANDIDATE and pairing == "mixed" and not reuse_candidate and observe_reconnect
+    fresh_playlist = (
+        candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE}
+        and pairing == "mixed" and not reuse_candidate and observe_reconnect
+    )
     exact_pr355 = (
         candidate == "d2a55eb5f4880798b6e07377df249e370dd2ff11"
         and pairing == "mixed" and observe_reconnect
@@ -82,13 +86,13 @@ def plan():
     if build_only and (not exact_pr356 or reuse_candidate):
         raise ValueError("Package-only qualification requires the exact shared shell source")
     if visible_ios and not (
-        (reuse_party_night or fresh_presets or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
+        (reuse_party_night or fresh_playlist or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
     ):
         raise ValueError("The visible Simulator controller requires a pinned mixed-platform trial")
-    if extended_match and not fresh_presets and (pairing != "mixed" or not reuse_candidate or
+    if extended_match and not fresh_playlist and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and not (fresh_presets or exact_pr355 or exact_pr356) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+    if observe_reconnect and not (fresh_playlist or exact_pr355 or exact_pr356) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
                               candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
