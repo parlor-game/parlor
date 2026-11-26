@@ -5,6 +5,7 @@ from collections import Counter
 import json
 import re
 import time
+from threading import Event, Thread
 
 from scripts.android import run_resume_process_acceptance as native
 
@@ -21,6 +22,43 @@ def completed_tests(trace: str) -> Counter[str]:
                 completed[f"{fields['class']}.{fields['test']}"] += 1
             fields.clear()
     return completed
+
+
+
+def first_test_started(path, started, done, timings):
+    """Observe the first native runner event without consuming its output."""
+    while True:
+        if path.exists():
+            with path.open("rb") as trace:
+                first_events = trace.read(4096).splitlines()
+            if b"INSTRUMENTATION_STATUS_CODE: 1" in first_events:
+                timings["first_test_event"] = time.monotonic() - started
+                return
+        if done.wait(0.2):
+            return
+
+
+def trace_instrumentation(adb, output, selection, component, started, timings, result):
+    path = output / "instrumentation.txt"
+    done = Event()
+    observer = Thread(target=first_test_started, args=(path, started, done, timings))
+    observer.start()
+    try:
+        return adb("shell", "am", "instrument", "-w", "-r", *selection, component,
+                   timeout=540, evidence=path)
+    except RuntimeError as error:
+        result["instrumentation_error"] = str(error)
+        try:
+            result["adb_state_after_failure"] = adb("get-state", timeout=15).strip()
+            adb("logcat", "-b", "crash", "-b", "events", "-d", "-t", "180",
+                "AndroidRuntime:E", "am_proc_died:I", "am_crash:I", "am_anr:I", "*:S",
+                timeout=15, evidence=output / "instrumentation-device-events.log")
+        except RuntimeError as health_error:
+            result["device_probe_error"] = str(health_error)
+        raise
+    finally:
+        done.set()
+        observer.join()
 
 
 def main() -> int:
@@ -76,9 +114,9 @@ def main() -> int:
             timings["install"] = installed - ready
             try:
                 if args.trace_timing:
-                    # Bound the measurement beyond the observed 7m29s managed run.
-                    instrumentation = adb("shell", "am", "instrument", "-w", "-r", *selection, component,
-                                          timeout=540, evidence=output / "instrumentation.txt")
+                    instrumentation = trace_instrumentation(
+                        adb, output, selection, component, installed, timings, result
+                    )
                 else:
                     instrumentation = adb("shell", "am", "instrument", "-w", component, timeout=300)
             finally:

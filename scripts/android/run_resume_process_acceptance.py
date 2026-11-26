@@ -154,7 +154,7 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
         contract.require(evidence.parent == output and not evidence.exists() and not evidence.is_symlink(),
                          "Diagnostic log must be fresh in the current evidence directory")
         code = run_logged(argv, evidence, timeout=timeout, output_limit=contract.MAX_PHASE_OUTPUT, env=env)
-        contract.require(code == 0, "Diagnostic command failed; original output was retained")
+        contract.require(code == 0, f"Diagnostic command exited {code}; original output was retained")
         return evidence.read_text(encoding="utf-8", errors="replace")
 
     def phase(fixture: contract.Fixture, method: str, component: str) -> dict:
