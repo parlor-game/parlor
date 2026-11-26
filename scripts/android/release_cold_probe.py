@@ -11,7 +11,11 @@ from scripts.android import run_resume_process_acceptance as native
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--variant", choices=("release", "debug"), default="release")
-    variant = parser.parse_args().variant
+    parser.add_argument("--trace-timing", action="store_true", help="Retain raw API 34 timing diagnostics")
+    args = parser.parse_args()
+    variant = args.variant
+    if args.trace_timing and variant != "debug":
+        parser.error("--trace-timing is restricted to the API 34 diagnostic")
     device, app_id_key, test_count = {
         "release": ("android_managed_device", "store_application_id", 3),
         "debug": ("android_navigation_device", "debug_application_id", 35),
@@ -42,9 +46,15 @@ def main() -> int:
                                         "Installing the existing APK pair failed")
             installed = time.monotonic()
             timings["install"] = installed - ready
-            instrumentation = adb("shell", "am", "instrument", "-w", component, timeout=300)
-            timings["instrumentation"] = time.monotonic() - installed
-            (output / "instrumentation.txt").write_text(instrumentation, encoding="utf-8")
+            try:
+                if args.trace_timing:
+                    # Bound the measurement beyond the observed 7m29s managed run.
+                    instrumentation = adb("shell", "am", "instrument", "-w", "-r", component,
+                                          timeout=540, evidence=output / "instrumentation.txt")
+                else:
+                    instrumentation = adb("shell", "am", "instrument", "-w", component, timeout=300)
+            finally:
+                timings["instrumentation"] = time.monotonic() - installed
         result["test_result"] = "PASS" if (
             re.search(rf"(?m)^OK \({test_count} tests\)\s*$", instrumentation)
             and re.search(r"(?m)^INSTRUMENTATION_CODE: -1\s*$", instrumentation)

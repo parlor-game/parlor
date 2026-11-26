@@ -144,11 +144,18 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
          "--device", "pixel_2"], timeout=120, env=env)
     process, server_owned = None, False
 
-    def command(*args: str, timeout: int = 60) -> str:
+    def command(*args: str, timeout: int = 60, evidence: Path | None = None) -> str:
         contract.require(process is not None and process.poll() is None, "Owned emulator is not running")
         contract.require((output / "emulator.log").stat().st_size <= EMULATOR_LOG_LIMIT,
                          "Emulator log exceeded its bound")
-        return run([str(adb), "-P", str(ADB_PORT), "-s", SERIAL, *args], timeout=timeout, env=env)
+        argv = [str(adb), "-P", str(ADB_PORT), "-s", SERIAL, *args]
+        if evidence is None:
+            return run(argv, timeout=timeout, env=env)
+        contract.require(evidence.parent == output and not evidence.exists() and not evidence.is_symlink(),
+                         "Diagnostic log must be fresh in the current evidence directory")
+        code = run_logged(argv, evidence, timeout=timeout, output_limit=contract.MAX_PHASE_OUTPUT, env=env)
+        contract.require(code == 0, "Diagnostic command failed; original output was retained")
+        return evidence.read_text(encoding="utf-8", errors="replace")
 
     def phase(fixture: contract.Fixture, method: str, component: str) -> dict:
         log = output / f"{fixture.game}-{fixture.language}-{fixture.entry_kind}-{method}.log"
