@@ -47,3 +47,7 @@ check is [run 45787194920](https://github.com/parlor-game/parlor/actions/runs/45
 candidate of the lobby rules integration, preserved as a parent.
 [Run 45787593246](https://github.com/parlor-game/parlor/actions/runs/45787593246)
 tests only the affected room lobby rendering on that source.
+
+`branches-with-party-completion-preview.tsv` records the source of
+[run 45789071111](https://github.com/parlor-game/parlor/actions/runs/45789071111),
+which tests only the changed Whodunit and Mafia Party-completion guards.
