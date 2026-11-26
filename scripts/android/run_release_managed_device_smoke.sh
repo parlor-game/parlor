@@ -62,15 +62,32 @@ gradle_command=(./gradlew productionAndroidRuntimeCheck \
   "-Pandroid.injected.signing.key.alias=$key_alias" \
   "-Pandroid.injected.signing.key.password=$keystore_password")
 
+cold_probe() {
+  local variant=$1 receipt=$2
+  # Run only after the managed supervisor has proved its children are gone.
+  if [[ "${GITHUB_ACTIONS:-}" == true ]] &&
+    jq -e '.cleanup.result == "PASS" and .runtime_exit_code == 1' \
+      "build/ci-evidence/$receipt" >/dev/null; then
+    python3 -B scripts/android/supervise_managed_device.py \
+      --receipt "build/ci-evidence/android-$variant-cold-supervision.json" \
+      --isolated-avd -- python3 -B -m scripts.android.release_cold_probe --variant "$variant" || true
+  fi
+}
+
 if [[ "$(uname -s)" == Linux ]]; then
   # AGP's emulator exit request is not an exit guarantee. Retire only this
   # build's kernel-owned descendants, including helpers detached with setsid.
   # A fresh ANDROID_AVD_HOME is retired only after that proof and a passing
   # runtime. API35's completed writable images must not overlap API34's peak.
+  release_status=0
   python3 -B scripts/android/supervise_managed_device.py \
     --receipt build/ci-evidence/android-managed-device-supervision.json \
     --isolated-avd \
-    -- "${gradle_command[@]}"
+    -- "${gradle_command[@]}" || release_status=$?
+  if ((release_status != 0)); then
+    cold_probe release android-managed-device-supervision.json
+    exit "$release_status"
+  fi
 else
   # Preserve the existing non-Linux invocation; it makes no subreaper claim.
   "${gradle_command[@]}"
@@ -106,6 +123,9 @@ if [[ "$(uname -s)" == Linux ]]; then
     -- "${navigation_command[@]}" || navigation_status=$?
   oom_after=$(awk '$1 == "oom_kill" {print $2}' /proc/vmstat || true)
   printf 'API 34 host oom_kill counter: before=%s after=%s\n' "${oom_before:-unavailable}" "${oom_after:-unavailable}"
+  if ((navigation_status != 0)); then
+    cold_probe debug android-navigation-device-supervision.json
+  fi
   exit "$navigation_status"
 else
   "${navigation_command[@]}"

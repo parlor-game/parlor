@@ -365,11 +365,13 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         games = 'ui.clickDescription(if (fixture.language == "ar") "افتح مكتبة الألعاب." else "Open the game library.")'
         self.assertLess(prepare.index(settings), prepare.index(heading))
         refresh = "instrumentation.uiAutomation.clearCache()"
-        self.assertEqual(source.count(refresh), 1)
+        self.assertEqual(prepare.count(refresh), 2)
+        self.assertLess(prepare.index(settings), prepare.index(refresh))
+        self.assertLess(prepare.index(refresh), prepare.index(heading))
         for write in ("store.save(selected)", "store.save(sibling)", "secure.put(", "membership?.seed()"):
             self.assertLess(prepare.index(heading), prepare.index(write))
-            self.assertLess(prepare.index(write), prepare.index(refresh))
-        self.assertLess(prepare.index(refresh), prepare.index(games))
+            self.assertLess(prepare.index(write), prepare.rindex(refresh))
+        self.assertLess(prepare.rindex(refresh), prepare.index(games))
         self.assertEqual(prepare.count(games), 1)
         self.assertLess(prepare.index(games), prepare.index("awaitPreparedHome(ui, fixture, sibling, store, settings)"))
         self.assertEqual(prepare.count(heading), 1)

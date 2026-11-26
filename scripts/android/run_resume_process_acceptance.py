@@ -204,7 +204,7 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
     # exited, then (and only after PASS) retires its own AVD namespace.
 
 
-def preflight(output: Path) -> tuple[Path, Path, dict, dict]:
+def preflight(output: Path, *, device: str = "android_navigation_device") -> tuple[Path, Path, dict, dict]:
     contract.require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_OS") == "Linux"
                      and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
                      and os.environ.get("GITHUB_REPOSITORY") == "parlor-game/parlor",
@@ -223,7 +223,7 @@ def preflight(output: Path) -> tuple[Path, Path, dict, dict]:
                      and source["head"] == os.environ["GITHUB_SHA"], "Native acceptance source must be the clean checkout")
     source["files"] = {path: digest(ROOT / path) for path in SOURCE_PATHS}
     config = json.loads((ROOT / "config/release-policy.json").read_text())
-    policy = config["toolchains"]["android_navigation_device"]
+    policy = config["toolchains"][device]
     properties = (sdk / policy["system_image_package"].replace(";", "/") / "source.properties").read_text()
     contract.require(re.findall(r"(?m)^Pkg\.Revision\s*=\s*([^\s]+)\s*$", properties) == [policy["system_image_revision"]],
                      "Unreviewed Android image revision")
