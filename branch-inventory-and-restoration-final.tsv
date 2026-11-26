@@ -1,5 +1,5 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	da5342f3eeb2bd82455b492aeebeb1ae81b5ed63	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	3b42aa2cf30d2fbf67ba859a75bf4dd22b57a8d8	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
@@ -18,7 +18,7 @@ perf/android-verification-parallel	99b592f331c68149e630792b5866c68abb0a9aeb	kept
 perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	kept	Active isolated ARM64 device and x64 simulator link timing for #342
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
 test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
-test/smart-lobby-native-ui	c7513edd87487f5d049f4e6ddc82d1fb5e9da411	kept	Active exact installed-app mixed pair with retained Android package and macOS 15 for #350
+test/smart-lobby-native-ui	019b73a04e98785d9bcb5e511c91701f7cc4507e	kept	Active two-Android native standings trial using the exact retained APK after both iOS queues ended for #350
 test/smart-lobby-reconnect-observability	b72e7124a93fed40a0c7bf212893389d81f3c6bc	kept	Unmerged transport trace for outstanding native reconnection coverage
 test/smart-lobby-whodunit-candidate	997096d96366d83fa8fe25638264d0d55224fb52	kept	Exact release input for the two outstanding six-iOS Whodunit replays in #357
 testing	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Testing workflows and promotion target
