@@ -67,3 +67,8 @@ after retiring the completed Kotlin preview. Its three exact-source CI jobs
 passed, and optimized Release link steps took 58m59s on ARM64 device and
 57m45s on x64 simulator. Restore the tested source at the object ID in
 `branches-retired-2026-11-26.tsv`.
+
+`branches-with-party-playlist-edit.tsv` records the Party Night integration
+preview at `3b0693d4592092ca79eb0046f4417f41b908021d`. The parent of the
+archive preserves the exact source for
+[run 45815844186](https://github.com/parlor-game/parlor/actions/runs/45815844186).
