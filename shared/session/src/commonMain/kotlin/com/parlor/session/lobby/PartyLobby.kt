@@ -103,11 +103,13 @@ internal data class PartyLobby private constructor(
     }
 
     fun configurePlaylist(games: List<PartyGame>): Result<PartyLobby, PartyRejection> = when {
-        phase != PartyPhase.Lobby || playlist?.nextGame != null -> Result.Failure(PartyRejection.InvalidPhase)
+        phase != PartyPhase.Lobby || playlist?.let { it.results.isNotEmpty() && it.nextGame != null } == true ->
+            Result.Failure(PartyRejection.InvalidPhase)
         games.size !in 1..MAX_PARTY_PLAYLIST_MATCHES -> Result.Failure(PartyRejection.IncompatibleGame)
         games.any { seats.size !in it.playerCounts } -> Result.Failure(PartyRejection.IneligibleCount)
         games.any { game -> seats.values.any { game.protocol !in it.capabilities } } ->
             Result.Failure(PartyRejection.IncompatibleGame)
+        playlist?.let { it.results.isEmpty() && it.games == games } == true -> Result.Success(this)
         else -> Result.Success(copy(seats = seats.resetReadiness(), revision = revision + 1, playlist = PartyPlaylist(games.toList())))
     }
 

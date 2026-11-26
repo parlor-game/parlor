@@ -87,8 +87,13 @@ class PartyPlaylistJourneyTest {
         val host = assertIs<ProcessPartySession.Host>(opened.data)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { host.lobby.collect {} }
         runCurrent()
-        editThroughHostLobby(hostOwner, host, wire)
+        createThroughHostLobby(hostOwner, host, wire)
         runCurrent()
+        reviseThroughHostLobby(hostOwner, host, wire)
+        runCurrent()
+        val revised = checkNotNull(wire.latest?.lobby?.playlist)
+        assertEquals(games.map(PartyGame::protocol), revised.games)
+        assertEquals(emptyList(), revised.completedMatchIds)
 
         wire.markGuestReady()
         runCurrent()
@@ -113,7 +118,7 @@ class PartyPlaylistJourneyTest {
         verifyBothLobbies(hostOwner, rejoiningOwner, wire)
     }
 
-    private fun editThroughHostLobby(owner: ProcessPartySessionOwner, host: ProcessPartySession.Host, wire: PlaylistWire) =
+    private fun createThroughHostLobby(owner: ProcessPartySessionOwner, host: ProcessPartySession.Host, wire: PlaylistWire) =
         runComposeUiTest {
             setContent { RenderLobby(owner, wire, hostSettings) }
             onNodeWithText("Make a playlist").performScrollTo().performClick()
@@ -131,6 +136,21 @@ class PartyPlaylistJourneyTest {
             onNodeWithText("Remove 2 · Egyptian Dominoes").assertExists()
             onNodeWithText("Remove preset 1").performScrollTo().performClick()
             onNodeWithText("Load preset 1").assertDoesNotExist()
+            onNodeWithText("Remove 1 · Last Light").performScrollTo().performClick()
+            onNodeWithText("Add Last Light").performScrollTo().performClick()
+            onNodeWithText("Save playlist").performScrollTo().performClick()
+            waitUntil { host.playlist?.games == games.reversed() }
+        }
+
+    private fun reviseThroughHostLobby(owner: ProcessPartySessionOwner, host: ProcessPartySession.Host, wire: PlaylistWire) =
+        runComposeUiTest {
+            setContent { RenderLobby(owner, wire, hostSettings) }
+            onNodeWithText("Next game · Egyptian Dominoes").performScrollTo().assertIsDisplayed()
+            onNodeWithText("Edit playlist").performScrollTo().performClick()
+            onNodeWithText("Remove 1 · Egyptian Dominoes").assertExists()
+            onNodeWithText("Remove 2 · Last Light").assertExists()
+            onNodeWithText("Remove 1 · Egyptian Dominoes").performScrollTo().performClick()
+            onNodeWithText("Add Egyptian Dominoes").performScrollTo().performClick()
             onNodeWithText("Save playlist").performScrollTo().performClick()
             waitUntil { host.playlist?.games == games }
         }
@@ -157,6 +177,7 @@ class PartyPlaylistJourneyTest {
                 onNodeWithText("Next game · Egyptian Dominoes").performScrollTo().assertIsDisplayed()
                 onNodeWithText("1 of 2 matches completed").assertExists()
                 onAllNodesWithText("Match 1 · Last Light completed").assertCountEquals(1)
+                onNodeWithText("Edit playlist").assertDoesNotExist()
             }
             onNodeWithText("Select next game").assertDoesNotExist()
             onNodeWithText("Ready").performScrollTo().assertIsNotEnabled()

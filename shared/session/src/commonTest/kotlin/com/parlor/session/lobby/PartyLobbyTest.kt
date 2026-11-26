@@ -99,7 +99,32 @@ class PartyLobbyTest {
         val configured = party.configurePlaylist(games).value()
         games.clear()
         assertEquals(listOf(mafia, mafia, word), configured.playlist?.games)
-        assertEquals(Result.Failure(PartyRejection.InvalidPhase), configured.configurePlaylist(listOf(word)))
+    }
+
+    @Test
+    fun an_unplayed_playlist_can_be_reordered_but_recorded_progress_is_protected() {
+        val configured = partyWithPeer().configurePlaylist(listOf(mafia, word)).value()
+        val ready = configured.setReady(peer, true, configured.revision).value()
+        assertEquals(Result.Success(ready), ready.configurePlaylist(listOf(mafia, word)))
+
+        val nextOrder = listOf(word, mafia)
+        val revised = ready.configurePlaylist(nextOrder).value()
+        assertEquals(word, revised.playlist?.nextGame)
+        assertEquals(ready.revision + 1, revised.revision)
+        assertFalse(revised.seats.getValue(peer).ready)
+
+        val selected = revised.selectGame(word).value()
+        val starting = selected.setReady(peer, true, selected.revision).value().prepareMatch().value()
+        val match = assertIs<PartyPhase.Starting>(starting.phase).match
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), starting.configurePlaylist(listOf(mafia)))
+        val playing = starting.commitMatch(match.id).value()
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), playing.configurePlaylist(listOf(mafia)))
+
+        val canceled = playing.returnToLobby(match.id).value()
+        assertEquals(mafia, canceled.configurePlaylist(listOf(mafia)).value().playlist?.nextGame)
+        val completed = playing.returnToLobby(match.id, completed = true).value()
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), completed.configurePlaylist(listOf(mafia)))
+        assertEquals(listOf(PartyMatchResult(match.id, word.protocol)), completed.playlist?.results)
     }
 
     @Test

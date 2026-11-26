@@ -309,6 +309,7 @@
     <string name="party_start">Start game</string>
     <string name="party_play_again">Play again</string>
     <string name="party_playlist_editor">Make a playlist</string>
+    <string name="party_playlist_edit">Edit playlist</string>
     <string name="party_playlist_empty">Add games in the order you want to play them.</string>
     <string name="party_playlist_add">Add %1$s</string>
     <string name="party_playlist_remove">Remove %1$d · %2$s</string>

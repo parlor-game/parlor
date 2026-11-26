@@ -38,6 +38,7 @@ import com.parlor.app.resources.party_pending
 import com.parlor.app.resources.party_play_again
 import com.parlor.app.resources.party_player_line
 import com.parlor.app.resources.party_playlist_choose_next
+import com.parlor.app.resources.party_playlist_edit
 import com.parlor.app.resources.party_playlist_editor
 import com.parlor.app.resources.party_ready
 import com.parlor.app.resources.party_roster
@@ -190,7 +191,8 @@ private fun HostPartyControls(
     val needsReady = lobby.members.any { it.playerId != info.hostPlayerId && it.connected && !it.ready }
     val supportsCount = selected?.playerCounts?.contains(playerCount) == true
     val completedGame by host.lastCompletedGame.collectAsState()
-    val next = lobby.playlist?.nextGame
+    val playlist = lobby.playlist
+    val next = playlist?.nextGame
     val canStartSelected = next == null || next == lobby.selectedGame
     val start = if (next == null && lobby.selectedGame.gameId == completedGame) Res.string.party_play_again
     else Res.string.party_start
@@ -209,9 +211,12 @@ private fun HostPartyControls(
     } else if (canStartSelected && needsReady) {
         PartyDetail(stringResource(Res.string.party_cant_start_ready))
     }
-    if (next == null) {
-        PartyButton(Res.string.party_playlist_editor, enabled = canChange,
+    if (next == null || playlist?.completedMatchIds?.isEmpty() == true) {
+        val editorLabel = if (next == null) Res.string.party_playlist_editor else Res.string.party_playlist_edit
+        PartyButton(editorLabel, enabled = canChange,
             variant = ParlorButtonVariant.Secondary, onClick = commands.editPlaylist)
+    }
+    if (next == null) {
         PartyHeading(stringResource(Res.string.party_change_game))
         PartyGameOptions(titles, selected, canChange, commands.selectGame)
     }

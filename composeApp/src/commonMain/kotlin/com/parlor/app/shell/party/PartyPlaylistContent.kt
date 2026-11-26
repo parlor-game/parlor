@@ -16,6 +16,7 @@ import com.parlor.app.resources.party_playlist_add
 import com.parlor.app.resources.party_playlist_complete
 import com.parlor.app.resources.party_playlist_completed_game
 import com.parlor.app.resources.party_playlist_count
+import com.parlor.app.resources.party_playlist_edit
 import com.parlor.app.resources.party_playlist_editor
 import com.parlor.app.resources.party_playlist_empty
 import com.parlor.app.resources.party_playlist_next
@@ -48,6 +49,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun PartyPlaylistEditor(
     titles: Map<PartyGame, String>,
+    initialGames: List<PartyGame>,
     seatCount: Int,
     enabled: Boolean,
     error: String?,
@@ -55,7 +57,7 @@ internal fun PartyPlaylistEditor(
     onSave: (List<PartyGame>) -> Unit,
     onBack: () -> Unit,
 ) {
-    var games by remember { mutableStateOf(emptyList<PartyGame>()) }
+    var games by remember { mutableStateOf(initialGames) }
     var writeInFlight by remember { mutableStateOf(false) }
     var writeFailed by remember { mutableStateOf(false) }
     val presets by settings.partyPlaylistPresets.collectAsState(initial = emptyList())
@@ -77,7 +79,8 @@ internal fun PartyPlaylistEditor(
         }
     }
     PartyScaffold {
-        PartyHeading(stringResource(Res.string.party_playlist_editor))
+        val editorLabel = if (initialGames.isEmpty()) Res.string.party_playlist_editor else Res.string.party_playlist_edit
+        PartyHeading(stringResource(editorLabel))
         if (games.isEmpty()) PartyDetail(stringResource(Res.string.party_playlist_empty))
         games.forEachIndexed { index, game ->
             val label = stringResource(Res.string.party_playlist_remove, index + 1, titles.getValue(game))

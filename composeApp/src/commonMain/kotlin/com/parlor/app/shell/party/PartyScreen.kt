@@ -255,9 +255,12 @@ private fun PartyLobbySubpage(
         PartyLobbyPage.Playlist -> {
             if (host == null) return
             val scope = rememberCoroutineScope()
-            PartyPlaylistEditor(titles, lobby.members.size, !actions.waiting, partyError(actions), settings, onSave = { games ->
-                scope.launch { actions.run { if (showParty(host.configurePlaylist(games))) onBack() } }
-            }, onBack = onBack)
+            val initialGames = host.playlist?.takeIf { it.results.isEmpty() }?.games.orEmpty()
+            PartyPlaylistEditor(
+                titles, initialGames, lobby.members.size, !actions.waiting, partyError(actions), settings,
+                onSave = { games -> scope.launch { actions.run { if (showParty(host.configurePlaylist(games))) onBack() } } },
+                onBack = onBack,
+            )
         }
     }
 }
