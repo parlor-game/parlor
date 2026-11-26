@@ -80,8 +80,14 @@ def plan():
         and pairing == "mixed" and not reuse_candidate and observe_reconnect
     )
     reuse_standings_android = payload.get("reuse_standings_android") is True
-    if reuse_standings_android and not (fresh_playlist and candidate == STANDINGS_CANDIDATE and visible_ios):
-        raise ValueError("The retained standings APK requires the matching mixed-platform trial")
+    standings_mixed = fresh_playlist and visible_ios
+    standings_android_pair = (
+        pairing == "android" and len(digests) == 2 and reuse_candidate and not observe_reconnect and not visible_ios
+    )
+    if reuse_standings_android and (
+        candidate != STANDINGS_CANDIDATE or not (standings_mixed or standings_android_pair)
+    ):
+        raise ValueError("The retained standings APK requires the matching mixed or two-Android trial")
     exact_pr355 = (
         candidate == "d2a55eb5f4880798b6e07377df249e370dd2ff11"
         and pairing == "mixed" and observe_reconnect
@@ -106,7 +112,9 @@ def plan():
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
-    if candidate != RETAINED_CANDIDATE and not (observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android):
+    if candidate != RETAINED_CANDIDATE and not (
+        observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android or reuse_standings_android
+    ):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
     ios_runner = "macos-15" if reuse_standings_android else "macos-26"
