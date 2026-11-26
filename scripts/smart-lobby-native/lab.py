@@ -23,6 +23,7 @@ PARTY_NIGHT_SOURCE = "3154ed26fe18831c5b5a08f1bfa31faa353cbda0"
 PARTY_NIGHT_PRODUCER = 45343614595
 PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
 PLAYLIST_EDIT_CANDIDATE = "eddc1b1f773be8499e05464e08e2b51937f3957a"
+STANDINGS_CANDIDATE = "dec09061e310b84054a6bebb23f9532e8e66c398"
 
 
 def configuration():
@@ -75,7 +76,7 @@ def plan():
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
         raise ValueError("The retained Party Night builds require the mixed reconnect topology")
     fresh_playlist = (
-        candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE}
+        candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE, STANDINGS_CANDIDATE}
         and pairing == "mixed" and not reuse_candidate and observe_reconnect
     )
     exact_pr355 = (
