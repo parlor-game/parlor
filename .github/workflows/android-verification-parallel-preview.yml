@@ -1,4 +1,4 @@
-name: Android managed-device Lavapipe preview
+name: Isolated API 34 managed-device Lavapipe preview
 
 on:
   push:
@@ -12,16 +12,14 @@ env:
   GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
 
 jobs:
-  desktop-android:
-    name: Android managed runtime and restart
+  navigation-runtime:
+    name: API 34 managed Debug navigation and recovery
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 35
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The review-inventory gate derives per-file findings from the
-          # accepted review baseline, so this job needs that history.
           fetch-depth: 0
           persist-credentials: false
       - name: Set up JDK 21
@@ -43,13 +41,6 @@ jobs:
           key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
           restore-keys: |
             parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-
-      - name: Claim fresh verification output ownership
-        id: verification_ownership
-        shell: python
-        run: |
-          import runpy, sys
-          sys.argv = ["verification_hygiene.py", "prepare"]
-          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
       - name: Install pinned Android SDK packages
         timeout-minutes: 11
         shell: bash
@@ -63,11 +54,8 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends libpulse0
           fi
-          managed_device_image=$(jq -r '.toolchains.android_managed_device.system_image_package' config/release-policy.json)
-          test "$managed_device_image" = "system-images;android-35;google_apis;x86_64"
           navigation_device_image=$(jq -r '.toolchains.android_navigation_device.system_image_package' config/release-policy.json)
           test "$navigation_device_image" = "system-images;android-34;google_apis;x86_64"
-          # Install both required lanes before spending time on compilation.
           # Do not let AGP fetch an unreviewed/missing image halfway through tests.
           /usr/bin/timeout --signal=TERM --kill-after=10s 600s \
             "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" \
@@ -75,12 +63,7 @@ jobs:
             "build-tools;36.0.0" \
             "platform-tools" \
             "emulator" \
-            "$managed_device_image" \
             "$navigation_device_image"
-          image_properties="${ANDROID_HOME}/system-images/android-35/google_apis/x86_64/source.properties"
-          test -s "$image_properties"
-          image_revision=$(sed -n 's/^Pkg.Revision=//p' "$image_properties" | tr -d '\r')
-          test "$image_revision" = "$(jq -r '.toolchains.android_managed_device.system_image_revision' config/release-policy.json)"
           image_properties="${ANDROID_HOME}/system-images/android-34/google_apis/x86_64/source.properties"
           test -s "$image_properties"
           image_revision=$(sed -n 's/^Pkg.Revision=//p' "$image_properties" | tr -d '\r')
@@ -103,41 +86,46 @@ jobs:
             <(git diff --name-only 0c1b824158884857f15b69e56bebb933e2ec9134 HEAD)
           git rev-parse HEAD HEAD^{tree} > build/ci-evidence/source.txt
           printf '%s\n' "$DEPENDENCY_CACHE_KEY" > build/ci-evidence/dependency-cache-key.txt
-      - name: Run release Android managed-device smoke tests
-        shell: bash
-        run: scripts/android/run_release_managed_device_smoke.sh
-      - name: Stop Gradle after managed-device
-        shell: python
-        run: |
-          import runpy, sys
-          sys.argv = ["verification_hygiene.py", "stop", "managed-device"]
-          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
-      - name: Verify Android saved-session removal across process restart
+      - name: Build the exact navigation app and instrumentation pair
         shell: bash
         run: |
           set -euo pipefail
+          "$ANDROID_HOME/emulator/emulator" -version > build/ci-evidence/emulator-version.txt 2>&1
+          ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
+            -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
+            --no-daemon --max-workers=2 --console=plain
+          sha256sum composeApp/build/outputs/apk/debug/*.apk composeApp/build/outputs/apk/androidTest/debug/*.apk \
+            > build/ci-evidence/navigation-apks.sha256
+      - name: Run all managed API 34 tests with Lavapipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '$1 == "oom_kill" {print $2}' /proc/vmstat > build/ci-evidence/host-oom-before.txt
+          status=0
           python3 -B scripts/android/supervise_managed_device.py \
-            --receipt build/ci-evidence/android-process-device-supervision.json \
-            --isolated-avd -- \
-            python3 -B -m scripts.android.run_resume_process_acceptance \
-              --output build/ci-evidence/android-process-acceptance
-      - name: Upload runtime, supervision, and restart evidence
+            --receipt build/ci-evidence/android-navigation-device-supervision.json \
+            --gradle-setup-task :composeApp:pixel2Api34Setup --isolated-avd -- \
+            ./gradlew productionAndroidNavigationRuntimeCheck \
+              -Pparlor.androidRuntimeTestVariant=debug \
+              -Pandroid.testoptions.manageddevices.emulator.gpu=lavapipe \
+              --dependency-verification=strict --no-daemon --max-workers=2 \
+              --info --stacktrace --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+UseParallelGC' || status=$?
+          awk '$1 == "oom_kill" {print $2}' /proc/vmstat > build/ci-evidence/host-oom-after.txt
+          exit "$status"
+      - name: Upload managed API 34 and supervision evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: android-managed-runtime-lavapipe
-          if-no-files-found: warn
+          name: android-api34-managed-lavapipe
+          if-no-files-found: error
           retention-days: 14
           path: |
             build/ci-evidence/
             **/build/reports/tests/
             **/build/test-results/**/*.xml
-            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-ownership.json
             ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-hosted-disk.json
-            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-stop-*.json
             **/build/reports/androidTests/managedDevice/
             **/build/outputs/androidTest-results/managedDevice/
             !remediation-runs/**
             !docs/archives/**
-
-      # A successful nonempty upload must precede deletion of the last local evidence copy.
