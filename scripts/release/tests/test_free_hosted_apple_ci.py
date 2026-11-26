@@ -163,11 +163,23 @@ class FreeHostedCIContractTest(unittest.TestCase):
             contract.verify_validation(changed)
 
     def test_release_wrapper_limits_native_compiler_timing_to_manual_dispatch(self):
-        for option in ("arguments.log.level=warning", "profileIosReleaseLink=true",
-                       "ios-release-gc-%p.log", "filecount=1,filesize=1m",
-                       "inputs.profile_release_native == true", "type: boolean\n        default: false",
-                       'if [[ "$PARLOR_PROFILE_RELEASE_NATIVE" == true ]]; then'):
-            changed = self.workflow.replace(option, option + "-disabled", 1)
+        wrapper = contract.validation_step(
+            contract.validation_job(self.workflow, "ios-release-simulator"),
+            "Build unsigned Swift Release wrapper",
+        )
+        declaration = self.workflow.split("      profile_release_native:\n", 1)[1].split(
+            "      compare_static_initializers:\n", 1,
+        )[0]
+        for block, option in (
+            (wrapper, "arguments.log.level=warning"),
+            (wrapper, "profileIosReleaseLink=true"),
+            (wrapper, "ios-release-gc-%p.log"),
+            (wrapper, "filecount=1,filesize=1m"),
+            (wrapper, "inputs.profile_release_native == true"),
+            (declaration, "type: boolean\n        default: false"),
+            (wrapper, 'if [[ "$PARLOR_PROFILE_RELEASE_NATIVE" == true ]]; then'),
+        ):
+            changed = self.workflow.replace(block, block.replace(option, option + "-disabled", 1), 1)
             self.assertNotEqual(changed, self.workflow)
             with self.subTest(option=option), self.assertRaisesRegex(RuntimeError, "native Release compiler timing"):
                 contract.verify_validation(changed)
