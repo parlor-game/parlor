@@ -52,6 +52,12 @@ jobs:
           /usr/bin/timeout --signal=TERM --kill-after=10s 600s \
             "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
             "platforms;android-36" "build-tools;36.0.0" "platform-tools" "emulator" "$image"
+          if ! dpkg-query -W -f='${db:Status-Status}' libpulse0 2>/dev/null | grep -Fxq installed; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libpulse0
+          fi
+          ldd "$ANDROID_HOME/emulator/qemu/linux-x86_64/qemu-system-x86_64" > build/ci-evidence/emulator-libraries.txt
+          if grep -F 'not found' build/ci-evidence/emulator-libraries.txt; then exit 1; fi
           "$ANDROID_HOME/emulator/emulator" -version > build/ci-evidence/emulator-version.txt
           ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
             -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
