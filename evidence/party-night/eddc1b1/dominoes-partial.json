@@ -1,0 +1,17 @@
+{
+  "terminal_result_verified": false,
+  "public_checkpoint": {
+    "android": [
+      "HAND 1",
+      "Your move"
+    ],
+    "ios": [
+      "HostQA to play"
+    ]
+  },
+  "ui_placements_observed": {
+    "ios-1": 3,
+    "android-1": 2
+  },
+  "reason": "Visible-control automation did not locate the next playable action before the remaining paired-session window"
+}

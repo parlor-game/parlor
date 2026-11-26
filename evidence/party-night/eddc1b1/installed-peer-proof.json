@@ -1,0 +1,214 @@
+{
+  "run": 45832815080,
+  "head": "eddc1b1f773be8499e05464e08e2b51937f3957a",
+  "harness": "0f9759fae4f572679f03dea77fa0d050552afd8b",
+  "run_status": "completed",
+  "run_conclusion": "success",
+  "platforms": {
+    "ios": {
+      "job": 139953886588,
+      "runner": "GitHub Actions 1000001136",
+      "status": "completed",
+      "conclusion": "success",
+      "artifact": 15127469956,
+      "digest": "sha256:58ab16a9b90834e89240335f36d3fe2cc271c30749dddf1c336c76b16546022f",
+      "source_receipts_match": true,
+      "installed_ios_files": 111,
+      "traffic": {
+        "admission": {
+          "samples": 41,
+          "first": "2026-11-26T14:04:58.484000+00:00",
+          "last": "2026-11-26T14:06:21.012000+00:00",
+          "sent": {
+            "tcp": 40,
+            "p2pkit_mdns_query": 3,
+            "p2pkit_mdns_response": 0,
+            "icmp": 50
+          },
+          "received": {
+            "tcp": 37,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 3,
+            "icmp": 50
+          }
+        },
+        "match": {
+          "samples": 134,
+          "first": "2026-11-26T14:11:46.812000+00:00",
+          "last": "2026-11-26T14:16:21.939000+00:00",
+          "sent": {
+            "tcp": 225,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 167
+          },
+          "received": {
+            "tcp": 224,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 166
+          }
+        },
+        "rejoin": {
+          "samples": 46,
+          "first": "2026-11-26T14:17:54.645000+00:00",
+          "last": "2026-11-26T14:19:27.557000+00:00",
+          "sent": {
+            "tcp": 27,
+            "p2pkit_mdns_query": 1,
+            "p2pkit_mdns_response": 0,
+            "icmp": 57
+          },
+          "received": {
+            "tcp": 24,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 1,
+            "icmp": 57
+          }
+        },
+        "dominoes": {
+          "samples": 393,
+          "first": "2026-11-26T14:21:43.335000+00:00",
+          "last": "2026-11-26T14:35:09.380000+00:00",
+          "sent": {
+            "tcp": 525,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 500
+          },
+          "received": {
+            "tcp": 524,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 1,
+            "icmp": 499
+          }
+        }
+      },
+      "native_event_counts": {
+        "admission": {
+          "session_create_started": 1,
+          "discovery_started": 1,
+          "lan_connection_preparing": 1,
+          "lan_connection_ready": 1,
+          "connection_secure": 1,
+          "discovery_finished": 1,
+          "session_create_succeeded": 1
+        },
+        "match": {
+          "snapshot_received": 19,
+          "command_sent": 5,
+          "command_accepted": 4
+        },
+        "rejoin": {
+          "lifecycle_resume_started": 1,
+          "discovery_started": 1,
+          "lan_connection_preparing": 1,
+          "lan_connection_ready": 1,
+          "connection_secure": 1,
+          "lifecycle_resumed": 1
+        },
+        "dominoes": {
+          "snapshot_received": 10,
+          "command_sent": 3,
+          "command_accepted": 2
+        }
+      }
+    },
+    "android": {
+      "job": 139953886481,
+      "runner": "GitHub Actions 1000001135",
+      "status": "completed",
+      "conclusion": "success",
+      "artifact": 15127404789,
+      "digest": "sha256:313a85093e2c1521793725d860bc61928185e165246e28a22b141a856235f5f9",
+      "source_receipts_match": true,
+      "installed_apk_hash": "606997e0306c536e42e0fb08879af41430da1f6ac308d4b03a96b41decd059dc",
+      "traffic": {
+        "admission": {
+          "samples": 32,
+          "first": "2026-11-26T14:04:58.811000+00:00",
+          "last": "2026-11-26T14:06:21.836000+00:00",
+          "sent": {
+            "tcp": 37,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 3,
+            "icmp": 51
+          },
+          "received": {
+            "tcp": 40,
+            "p2pkit_mdns_query": 3,
+            "p2pkit_mdns_response": 0,
+            "icmp": 51
+          }
+        },
+        "match": {
+          "samples": 98,
+          "first": "2026-11-26T14:11:45.923000+00:00",
+          "last": "2026-11-26T14:16:22.555000+00:00",
+          "sent": {
+            "tcp": 224,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 169
+          },
+          "received": {
+            "tcp": 225,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 170
+          }
+        },
+        "rejoin": {
+          "samples": 33,
+          "first": "2026-11-26T14:17:55.912000+00:00",
+          "last": "2026-11-26T14:19:26.684000+00:00",
+          "sent": {
+            "tcp": 23,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 1,
+            "icmp": 54
+          },
+          "received": {
+            "tcp": 27,
+            "p2pkit_mdns_query": 1,
+            "p2pkit_mdns_response": 0,
+            "icmp": 54
+          }
+        },
+        "dominoes": {
+          "samples": 287,
+          "first": "2026-11-26T14:21:44.171000+00:00",
+          "last": "2026-11-26T14:35:09.216000+00:00",
+          "sent": {
+            "tcp": 527,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 1,
+            "icmp": 501
+          },
+          "received": {
+            "tcp": 526,
+            "p2pkit_mdns_query": 0,
+            "p2pkit_mdns_response": 0,
+            "icmp": 501
+          }
+        }
+      },
+      "native_event_counts": {
+        "admission": {
+          "admission_requested": 1,
+          "admission_reserved": 1,
+          "admission_committed": 1
+        },
+        "match": {
+          "snapshot_sent": 18,
+          "command_received": 5
+        },
+        "rejoin": {},
+        "dominoes": {
+          "snapshot_sent": 10,
+          "command_received": 3
+        }
+      }
+    }
+  }
+}
