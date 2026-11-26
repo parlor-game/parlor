@@ -114,6 +114,10 @@ require(androidRuntimeTestVariant in setOf("debug", "release")) {
 }
 
 val profileIosReleaseLink = providers.gradleProperty("parlor.profileIosReleaseLink").orNull == "true"
+val compareIosStaticInitializerTarget = providers.gradleProperty("parlor.compareIosStaticInitializerTarget").orNull
+require(compareIosStaticInitializerTarget == null || compareIosStaticInitializerTarget in setOf("iosArm64", "iosX64")) {
+    "The isolated static-initializer preview requires an explicit device arm64 or simulator x64 target."
+}
 
 kotlin {
     androidTarget {
@@ -132,6 +136,9 @@ kotlin {
             isStatic = false
             if (profileIosReleaseLink && iosTarget.name == "iosSimulatorArm64" && buildType == NativeBuildType.RELEASE) {
                 freeCompilerArgs += "-Xprofile-phases"
+            }
+            if (iosTarget.name == compareIosStaticInitializerTarget && buildType == NativeBuildType.RELEASE) {
+                freeCompilerArgs += listOf("-Xprofile-phases", "-Xdisable-phases=RemoveRedundantCallsToStaticInitializersPhase")
             }
         }
     }

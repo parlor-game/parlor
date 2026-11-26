@@ -1,0 +1,93 @@
+name: Native Release link phase comparison
+
+on:
+  push:
+    branches: [perf/ios-release-phase-targets]
+    paths:
+      - .github/workflows/native-release-phase-comparison.yml
+      - composeApp/build.gradle.kts
+
+permissions:
+  contents: read
+
+jobs:
+  release-link:
+    name: 'Release link without redundant initializer elimination (${{ matrix.architecture }})'
+    runs-on: macos-15
+    timeout-minutes: 125
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: device-arm64
+            target: iosArm64
+            gradle-target: IosArm64
+            binary-architecture: arm64
+          - architecture: simulator-x64
+            target: iosX64
+            gradle-target: IosX64
+            binary-architecture: x86_64
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      LINK_TASK: ':composeApp:linkReleaseFramework${{ matrix.gradle-target }}'
+      LINK_TARGET: '${{ matrix.target }}'
+      BINARY_ARCH: '${{ matrix.binary-architecture }}'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Restore existing reviewed dependencies
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-
+      - name: Record controlled setup
+        env:
+          CACHE_KEY: ${{ steps.dependency-cache.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/preview-evidence
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD HEAD^{tree} | tee build/preview-evidence/source.txt
+          xcodebuild -version | tee build/preview-evidence/xcode.txt
+          grep -Fx 'Xcode 26.3' build/preview-evidence/xcode.txt
+          grep -Fx 'Build version 17C529' build/preview-evidence/xcode.txt
+          test "$(uname -m)" = arm64
+          sw_vers > build/preview-evidence/macos.txt
+          printf '%s\n' "$CACHE_KEY" > build/preview-evidence/dependency-cache-key.txt
+          grep -Fx 'kotlin = "2.4.10"' gradle/libs.versions.toml
+          test -z "$(git status --porcelain)"
+      - name: Time a fresh Release link with the selected compiler phase disabled
+        run: |
+          set -euo pipefail
+          test ! -d "composeApp/build/bin/$LINK_TARGET/releaseFramework"
+          SECONDS=0
+          ./gradlew "$LINK_TASK" --profile --dependency-verification=strict \
+            --no-daemon --no-build-cache --stacktrace --console=plain \
+            "-Pparlor.compareIosStaticInitializerTarget=$LINK_TARGET" | tee build/preview-evidence/release-link.log
+          grep -Fx "> Task $LINK_TASK" build/preview-evidence/release-link.log
+          printf '%s\n' "$SECONDS" | tee build/preview-evidence/release-link-seconds.txt
+          binary="composeApp/build/bin/$LINK_TARGET/releaseFramework/ComposeApp.framework/ComposeApp"
+          test -s "$binary"
+          xcrun lipo "$binary" -verify_arch "$BINARY_ARCH"
+          xcrun vtool -show-build "$binary" | tee build/preview-evidence/framework-build.txt
+          shasum -a 256 "$binary" | tee build/preview-evidence/framework.sha256
+          test -z "$(git status --porcelain)"
+      - name: Upload Release link reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-link-phase-comparison-${{ matrix.architecture }}
+          path: |
+            build/preview-evidence/
+            build/reports/profile/*.html
+          if-no-files-found: error
+          retention-days: 14
