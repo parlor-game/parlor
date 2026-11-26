@@ -1,0 +1,53 @@
+{
+  "run": 45862520979,
+  "workflow_id": 427081574,
+  "harness": "9111eaa22f5394677a8d47ef2f313c84edd18366",
+  "app": "dec09061e310b84054a6bebb23f9532e8e66c398",
+  "tree": "28119880addd3d43afd0c78e65678efc790c615e",
+  "retained_android_run": 45851051814,
+  "retained_android_artifact": 15133707950,
+  "native_topology": "two independently installed Android emulators on one hosted Linux runner",
+  "job": 140057056169,
+  "result": "Last Light complete on both emulators",
+  "winner": "PeerQA",
+  "score": {
+    "HostQA": {
+      "points": 0,
+      "played": 1
+    },
+    "PeerQA": {
+      "points": 1,
+      "played": 1
+    }
+  },
+  "playlist_after_rejoin": [
+    {
+      "device": "android-1",
+      "progress": "1 of 2 matches completed",
+      "next": "Egyptian Dominoes",
+      "results": [
+        "Match 1 \u00b7 Last Light completed"
+      ],
+      "result_count": 1
+    },
+    {
+      "device": "android-2",
+      "progress": "1 of 2 matches completed",
+      "next": "Egyptian Dominoes",
+      "results": [
+        "Match 1 \u00b7 Last Light completed"
+      ],
+      "result_count": 1
+    }
+  ],
+  "screenshots_sha256": {
+    "android-1-playlist-rejoined.png": "d7b21e3aa64ae2e3138deba111fdc982f9b9b5cf7e2eb3b8d1d9ff67a090e9b1",
+    "android-1-standings-1-played.png": "31e6952811dbf455b008d18aec3a71f175e032b6e7b381397d1c6d380b0f8b68",
+    "android-1-last-light-terminal.png": "462b24ae10179b9841d0a127c6a1e2647219e4c93d1a3ecff4205539cf6d62e9",
+    "android-2-playlist-rejoined.png": "d7b21e3aa64ae2e3138deba111fdc982f9b9b5cf7e2eb3b8d1d9ff67a090e9b1",
+    "android-2-standings-1-played.png": "31e6952811dbf455b008d18aec3a71f175e032b6e7b381397d1c6d380b0f8b68",
+    "android-2-last-light-terminal.png": "8634331e4acef65490a1d8e7f41f2ec2df7db265869fd2f5616f506665ce8d60"
+  },
+  "last_light_round": 2,
+  "status": "Last Light and guest rejoin verified on Android, Dominoes terminal result pending"
+}
