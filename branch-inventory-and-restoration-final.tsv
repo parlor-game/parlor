@@ -1,5 +1,5 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	63e22764dda16dece95d9c6ac55515d46086321f	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	ea096c99a69534778e5d80cc5f23e6017c575988	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
@@ -13,7 +13,7 @@ fix/input-diagnostic-integration-2026-10-29	458a63e7901de7a2661a7c042a41f1693c09
 fix/ios-complete-protection-readback-2026-11-04	7d4907ecea59741c3e81e1bdf4a897c64118501a	kept	Unmerged iOS storage-protection candidate blocked on native #258 qualification
 main	0c1b824158884857f15b69e56bebb933e2ec9134	kept	Protected production source at merged PR #361
 perf/android-api34-cold-timing	7bb57fda3ab4594fda627e0f938765354eafc0f1	deleted-from-remote	Completed API 34 diagnosis. Exact control, selection and process-exit traces are reproducible by archive SHA
-perf/android-api34-lavapipe	295f997ddbab0e618990b0b47193e47ab74f84a9	kept	API 34 full debug roster software-renderer comparison for #342
+perf/android-api34-lavapipe	16a0b290e545460b1c3e85892c5a9e720e9c4afa	kept	API 34 full debug roster software-renderer comparison for #342
 perf/android-verification-parallel	0b3232704087554d61a5b1018ca43c1dbcd3d190	kept	Retained #342 CI timing and live lint metadata preview
 perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	kept	Active isolated ARM64 device and x64 simulator link timing for #342
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
