@@ -147,9 +147,15 @@ def prepare(root, download=fetch):
         path = CENTRAL_CACHE + relative
         urls[path] = MAVEN_CENTRAL + relative
         central[path] = (group, artifact, version)
-    # Keep official fetches bounded without serializing every Central artifact.
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        raw = dict(zip(urls, pool.map(download, urls.values())))
+    # Keep one request in flight per repository. If an origin is rate
+    # limiting, its bounded retry also pauses later requests to that origin.
+    def fetch_repository(paths):
+        return {path: download(urls[path]) for path in paths}
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        google = pool.submit(fetch_repository, google_paths)
+        maven = pool.submit(fetch_repository, central)
+        raw = google.result() | maven.result()
     latest = validate(*(raw[path] for path in google_paths), current)
     for path, coordinate in central.items():
         validate_central(raw[path], *coordinate)

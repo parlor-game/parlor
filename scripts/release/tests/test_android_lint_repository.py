@@ -178,6 +178,27 @@ class AndroidLintRepositoryTest(unittest.TestCase):
             download.assert_called_once_with(url)
             delay.assert_not_called()
 
+    def test_prepare_stops_requests_to_a_rate_limited_repository(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = self.fixture(Path(name))
+            inventory = root / subject.INVENTORY
+            with inventory.open("a") as stream:
+                stream.write("DependencyUpdate|gradle/libs.versions.toml|A newer version of "
+                             "com.example:later than 1.0.0\n")
+            central_calls = []
+            first = subject.MAVEN_CENTRAL + CENTRAL_PATH
+
+            def download(url):
+                if url.startswith(subject.MAVEN_CENTRAL):
+                    central_calls.append(url)
+                    raise subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+                return URL_RESPONSES[url]
+
+            with self.assertRaises(subject.urllib.error.HTTPError):
+                subject.prepare(root, download)
+            self.assertEqual([first], central_calls)
+            self.assertFalse((root / "composeApp/build").exists())
+
     def fixture(self, root):
         (root / "gradle").mkdir()
         (root / "config").mkdir()
