@@ -1,0 +1,28 @@
+name: Initializer workflow contract preview
+
+on:
+  push:
+    branches: [perf/ios-static-initializer-comparison]
+    paths:
+      - .github/workflows/ci-initializer-contract-preview.yml
+      - .github/workflows/production-verification.yml
+      - scripts/release/workflow_contract.py
+      - scripts/release/tests/test_free_hosted_apple_ci.py
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Apple Release workflow contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact benchmark source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify the Apple Release workflow contract
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 -B -m unittest scripts.release.tests.test_free_hosted_apple_ci -v
