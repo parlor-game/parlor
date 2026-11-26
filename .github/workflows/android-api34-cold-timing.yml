@@ -1,8 +1,8 @@
-name: Android API 34 cold start timing
+name: Android API 34 Lavapipe cold timing
 
 on:
   push:
-    branches: [perf/android-api34-cold-timing]
+    branches: [perf/android-api34-lavapipe]
     paths:
       - .github/workflows/android-api34-cold-timing.yml
       - scripts/android/release_cold_probe.py
@@ -41,6 +41,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git diff --quiet
           mkdir -p build/ci-evidence
+          printf '%s\n' lavapipe > build/ci-evidence/renderer.txt
           git rev-parse HEAD HEAD^{tree} > build/ci-evidence/source.txt
           printf '%s\n' "$GRADLE_CACHE_KEY" > build/ci-evidence/dependency-cache-key.txt
           test -c /dev/kvm
@@ -51,6 +52,7 @@ jobs:
           /usr/bin/timeout --signal=TERM --kill-after=10s 600s \
             "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
             "platforms;android-36" "build-tools;36.0.0" "platform-tools" "emulator" "$image"
+          "$ANDROID_HOME/emulator/emulator" -version > build/ci-evidence/emulator-version.txt
           ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
             -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
             --no-daemon --max-workers=2 --console=plain | tee build/ci-evidence/apk-gradle.log

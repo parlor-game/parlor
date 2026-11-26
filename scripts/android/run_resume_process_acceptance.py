@@ -176,7 +176,7 @@ def owned_emulator(sdk: Path, avd: Path, output: Path, policy: dict):
             server_owned = True
             process = subprocess.Popen([str(emulator), "-avd", name, "-port", str(EMULATOR_PORT),
                                         "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
-                                        "-gpu", "swiftshader", "-no-metrics"],
+                                        "-gpu", "lavapipe", "-no-metrics"],
                                        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env)
             deadline = time.monotonic() + 300
             while True:
