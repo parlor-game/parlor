@@ -24,6 +24,10 @@ import com.parlor.app.resources.party_playlist_remove
 import com.parlor.app.resources.party_playlist_save
 import com.parlor.app.resources.party_playlist_scoreboard
 import com.parlor.app.resources.party_playlist_unknown_game
+import com.parlor.app.resources.party_standings
+import com.parlor.app.resources.party_standings_policy
+import com.parlor.app.resources.party_standings_row
+import com.parlor.app.resources.party_standings_scored_count
 import com.parlor.app.resources.party_preset_delete
 import com.parlor.app.resources.party_preset_full
 import com.parlor.app.resources.party_preset_heading
@@ -35,10 +39,12 @@ import com.parlor.app.resources.party_rules_back
 import com.parlor.designsystem.components.ParlorButton
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorCard
+import com.parlor.designsystem.localization.asBidiArgument
 import com.parlor.designsystem.theme.ParlorTheme
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PublicPartyPlaylist
+import com.parlor.networking.protocol.PublicPartyScoredSeat
 import com.parlor.session.lobby.PartyGame
 import com.parlor.storage.settings.PartyPlaylistPreset
 import com.parlor.storage.settings.SettingsPersistenceException
@@ -152,7 +158,34 @@ internal fun PartyPlaylistScoreboard(playlist: PublicPartyPlaylist, titles: Map<
             }
         }
     }
+    if (playlist.scores.isNotEmpty()) PartyStandings(playlist)
 }
+
+@Composable
+private fun PartyStandings(playlist: PublicPartyPlaylist) {
+    val standings = remember(playlist.scores) {
+        playlist.scores.flatMap { it.seats }.groupBy(PublicPartyScoredSeat::playerId)
+            .values.map { finishes ->
+                PartyStanding(finishes.last().displayName, finishes.count(PublicPartyScoredSeat::won), finishes.size)
+            }.sortedWith(compareByDescending<PartyStanding> { it.points }.thenBy { it.name })
+    }
+    PartyHeading(stringResource(Res.string.party_standings))
+    ParlorCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(ParlorTheme.spacing.s)) {
+            PartyDetail(stringResource(Res.string.party_standings_policy))
+            PartyDetail(stringResource(
+                Res.string.party_standings_scored_count, playlist.scores.size, playlist.completedMatchIds.size,
+            ))
+            standings.forEach { standing ->
+                PartyDetail(stringResource(
+                    Res.string.party_standings_row, standing.name.asBidiArgument(), standing.points, standing.played,
+                ))
+            }
+        }
+    }
+}
+
+private data class PartyStanding(val name: String, val points: Int, val played: Int)
 
 @Composable
 private fun playlistGameTitle(game: GameProtocolRef, titles: Map<PartyGame, String>): String =

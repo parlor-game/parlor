@@ -328,6 +328,10 @@
     <string name="party_playlist_choose_next">اختر اللعبة التالية</string>
     <string name="party_playlist_complete">اكتملت قائمة اللعب</string>
     <string name="party_playlist_completed_game">المباراة %1$d · اكتملت %2$s</string>
+    <string name="party_standings">الترتيب</string>
+    <string name="party_standings_policy">نقطة واحدة لكل فوز. المباريات غير المحتسبة لا تؤثر على الترتيب.</string>
+    <string name="party_standings_scored_count">احتُسبت %1$d من %2$d مباراة مكتملة</string>
+    <string name="party_standings_row">%1$s · النقاط: %2$d · المباريات: %3$d</string>
     <string name="party_playlist_unknown_game">لعبة غير متاحة</string>
     <string name="party_playlist_retry_return">حاول العودة إلى المجموعة مجددًا</string>
     <string name="party_playlist_retry_return_detail">عُد إلى المجموعة لتسجيل النتيجة.</string>

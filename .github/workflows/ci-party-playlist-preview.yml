@@ -9,6 +9,7 @@ on:
       - 'composeApp/src/commonMain/composeResources/values*/strings.xml'
       - 'composeApp/src/desktopTest/kotlin/com/parlor/app/shell/party/**'
       - 'shared/session/src/common*/kotlin/com/parlor/session/lobby/**'
+      - 'shared/networking/src/common*/kotlin/com/parlor/networking/protocol/**'
 
 permissions:
   contents: read
@@ -49,6 +50,7 @@ jobs:
             sdkmanager --install 'platforms;android-36'
           fi
           ./gradlew \
+            :shared:networking:desktopTest --tests '*RoomMessageCodecTest' \
             :shared:session:desktopTest --tests '*PartyLobbyTest' --tests '*PartyHostRoomBindingTest' \
             :composeApp:desktopTest --tests '*PartyPlaylistJourneyTest' --tests '*PartyLobbyRenderingTest' \
             --dependency-verification=strict --no-daemon --stacktrace --console=plain | tee "$evidence/gradle.log"
@@ -61,5 +63,6 @@ jobs:
             build/party-playlist-evidence/
             composeApp/build/test-results/desktopTest/TEST-*.xml
             shared/session/build/test-results/desktopTest/TEST-*.xml
+            shared/networking/build/test-results/desktopTest/TEST-*.xml
           if-no-files-found: error
           retention-days: 14

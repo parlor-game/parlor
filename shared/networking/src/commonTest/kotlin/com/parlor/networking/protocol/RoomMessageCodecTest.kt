@@ -65,8 +65,12 @@ class RoomMessageCodecTest {
         val games = List(MAX_PARTY_PLAYLIST_MATCHES) { game }
         val settled = games.indices.map { SessionId("a".repeat(32) + "-${it + 10}") }
         val roster = (1..16).map { PublicPartySeat(PlayerId("test-peer-$it"), "Guest $it", true, false, false) }
+        val contenders = List(16) { index ->
+            PublicPartyScoredSeat(PlayerId("participant-$index"), "Player $index", won = index == 0)
+        }
+        val scores = settled.map { PublicPartyMatchScore(it, contenders) }
         val board = PublicPartyLobby(PartyLobbyPhase.Lobby, game, roster, 16, null, 32,
-            playlist = PublicPartyPlaylist(games, settled))
+            playlist = PublicPartyPlaylist(games, settled, scores))
         val snapshot = HostMessage.PartySnapshot(
             PartyProtocolHeader(PARTY_WIRE_VERSION, PartyId("a".repeat(32)), "party-frame-0001", 100),
             100, 1, board,
@@ -75,6 +79,9 @@ class RoomMessageCodecTest {
         assertTrue(wire.size <= MAX_ROOM_FRAME_BYTES)
         assertEquals(snapshot, codec.decode(wire))
         assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games, settled.dropLast(1) + settled.first()) }
+        assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games, settled, scores.reversed()) }
+        assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games, settled, scores + scores.first()) }
+        assertFailsWith<IllegalArgumentException> { PublicPartyMatchScore(settled.first(), List(2) { contenders.first() }) }
         assertFailsWith<IllegalArgumentException> { PublicPartyPlaylist(games + game, emptyList()) }
         assertFailsWith<IllegalArgumentException> { board.copy(matchOrdinal = 31) }
     }

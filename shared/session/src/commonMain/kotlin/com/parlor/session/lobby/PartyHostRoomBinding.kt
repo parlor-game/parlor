@@ -121,10 +121,12 @@ internal class PartyHostRoomBinding(
         host.commitMatch(match)
     }
 
-    suspend fun returnToLobby(match: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> = transactions.withLock {
+    suspend fun returnToLobby(
+        match: SessionId, completed: Boolean = false, winners: Set<PlayerId>? = null,
+    ): Result<PartyLobby, PartyRejection> = transactions.withLock {
         if (active?.first != match) return@withLock Result.Failure(PartyRejection.StaleMatch)
         withContext(NonCancellable) {
-            host.returnToLobby(match, completed).also { result ->
+            host.returnToLobby(match, completed, winners).also { result ->
                 if (result is Result.Success) {
                     active?.second?.leave()
                     active = null

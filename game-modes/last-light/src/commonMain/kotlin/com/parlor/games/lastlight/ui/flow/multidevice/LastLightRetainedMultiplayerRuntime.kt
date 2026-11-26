@@ -98,6 +98,10 @@ internal class LastLightHostRuntime(
     override val isMatchCompleted: Boolean
         get() = rawSession.canonicalState.value.phase == GamePhase.FINISHED
 
+    override val partyMatchWinners: Set<PlayerId>?
+        get() = rawSession.canonicalState.value.takeIf { it.phase == GamePhase.FINISHED }
+            ?.public?.winnerId?.let { setOf(PlayerId(it)) }
+
     override suspend fun terminate(reason: SessionEndReason) = bridge.terminate(reason)
 
     override suspend fun close() {

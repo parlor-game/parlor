@@ -80,8 +80,10 @@ internal class PartyHostCoordinator(
 
     suspend fun commitMatch(match: SessionId) = mutate { it.commitMatch(match) }
 
-    suspend fun returnToLobby(match: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> = mutations.withLock {
-        val returned = lobby.value.returnToLobby(match, completed)
+    suspend fun returnToLobby(
+        match: SessionId, completed: Boolean = false, winners: Set<PlayerId>? = null,
+    ): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val returned = lobby.value.returnToLobby(match, completed, winners)
         if (returned !is Result.Success || matchAdmission == null) return@withLock apply(returned)
         val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match) }
         if (reopened is Result.Failure) return@withLock Result.Failure(reopened.error.toPartyRejection())
@@ -202,7 +204,11 @@ internal fun PartyLobby.publicLobby(): PublicPartyLobby {
         matchOrdinal = matchOrdinal,
         roomName = roomName,
         playlist = playlist?.let { progress ->
-            PublicPartyPlaylist(progress.games.map(PartyGame::protocol), progress.results.map(PartyMatchResult::matchId))
+            PublicPartyPlaylist(
+                progress.games.map(PartyGame::protocol),
+                progress.results.map(PartyMatchResult::matchId),
+                progress.results.mapNotNull(PartyMatchResult::score),
+            )
         },
     )
 }

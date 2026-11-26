@@ -140,7 +140,9 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         private val transition = Mutex()
         private val playing = MutableStateFlow<ProcessMultiplayerSession?>(null)
         private val completedGame = MutableStateFlow<GameId?>(null)
-        private var pendingReturn: SessionEndReason? = null
+        private data class ReturnDecision(val reason: SessionEndReason, val winners: Set<PlayerId>?)
+
+        private var pendingReturn: ReturnDecision? = null
         override val lobby = owner.state.map(PartyLobby::publicLobby)
             .stateIn(scope, SharingStarted.WhileSubscribed(0), owner.state.value.publicLobby())
         override val match = playing.asStateFlow()
@@ -204,11 +206,14 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
             withContext(NonCancellable) {
                 // A transport failure can leave the already-ended match frozen.
                 // Its next return attempt must keep the original terminal decision.
-                val acceptedReason = pendingReturn ?: reason
-                pendingReturn = acceptedReason
-                runtime?.terminate(acceptedReason)
-                val completed = acceptedReason == SessionEndReason.Completed
-                owner.returnToLobby(id, completed).toUnit().also {
+                val decision = pendingReturn ?: ReturnDecision(
+                    reason,
+                    runtime?.partyMatchWinners?.toSet().takeIf { reason == SessionEndReason.Completed },
+                )
+                pendingReturn = decision
+                runtime?.terminate(decision.reason)
+                val completed = decision.reason == SessionEndReason.Completed
+                owner.returnToLobby(id, completed, decision.winners).toUnit().also {
                     if (it is Result.Success) {
                         if (completed) completedGame.value = session.route.gameId
                         try {

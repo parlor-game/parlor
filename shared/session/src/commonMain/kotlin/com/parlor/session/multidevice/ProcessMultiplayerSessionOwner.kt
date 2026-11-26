@@ -1,6 +1,7 @@
 package com.parlor.session.multidevice
 
 import com.parlor.core.ids.GameId
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.networking.protocol.SessionEndReason
@@ -214,6 +215,9 @@ interface RetainedMultiplayerRuntime {
 
     /** Read only the authoritative reducer. Peer runtimes never prove completion. */
     val isMatchCompleted: Boolean get() = false
+
+    /** Only public winners of a terminal host result, or null if the game does not score in Party Night. */
+    val partyMatchWinners: Set<PlayerId>? get() = null
 
     suspend fun terminate(reason: SessionEndReason)
 

@@ -160,6 +160,7 @@ class PartyPlaylistJourneyTest {
             object : RetainedMultiplayerRuntime {
                 override val runtimeKind = "terminal-test"
                 override val isMatchCompleted = true
+                override val partyMatchWinners = setOf(PlayerId("host"))
                 override suspend fun terminate(reason: SessionEndReason) = Unit
                 override suspend fun close() = Unit
             }
@@ -177,6 +178,9 @@ class PartyPlaylistJourneyTest {
                 onNodeWithText("Next game · Egyptian Dominoes").performScrollTo().assertIsDisplayed()
                 onNodeWithText("1 of 2 matches completed").assertExists()
                 onAllNodesWithText("Match 1 · Last Light completed").assertCountEquals(1)
+                onNodeWithText("1 of 1 completed matches scored").assertExists()
+                onAllNodesWithText("Points: 1 · Played: 1", substring = true).assertCountEquals(1)
+                onAllNodesWithText("Points: 0 · Played: 1", substring = true).assertCountEquals(1)
                 onNodeWithText("Edit playlist").assertDoesNotExist()
             }
             onNodeWithText("Select next game").assertDoesNotExist()

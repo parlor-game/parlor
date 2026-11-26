@@ -320,6 +320,10 @@
     <string name="party_playlist_choose_next">Select next game</string>
     <string name="party_playlist_complete">Playlist complete</string>
     <string name="party_playlist_completed_game">Match %1$d · %2$s completed</string>
+    <string name="party_standings">Standings</string>
+    <string name="party_standings_policy">One point per win. Unscored games do not affect standings.</string>
+    <string name="party_standings_scored_count">%1$d of %2$d completed matches scored</string>
+    <string name="party_standings_row">%1$s · Points: %2$d · Played: %3$d</string>
     <string name="party_playlist_unknown_game">Unavailable game</string>
     <string name="party_playlist_retry_return">Retry return to party</string>
     <string name="party_playlist_retry_return_detail">Return to the party to record the result.</string>

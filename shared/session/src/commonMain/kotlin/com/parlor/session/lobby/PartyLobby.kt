@@ -6,6 +6,8 @@ import com.parlor.core.ids.SessionId
 import com.parlor.core.result.Result
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
+import com.parlor.networking.protocol.PublicPartyMatchScore
+import com.parlor.networking.protocol.PublicPartyScoredSeat
 import com.parlor.networking.room.RoomMember
 
 data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) {
@@ -15,8 +17,8 @@ data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) 
     }
 }
 
-/** Host-only receipt for a verified finished match. Per-game scoring is separate. */
-data class PartyMatchResult(val matchId: SessionId, val game: GameProtocolRef)
+/** One host-confirmed result. Games without a standings adapter still complete the playlist. */
+data class PartyMatchResult(val matchId: SessionId, val game: GameProtocolRef, val score: PublicPartyMatchScore? = null)
 
 @ConsistentCopyVisibility
 data class PartyPlaylist internal constructor(
@@ -47,6 +49,7 @@ internal data class PartyMatch(
     val game: GameProtocolRef,
     val roster: Set<PlayerId>,
     val ordinal: Long,
+    val seatNames: Map<PlayerId, String> = emptyMap(),
 )
 
 internal sealed interface PartyPhase {
@@ -147,11 +150,11 @@ internal data class PartyLobby private constructor(
         if (connected.any { it.member.playerId != host && !it.ready }) {
             return Result.Failure(PartyRejection.WaitingForReadiness)
         }
-        val roster = connected.map { it.member.playerId }.toSet()
+        val seatNames = connected.associate { it.member.playerId to it.member.displayName }
         // Each start attempt gets a fresh identity even when its ordinal never commits.
         val matchId = SessionId("${id.raw}-${revision + 1}")
         return Result.Success(copy(
-            phase = PartyPhase.Starting(PartyMatch(matchId, game.protocol, roster, matchOrdinal + 1)),
+            phase = PartyPhase.Starting(PartyMatch(matchId, game.protocol, seatNames.keys, matchOrdinal + 1, seatNames)),
             revision = revision + 1,
         ))
     }
@@ -169,7 +172,9 @@ internal data class PartyLobby private constructor(
         ))
     }
 
-    fun returnToLobby(matchId: SessionId, completed: Boolean = false): Result<PartyLobby, PartyRejection> {
+    fun returnToLobby(
+        matchId: SessionId, completed: Boolean = false, winners: Set<PlayerId>? = null,
+    ): Result<PartyLobby, PartyRejection> {
         val current = when (phase) {
             is PartyPhase.Starting -> phase.match
             is PartyPhase.Playing -> phase.match
@@ -177,9 +182,12 @@ internal data class PartyLobby private constructor(
         }
         if (current.id != matchId) return Result.Failure(PartyRejection.StaleMatch)
         if (completed && phase !is PartyPhase.Playing) return Result.Failure(PartyRejection.InvalidPhase)
+        if (winners != null && (!completed || !current.roster.containsAll(winners))) {
+            return Result.Failure(PartyRejection.UnknownPlayer)
+        }
         val progress = playlist?.let {
             if (completed && it.nextGame != null) {
-                it.copy(results = it.results + PartyMatchResult(current.id, current.game))
+                it.copy(results = it.results + current.result(winners))
             } else {
                 it
             }
@@ -197,6 +205,13 @@ internal data class PartyLobby private constructor(
         val match = (phase as? PartyPhase.Playing)?.match ?: return false
         return match.id == matchId && match.game == target && actor in match.roster &&
             seats[actor]?.member?.connected == true
+    }
+
+    private fun PartyMatch.result(winners: Set<PlayerId>?): PartyMatchResult {
+        val score = winners?.let {
+            PublicPartyMatchScore(id, seatNames.map { (player, name) -> PublicPartyScoredSeat(player, name, player in it) })
+        }
+        return PartyMatchResult(id, game, score)
     }
 
     private fun replaceSeat(seat: PartySeat): PartyLobby =

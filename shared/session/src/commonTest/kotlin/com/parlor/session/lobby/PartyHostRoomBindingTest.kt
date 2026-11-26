@@ -12,6 +12,8 @@ import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
+import com.parlor.networking.protocol.PublicPartyMatchScore
+import com.parlor.networking.protocol.PublicPartyScoredSeat
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
@@ -211,7 +213,7 @@ class PartyHostRoomBindingTest {
             runCurrent()
             assertEquals(Result.Success(Unit), host.configurePlaylist(listOf(mafia, word)))
             assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.selectGame(word))
-            val first = startPlaylistMatch(host, room, sequence = 1)
+            val first = startPlaylistMatch(host, room, sequence = 1, winners = setOf(hostId))
             room.reopenFailures = 1
 
             assertEquals(Result.Failure(PartyRejection.WaitingForReadiness), host.returnToLobby(first))
@@ -223,7 +225,10 @@ class PartyHostRoomBindingTest {
             runCurrent()
             // Retrying from the leave path preserves the first accepted completion.
             assertEquals(Result.Success(Unit), host.returnToLobby(first, SessionEndReason.Cancelled))
-            val firstResult = PartyMatchResult(first, mafia.protocol)
+            val firstScore = PublicPartyMatchScore(
+                first, listOf(PublicPartyScoredSeat(hostId, "Host", true), PublicPartyScoredSeat(playerId, "Peer", false)),
+            )
+            val firstResult = PartyMatchResult(first, mafia.protocol, firstScore)
             assertEquals(listOf(firstResult), host.playlist?.results)
             assertEquals(word, host.playlist?.nextGame)
             assertEquals(Result.Failure(PartyRejection.InvalidPhase), host.start())
@@ -238,6 +243,7 @@ class PartyHostRoomBindingTest {
             val replay = room.sent.drop(priorFrames).filterIsInstance<HostMessage.PartySnapshot>().single()
             assertEquals(word.protocol, replay.lobby.selectedGame)
             assertEquals(listOf(first), replay.lobby.playlist?.completedMatchIds)
+            assertEquals(listOf(firstScore), replay.lobby.playlist?.scores)
             assertEquals(word.protocol, replay.lobby.playlist?.nextGame)
             assertTrue(replay.lobby.members.single { it.playerId == playerId }.connected)
             assertFalse(replay.lobby.members.single { it.playerId == playerId }.ready)
@@ -288,13 +294,17 @@ class PartyHostRoomBindingTest {
         host: ProcessPartySession.Host,
         room: HostRoom,
         sequence: Long,
+        winners: Set<PlayerId>? = null,
     ): SessionId {
         runCurrent()
         val lastRevision = room.sent.filterIsInstance<HostMessage.PartySnapshot>().last().revision
         room.messages.send(ready(sequence, lastRevision))
         runCurrent()
         val session = assertIs<Result.Success<ProcessMultiplayerSession>>(host.start()).data
-        val runtime = CompletionRuntime().apply { isMatchCompleted = true }
+        val runtime = CompletionRuntime().apply {
+            isMatchCompleted = true
+            partyMatchWinners = winners
+        }
         session.getOrCreateRuntime(runtime.runtimeKind) { runtime }
         val id = requireNotNull(room.frozen)
         assertEquals(Result.Success(Unit), host.confirmStarted(id))
@@ -304,12 +314,14 @@ class PartyHostRoomBindingTest {
     private class CompletionRuntime : RetainedMultiplayerRuntime {
         override val runtimeKind = "completion-test"
         override var isMatchCompleted = false
+        override var partyMatchWinners: Set<PlayerId>? = null
         var termination: SessionEndReason? = null
             private set
 
         override suspend fun terminate(reason: SessionEndReason) {
             check(termination == null || termination == reason) { "The terminal reason changed during a retry" }
             termination = reason
+            partyMatchWinners = null
         }
 
         override suspend fun close() = Unit

@@ -1,6 +1,7 @@
 package com.parlor.app.shell.game.multiplayer
 
 import com.parlor.core.ids.CaseId
+import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.core.random.RandomSource
 import com.parlor.core.result.Result
@@ -66,6 +67,9 @@ internal class HostedGameRuntime<S : GameState, A : GameAction, E : GameEvent>(
 
     override val isMatchCompleted: Boolean
         get() = spec.isCompleted(raw.canonicalState.value)
+
+    override val partyMatchWinners: Set<PlayerId>?
+        get() = spec.partyMatchWinners(raw.canonicalState.value)
 
     override suspend fun terminate(reason: SessionEndReason) = bridge.terminate(reason)
     override suspend fun close() {
