@@ -2,8 +2,8 @@
   "candidate": "dec09061e310b84054a6bebb23f9532e8e66c398",
   "pairing": "android",
   "token_digests": [
-    "19f76e57bc2d3a18e8fc557cd66c6fddb94f8ca6930efee3bfc727de0fd87997",
-    "d6d271558083ef87749a42b16e1d333f395c707a060c916e22a05abc73fdab17"
+    "b754d397cef21fab0bf0050d714f865d4ff8fd3a999a1737efa6a61f58ba37a6",
+    "548062ced5d75a091035696455a3c3ed357c04955c7cd13c8f5aa6cd234c9313"
   ],
   "observe_reconnect": false,
   "visible_ios_window": false,

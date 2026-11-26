@@ -209,8 +209,8 @@ def wait_for_wifi_addresses(devices, seconds=35):
     while True:
         try:
             return current_wifi_addresses(devices)
-        except ValueError as error:
-            # DHCP can briefly have no address after reconnecting an emulator.
+        except (ValueError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+            # DHCP and adb can take a moment to settle after reassociation.
             if time.monotonic() >= deadline:
                 raise ValueError("Distinct guest Wi-Fi addresses did not settle") from error
             time.sleep(2)
@@ -222,13 +222,21 @@ def probe_wifi(addresses):
         for peer in addresses:
             if source == peer:
                 continue
-            reply = subprocess.run(
-                ["adb", "-s", source, "shell", "ping", "-I", "wlan0", "-c", "3", "-W", "2",
-                 str(addresses[peer].ip)], capture_output=True, text=True, timeout=12,
-            )
-            match = re.search(r"3 packets transmitted, (\d+) (?:packets )?received", reply.stdout)
-            probes.append({"from": source, "to": peer, "sent": 3,
-                           "received": int(match[1]) if match else 0})
+            probe = {"from": source, "to": peer, "sent": 3, "received": 0}
+            try:
+                reply = subprocess.run(
+                    ["adb", "-s", source, "shell", "ping", "-I", "wlan0", "-c", "3", "-W", "2",
+                     str(addresses[peer].ip)], capture_output=True, text=True, timeout=12,
+                )
+            except subprocess.TimeoutExpired:
+                # A silent adb probe is a missed direction. Keep the evidence
+                # and let the existing single reassociation handle it.
+                probe["status"] = "ADB_TIMEOUT"
+            else:
+                match = re.search(r"3 packets transmitted, (\d+) (?:packets )?received", reply.stdout)
+                probe["received"] = int(match[1]) if match else 0
+                probe["status"] = "COMPLETE" if match else "NO_PING_SUMMARY"
+            probes.append(probe)
     return probes
 
 
