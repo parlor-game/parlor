@@ -1225,7 +1225,7 @@ def verify_validation(text: str) -> None:
                  '-Xlog:gc:file=$PWD/build/ci-evidence/ios-release-gc-%p.log'
                  ':uptime,level,tags:filecount=1,filesize=1m"')
     profile_block = ('          if [[ "$PARLOR_PROFILE_RELEASE_NATIVE" == true ]]; then\n' + native_timing +
-                     "\n" + gc_timing + "\n          fi\n          xcodebuild")
+                     "\n" + gc_timing + "\n          fi\n")
     if (profile_input + "\n" not in text.split("\nconcurrency:", 1)[0] or profile_scope not in wrapper.splitlines() or
             profile_block not in wrapper or text.count("parlor.profileIosReleaseLink=true") != 1 or
             text.count("PARLOR_PROFILE_RELEASE_NATIVE") != 2 or text.count("ios-release-gc-%p.log") != 1):

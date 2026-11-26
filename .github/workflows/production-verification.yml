@@ -27,6 +27,10 @@ on:
         description: Capture detailed Kotlin/Native phases for the simulator Release wrapper
         type: boolean
         default: false
+      compare_static_initializers:
+        description: Experimental simulator-only timing with redundant initializer elimination disabled (non-main ref)
+        type: boolean
+        default: false
       native_selection:
         description: Native lanes, Settings, OS recovery, or protection diagnostics (explicit approval)
         type: choice
@@ -1361,11 +1365,16 @@ jobs:
         shell: bash
         env:
           PARLOR_PROFILE_RELEASE_NATIVE: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'full' && inputs.profile_release_native == true }}
+          PARLOR_COMPARE_STATIC_INITIALIZERS: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'full' && inputs.profile_release_native == true && inputs.compare_static_initializers == true && github.ref_name != 'main' }}
         run: |
           set -euo pipefail
           if [[ "$PARLOR_PROFILE_RELEASE_NATIVE" == true ]]; then
             export GRADLE_OPTS="$GRADLE_OPTS -Dorg.gradle.project.kotlin.internal.compiler.arguments.log.level=warning -Dorg.gradle.project.parlor.profileIosReleaseLink=true"
             export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Xlog:gc:file=$PWD/build/ci-evidence/ios-release-gc-%p.log:uptime,level,tags:filecount=1,filesize=1m"
+          fi
+          if [[ "$PARLOR_COMPARE_STATIC_INITIALIZERS" == true ]]; then
+            export GRADLE_OPTS="$GRADLE_OPTS -Dorg.gradle.project.parlor.compareIosStaticInitializerPass=true"
+            printf '%s\n' 'EXPERIMENT_ONLY: redundant static-initializer elimination disabled for unsigned simulator' | tee build/ci-evidence/ios-native-experiment.txt
           fi
           xcodebuild \
             -showBuildTimingSummary \
