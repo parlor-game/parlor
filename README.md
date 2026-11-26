@@ -32,3 +32,8 @@ before archiving the Release runtime experiment at `c1850dda`. Its source is
 an explicit parent of this archive. The benchmark ref remains the source
 of [Production verification run 45784196286](https://github.com/parlor-game/parlor/actions/runs/45784196286).
 This archive update preserves the source and does not establish a test result.
+
+`branches-with-party-night-integration.tsv` records the Party Night
+integration at `c5b41d1b`, preserved as a parent of the archive.
+The prior installed verification applies to `0b13c789`. The integrated
+revision has its own [focused Desktop run 45785588407](https://github.com/parlor-game/parlor/actions/runs/45785588407).
