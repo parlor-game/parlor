@@ -1,0 +1,22 @@
+ref	verified-tip	status	reason
+archive/branches-2026-11-20	d579886f0209a87f59043da99f1a3ca45381154d	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
+diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
+diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
+diagnostic/ios-xcresult-review-2026-10-29	b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	kept	Retained iOS XCTest evidence extraction route for #276
+diagnostic/pr355-arabic-join	5c6d94343faf8d83a8aa0debce9519a00b58760c	deleted-from-remote	Completed PR #355 probe preserved for replay by SHA
+diagnostic/xcode-worker-inventory-2026-10-29	febe91cef00a5f7f63c1560cc9757e711844c166	kept	Hosted Xcode worker/runtime capability route for #267 and #276
+docs/smart-lobby-plan	a4c1f70c81c1713ad92cfbeeb156ac7f7a8bc96e	deleted-from-remote	Reviewed ADR and original plan preserved under its exact approved SHA
+feat/last-light	afe783838461afae1029f0369280a1bafadc395f	kept	Pinned GitHub distribution and GitHub test release workflow target
+fix/input-diagnostic-integration-2026-10-29	458a63e7901de7a2661a7c042a41f1693c09c97c	kept	Branch-specific iOS input investigation workflow
+fix/ios-complete-protection-readback-2026-11-04	7d4907ecea59741c3e81e1bdf4a897c64118501a	kept	Unmerged iOS storage-protection candidate blocked on native #258 qualification
+main	0c1b824158884857f15b69e56bebb933e2ec9134	kept	Protected production source at merged PR #361
+perf/android-api34-cold-timing	7bb57fda3ab4594fda627e0f938765354eafc0f1	archive-only	Completed API 34 diagnosis. Exact control, selection and process-exit traces are reproducible by archive SHA
+perf/android-verification-parallel	8d04ab01156598f452d4f5bfa987f6286c124b40	kept	Active focused #342 study of parallel Android validation
+release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
+test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
+test/smart-lobby-native-ui	0f9759fae4f572679f03dea77fa0d050552afd8b	kept	Active two-device qualification harness for #350 and #357
+test/smart-lobby-reconnect-observability	b72e7124a93fed40a0c7bf212893389d81f3c6bc	kept	Unmerged transport trace for outstanding native reconnection coverage
+test/smart-lobby-whodunit-candidate	997096d96366d83fa8fe25638264d0d55224fb52	kept	Exact release input for the two outstanding six-iOS Whodunit replays in #357
+testing	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Testing workflows and promotion target
+work/party-night-main-integration	eddc1b1f773be8499e05464e08e2b51937f3957a	kept	Active Party Night integration for #350 and #351
