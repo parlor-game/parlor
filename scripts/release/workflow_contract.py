@@ -897,6 +897,8 @@ def verify_apple_runtime_isolation(text: str) -> None:
     expected_launch = r'''if: ''' + FULL_VERIFICATION_SCOPE + r'''
         id: apple_ui_run
         shell: bash
+        env:
+          PARLOR_VALIDATE_INITIALIZER_RUNTIME: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'full' && inputs.profile_release_native == true && inputs.compare_static_initializers == true && inputs.apple_release_runner == 'arm64' && github.ref_name != 'main' }}
         run: |
           set -euo pipefail
           # Never run settings/destructive fixtures in an existing simulator profile.
@@ -913,7 +915,10 @@ def verify_apple_runtime_isolation(text: str) -> None:
             -destination-timeout 120 \
             -derivedDataPath build/xcode-derived-data \
             -resultBundlePath build/ci-evidence/ios-ui-tests.xcresult \
-            test | tee build/ci-evidence/xcode-ui-test.log'''
+            test | tee build/ci-evidence/xcode-ui-test.log
+          if [[ "$PARLOR_VALIDATE_INITIALIZER_RUNTIME" == true ]]; then
+            bash scripts/ci/ios_release_initializer_runtime.sh "$simulator_udid"
+          fi'''
     if launch.strip() != expected_launch:
         fail("verification scope runtime isolation must retain the exact complete original Swift command")
 
