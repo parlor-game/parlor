@@ -26,15 +26,25 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: Restore reviewed Gradle dependencies
+        id: dependencies
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
       - name: Verify the affected session and Compose journeys
         env:
           GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+          GRADLE_CACHE_KEY: ${{ steps.dependencies.outputs.cache-matched-key }}
         run: |
           set -euo pipefail
           evidence=build/party-playlist-evidence
           mkdir -p "$evidence"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git rev-parse HEAD HEAD^{tree} > "$evidence/source.txt"
+          printf '%s\n' "$GRADLE_CACHE_KEY" > "$evidence/dependency-cache-key.txt"
           if [[ ! -d "$ANDROID_HOME/platforms/android-36" ]]; then
             sdkmanager --install 'platforms;android-36'
           fi
