@@ -37,3 +37,8 @@ This archive update preserves the source and does not establish a test result.
 integration at `c5b41d1b`, preserved as a parent of the archive.
 The prior installed verification applies to `0b13c789`. The integrated
 revision has its own [focused Desktop run 45785588407](https://github.com/parlor-game/parlor/actions/runs/45785588407).
+
+`branches-with-workflow-contract-preview.tsv` records the initializer
+benchmark's targeted contract correction at `08d853e6`. The exact
+Release runtime experiment source remains `c1850dda`. The scoped Linux
+check is [run 45787194920](https://github.com/parlor-game/parlor/actions/runs/45787194920).
