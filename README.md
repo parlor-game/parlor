@@ -26,3 +26,9 @@ inventory. The simulator-only Kotlin/Native experiment at 0ef20ab6 is
 preserved as an archive parent. It rebuilt the unsigned simulator wrapper
 in 27m58s including setup and packaging. The optimized app was not run by
 the Debug Swift-host test lane, so the flag was not promoted to main.
+
+`branches-with-initializer-runtime.tsv` records the remote branch snapshot
+before archiving the Release runtime experiment at `c1850dda`. Its source is
+an explicit parent of this archive. The benchmark ref remains the source
+of [Production verification run 45784196286](https://github.com/parlor-game/parlor/actions/runs/45784196286).
+This archive update preserves the source and does not establish a test result.
