@@ -1,0 +1,25 @@
+{
+  "app_sha": "eddc1b1f773be8499e05464e08e2b51937f3957a",
+  "app_tree": "ce48c2a7d519a16894dd4994dae682e90720b220",
+  "harness_sha": "0f9759fae4f572679f03dea77fa0d050552afd8b",
+  "runner_workflow": 45832815080,
+  "jobs": {
+    "android": 139953886481,
+    "ios": 139953886588
+  },
+  "checksums": {
+    "android-1-terminal.png": "b58857e30e1eae46aa765d9772ff84e2e3e51f2860522c0b76ac09d95d68b93c",
+    "ios-1-terminal.png": "a49e4bcaf83a827e30bde5420e0eb666e837acfca47a029c9c4fee0dfbd2e61c",
+    "android-playlist-reordered.png": "6acbdb89caf8c3154333bc410753899a0d0db574a826caef700d53e8d9df7eb9",
+    "ios-playlist-reordered.png": "ef068853d1aff095f37946f08a703df5cba8dd52d9acab22264f9c4b544692a6",
+    "android-playlist-rejoined.png": "2efebe5f2b4933d9fdbf2db6b8627861f04a07108e55ea627769dd55a8f0bc0c",
+    "ios-playlist-rejoined.png": "d045ddac38cf332e56d74315b407a347d9f4067313fe48067866886e014ee021",
+    "terminal-comparison.json": "8231217eb95700722ecd8711a941963eafb88448d6544f422433f6c948324ba9",
+    "playlist-initial.json": "86317619a6e48ba576b73294d84f67ffcb833db3ef8d9b81ed1d60db539e66d3",
+    "playlist-reordered.json": "2b8f5aa1d98f6ac076678823a0aee703d159d208340dcbb140516c7004ee59a0",
+    "playlist-completed.json": "aeffe38a0e1a13f8c554b2a175e0239ff43ab0e81ec2dbf39cc3907c029fa0f4",
+    "playlist-rejoined.json": "aeffe38a0e1a13f8c554b2a175e0239ff43ab0e81ec2dbf39cc3907c029fa0f4",
+    "last-light-actions.log": "616066cd092b16d6f67c18ef8d1c080d6e3b427ef8ede52b815abc40ca27b56e"
+  },
+  "scope": "Two independently installed apps. Last Light terminal winner, playlist edit and guest process restart."
+}

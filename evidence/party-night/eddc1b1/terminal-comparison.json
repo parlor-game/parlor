@@ -1,0 +1,9 @@
+{
+  "winner": "HostQA wins.",
+  "round": 5,
+  "verification": "Direct inspection of independent installed result screenshots",
+  "platforms": [
+    "android",
+    "ios"
+  ]
+}
