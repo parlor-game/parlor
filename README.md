@@ -51,3 +51,13 @@ tests only the affected room lobby rendering on that source.
 `branches-with-party-completion-preview.tsv` records the source of
 [run 45789071111](https://github.com/parlor-game/parlor/actions/runs/45789071111),
 which tests only the changed Whodunit and Mafia Party-completion guards.
+
+`branches-with-kotlin-2421-preview.tsv` records the November 26 remote
+inventory. The strict-resolution and Apple Release-link candidate at
+`2f05f06f` is an explicit archive parent.
+[Hosted preview 45802657786](https://github.com/parlor-game/parlor/actions/runs/45802657786)
+records validation separately from this source archive.
+
+`branches-retired-2026-11-26.tsv` lists the three benchmark and preview
+refs retired after their exact tips were verified in the archive.
+Recover them with the same object-ID restoration command above.
