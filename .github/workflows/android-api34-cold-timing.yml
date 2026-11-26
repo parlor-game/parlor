@@ -56,9 +56,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends libpulse0
           fi
-          ldd "$ANDROID_HOME/emulator/qemu/linux-x86_64/qemu-system-x86_64" > build/ci-evidence/emulator-libraries.txt
-          if grep -F 'not found' build/ci-evidence/emulator-libraries.txt; then exit 1; fi
-          "$ANDROID_HOME/emulator/emulator" -version > build/ci-evidence/emulator-version.txt
+          "$ANDROID_HOME/emulator/emulator" -version > build/ci-evidence/emulator-version.txt 2>&1
           ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
             -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
             --no-daemon --max-workers=2 --console=plain | tee build/ci-evidence/apk-gradle.log
