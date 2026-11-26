@@ -28,7 +28,7 @@ jobs:
           # accepted review baseline, so this job needs that history.
           fetch-depth: 0
           persist-credentials: false
-          ref: 8942e9be1ee025f8a649b8e1252701b9fb55032a
+          ref: 2453a32743103b444820640ab36370f26050e7ac
       - name: Set up JDK 21
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
@@ -99,7 +99,7 @@ jobs:
           DEPENDENCY_CACHE_KEY: ${{ steps.dependency_cache.outputs.cache-matched-key }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "8942e9be1ee025f8a649b8e1252701b9fb55032a"
+          test "$(git rev-parse HEAD)" = "2453a32743103b444820640ab36370f26050e7ac"
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
           git rev-parse HEAD HEAD^{tree} > build/ci-evidence/source.txt
