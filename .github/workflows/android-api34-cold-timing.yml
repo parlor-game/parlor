@@ -1,0 +1,69 @@
+name: Android API 34 cold start timing
+
+on:
+  push:
+    branches: [perf/android-api34-cold-timing]
+    paths:
+      - .github/workflows/android-api34-cold-timing.yml
+      - scripts/android/release_cold_probe.py
+
+permissions:
+  contents: read
+
+jobs:
+  navigation-cold-boot:
+    name: API 34 cold boot and full Debug test roster
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Restore reviewed Gradle dependencies
+        id: dependencies
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+      - name: Prepare the pinned API 34 image and exact APK pair
+        env:
+          GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+          GRADLE_CACHE_KEY: ${{ steps.dependencies.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --quiet
+          mkdir -p build/ci-evidence
+          git rev-parse HEAD HEAD^{tree} > build/ci-evidence/source.txt
+          printf '%s\n' "$GRADLE_CACHE_KEY" > build/ci-evidence/dependency-cache-key.txt
+          test -c /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+          image=$(jq -r '.toolchains.android_navigation_device.system_image_package' config/release-policy.json)
+          test "$image" = 'system-images;android-34;google_apis;x86_64'
+          /usr/bin/timeout --signal=TERM --kill-after=10s 600s \
+            "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
+            "platforms;android-36" "build-tools;36.0.0" "platform-tools" "emulator" "$image"
+          ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
+            -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
+            --no-daemon --max-workers=2 --console=plain | tee build/ci-evidence/apk-gradle.log
+      - name: Measure the existing cold boot diagnostic
+        run: |
+          set -euo pipefail
+          python3 -B scripts/android/supervise_managed_device.py \
+            --receipt build/ci-evidence/android-debug-cold-supervision.json \
+            --isolated-avd -- python3 -B -m scripts.android.release_cold_probe --variant debug
+      - name: Upload timing, instrumentation, and cleanup evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-api34-cold-timing
+          path: build/ci-evidence/
+          if-no-files-found: error
+          retention-days: 14
