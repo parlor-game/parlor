@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 
 GOOGLE_MAVEN = "https://dl.google.com/dl/android/maven2/"
 MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/"
+MAVEN_CENTRAL_ALTERNATE = "https://repo1.maven.org/maven2/"
 GOOGLE_INDEXES = ("master-index.xml", "androidx/navigation3/group-index.xml")
 CENTRAL_CACHE = "maven-versions/repo1.maven.org/"
 INVENTORY = "config/android-lint-accepted-warnings.txt"
@@ -49,6 +50,21 @@ def fetch_once(url):
     if not raw or len(raw) > MAX_BYTES:
         raise ValueError("Official index outside size bound")
     return raw
+
+
+def fetch_index(url, download):
+    try:
+        return url, download(url)
+    except urllib.error.HTTPError as error:
+        print(f"Official lint index HTTP {error.code}: {url}", file=sys.stderr)
+        if error.code != 404 or error.geturl() != url or not url.startswith(MAVEN_CENTRAL):
+            raise
+        error.close()
+    # Both canonical HTTPS endpoints serve the same Central repository. Keep
+    # the coordinate and its validation identical when one edge returns 404.
+    alternate = MAVEN_CENTRAL_ALTERNATE + url[len(MAVEN_CENTRAL):]
+    print(f"Trying the alternate Central endpoint: {alternate}", file=sys.stderr)
+    return alternate, download(alternate)
 
 
 def document(raw):
@@ -150,12 +166,13 @@ def prepare(root, download=fetch):
     # Keep one request in flight per repository. If an origin is rate
     # limiting, its bounded retry also pauses later requests to that origin.
     def fetch_repository(paths):
-        return {path: download(urls[path]) for path in paths}
+        return {path: fetch_index(urls[path], download) for path in paths}
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         google = pool.submit(fetch_repository, google_paths)
         maven = pool.submit(fetch_repository, central)
-        raw = google.result() | maven.result()
+        fetched = google.result() | maven.result()
+    raw = {path: data for path, (_, data) in fetched.items()}
     latest = validate(*(raw[path] for path in google_paths), current)
     for path, coordinate in central.items():
         validate_central(raw[path], *coordinate)
@@ -173,7 +190,7 @@ def prepare(root, download=fetch):
     receipt = dict(schema=2, source_head=os.environ.get("GITHUB_SHA"),
                    source_catalog_sha256=hashlib.sha256(catalog_bytes).hexdigest(),
                    lint="32.1.1", agp="8.13.2", current=current, latest_observed=latest,
-                   inputs=[dict(path=name, url=urls[name], bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+                   inputs=[dict(path=name, url=fetched[name][0], bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
                            for name, data in raw.items()],
                    result="PASS_LIVE_REPOSITORY_INPUTS_NOT_LINT_QUALIFICATION")
     encoded = (json.dumps(receipt, indent=2) + "\n").encode()

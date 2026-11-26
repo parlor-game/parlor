@@ -199,6 +199,56 @@ class AndroidLintRepositoryTest(unittest.TestCase):
             self.assertEqual([first], central_calls)
             self.assertFalse((root / "composeApp/build").exists())
 
+    def test_central_404_uses_and_records_the_canonical_alternate(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        alternate = subject.MAVEN_CENTRAL_ALTERNATE + CENTRAL_PATH
+        missing = subject.urllib.error.HTTPError(primary, 404, "Not Found", None, None)
+        with tempfile.TemporaryDirectory() as name:
+            root = self.fixture(Path(name))
+            calls = []
+
+            def download(url):
+                calls.append(url)
+                if url == primary:
+                    raise missing
+                if url == alternate:
+                    return CENTRAL
+                return URL_RESPONSES[url]
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = subject.prepare(root, download)
+            self.assertCountEqual([*URL_RESPONSES, alternate], calls)
+            self.assertLess(calls.index(primary), calls.index(alternate))
+            self.assertEqual(alternate, result["inputs"][-1]["url"])
+
+    def test_lint_inputs_stay_invalid_when_the_alternate_is_missing_or_wrong(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        alternate = subject.MAVEN_CENTRAL_ALTERNATE + CENTRAL_PATH
+        for alternate_response in (None, MASTER):
+            with tempfile.TemporaryDirectory() as name:
+                root = self.fixture(Path(name))
+
+                def download(url):
+                    if url == alternate and alternate_response is not None:
+                        return alternate_response
+                    if url in (primary, alternate):
+                        raise subject.urllib.error.HTTPError(url, 404, "Not Found", None, None)
+                    return URL_RESPONSES[url]
+
+                failure = ValueError if alternate_response is not None else subject.urllib.error.HTTPError
+                with self.assertRaises(failure):
+                    subject.prepare(root, download)
+                self.assertFalse((root / "composeApp/build").exists())
+
+    def test_alternate_requires_an_unredirected_maven_central_404(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        google = subject.GOOGLE_MAVEN + subject.GOOGLE_INDEXES[0]
+        for url, response_url in ((google, google), (primary, "https://example.com/index")):
+            error = subject.urllib.error.HTTPError(response_url, 404, "Not Found", None, None)
+            with patch.object(subject, "fetch", side_effect=error) as download, self.assertRaises(type(error)):
+                subject.fetch_index(url, download)
+            download.assert_called_once_with(url)
+
     def fixture(self, root):
         (root / "gradle").mkdir()
         (root / "config").mkdir()
