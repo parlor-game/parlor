@@ -1,21 +1,21 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	a8fff575e9fb248cd62cdbcec733a451c3107678	kept	Single archive. This lists the previous archive parent before this inventory commit.
+archive/branches-2026-11-20	4ef39413b7c645b691f3ee69f3c269fdb12cd1dd	kept	Single archive. Listed SHA is the prior archive parent before this inventory commit.
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
 diagnostic/ios-xcresult-review-2026-10-29	b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	kept	Retained iOS XCTest evidence extraction route for #276
 diagnostic/pr355-arabic-join	5c6d94343faf8d83a8aa0debce9519a00b58760c	deleted-from-remote	Completed PR #355 probe preserved for replay by SHA
-diagnostic/pr362-rationale-tap	6f513f6a322fae1827cde92d41372d1a813eb10c	kept	Preserve focused Swift callback and lint index qualification harness while #362 is open.
+diagnostic/pr362-rationale-tap	6f513f6a322fae1827cde92d41372d1a813eb10c	kept	Finished PR #362 diagnostics archived at this exact tip. Awaiting explicit retirement confirmation and post-merge verification.
 diagnostic/xcode-worker-inventory-2026-10-29	febe91cef00a5f7f63c1560cc9757e711844c166	kept	Hosted Xcode worker/runtime capability route for #267 and #276
 docs/smart-lobby-plan	a4c1f70c81c1713ad92cfbeeb156ac7f7a8bc96e	deleted-from-remote	Reviewed ADR and original plan preserved under its exact approved SHA
 feat/last-light	afe783838461afae1029f0369280a1bafadc395f	kept	Pinned GitHub distribution and GitHub test release workflow target
-fix/ci-lint-index-rate-limit	5ea38e635eaae71585a830402749f16c0beda69e	kept	Open protected PR #362. Exact Production verification 45876105935.
+fix/ci-lint-index-rate-limit	297f5f7aac171125d619681cad5d9d1a658ceea9	kept	Merged by PR #362. Tip in main and archive. Awaiting explicit retirement confirmation and post-merge verification.
 fix/input-diagnostic-integration-2026-10-29	458a63e7901de7a2661a7c042a41f1693c09c97c	kept	Branch-specific iOS input investigation workflow
 fix/ios-complete-protection-readback-2026-11-04	7d4907ecea59741c3e81e1bdf4a897c64118501a	kept	Unmerged iOS storage-protection candidate blocked on native #258 qualification
-main	0c1b824158884857f15b69e56bebb933e2ec9134	kept	Protected production source at merged PR #361
+main	66eaecd96d37cfb596d33feb354f95418f1e72fa	kept	Protected main after PR #362. Post-merge Production verification 45894297619.
 perf/android-api34-cold-timing	7bb57fda3ab4594fda627e0f938765354eafc0f1	deleted-from-remote	Completed API 34 diagnosis. Exact control, selection and process-exit traces are reproducible by archive SHA
 perf/android-api34-lavapipe	16a0b290e545460b1c3e85892c5a9e720e9c4afa	deleted-from-remote	Completed hosted 35-test comparison 45851460650; exact source is preserved and managed follow-up has its own active ref
-perf/android-verification-parallel	2329d9bfbcfda4c354b75ccc8de81b9c94e651e8	kept	Preserve both successful isolated managed Android renderer results for #342.
+perf/android-verification-parallel	6b467291481d825f7dac628cfb352e904400e824	kept	Finished PR #362 renderer comparisons archived at this exact tip. Awaiting explicit retirement confirmation and post-merge verification.
 perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	kept	Active isolated ARM64 device and x64 simulator link timing for #342
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
 test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
