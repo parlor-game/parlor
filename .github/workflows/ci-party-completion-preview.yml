@@ -1,19 +1,19 @@
-name: Lobby rules Desktop preview
+name: Party match completion preview
 
 on:
   push:
     branches: [work/party-night-main-integration]
     paths:
-      - .github/workflows/ci-lobby-rules-preview.yml
-      - composeApp/src/commonMain/kotlin/com/parlor/app/shell/game/multiplayer/RoomGameLobbyUi.kt
-      - composeApp/src/desktopTest/kotlin/com/parlor/app/shell/game/multiplayer/RoomGameLobbyRenderingTest.kt
+      - .github/workflows/ci-party-completion-preview.yml
+      - 'game-modes/mafia/src/**'
+      - 'game-modes/whodunit/src/**'
 
 permissions:
   contents: read
 
 jobs:
-  lobby:
-    name: Room lobby rules and responsive actions
+  completion:
+    name: Mafia and Whodunit match completion
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -26,7 +26,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Verify the redesigned lobby and rule restoration
+      - name: Verify the affected game completion suites
         env:
           GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
         run: |
@@ -34,13 +34,17 @@ jobs:
           if [[ ! -d "$ANDROID_HOME/platforms/android-36" ]]; then
             sdkmanager --install 'platforms;android-36'
           fi
-          ./gradlew :composeApp:desktopTest --tests '*RoomGameLobbyRenderingTest' \
+          ./gradlew \
+            :game-modes:mafia:desktopTest --tests '*MafiaReducerEdgeCasesTest' \
+            :game-modes:whodunit:desktopTest --tests '*ContinueWithoutPlayerTest' \
             --dependency-verification=strict --no-daemon --stacktrace --console=plain
-      - name: Retain lobby JUnit reports
+      - name: Retain game completion JUnit reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: lobby-rules-desktop-preview
-          path: composeApp/build/test-results/desktopTest/TEST-*.xml
+          name: party-match-completion-preview
+          path: |
+            game-modes/mafia/build/test-results/desktopTest/TEST-*.xml
+            game-modes/whodunit/build/test-results/desktopTest/TEST-*.xml
           if-no-files-found: warn
           retention-days: 14
