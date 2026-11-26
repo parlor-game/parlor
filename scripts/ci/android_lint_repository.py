@@ -8,6 +8,7 @@ import re
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -25,6 +26,22 @@ CATALOG_UPDATE = re.compile(
 
 
 def fetch(url):
+    try:
+        return fetch_once(url)
+    except urllib.error.HTTPError as error:
+        if error.code != 429 or error.geturl() != url:
+            raise
+        retry_after = error.headers.get("Retry-After", "") if error.headers else ""
+        if retry_after and (not re.fullmatch(r"[0-9]{1,2}", retry_after) or int(retry_after) > 20):
+            raise
+        error.close()
+    # Live lint inputs stay mandatory. Give an official endpoint one bounded
+    # opportunity to recover from rate limiting without restarting the job.
+    time.sleep(max(5, int(retry_after or "0")))
+    return fetch_once(url)
+
+
+def fetch_once(url):
     with urllib.request.urlopen(url, timeout=20) as response:
         if response.status != 200 or response.geturl() != url:
             raise ValueError("Unexpected official index response")

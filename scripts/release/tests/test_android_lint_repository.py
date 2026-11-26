@@ -1,4 +1,5 @@
 import contextlib
+from email.message import Message
 import io
 import json
 from pathlib import Path
@@ -119,7 +120,7 @@ class AndroidLintRepositoryTest(unittest.TestCase):
                 subject.prepare(root, URL_RESPONSES.__getitem__)
             self.assertFalse(list((root / "gradle").glob("lint-repository-inputs-*.json")))
 
-    def test_fetch_is_single_bounded_official_request_without_redirect_or_retry(self):
+    def test_fetch_enforces_the_fresh_official_url_and_response_size(self):
         class Response:
             status = 200
             def __init__(self, url, raw=MASTER):
@@ -142,6 +143,40 @@ class AndroidLintRepositoryTest(unittest.TestCase):
         for invalid in (Response("https://example.com/index"), Response(url, b''), Response(url, b'x' * (subject.MAX_BYTES + 1))):
             with patch.object(subject.urllib.request, "urlopen", return_value=invalid), self.assertRaises(ValueError):
                 subject.fetch(url)
+
+    def test_fetch_retries_only_an_official_429_and_uses_the_fresh_response(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        headers = Message()
+        headers["Retry-After"] = "12"
+        limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", headers, None)
+        with patch.object(subject, "fetch_once", side_effect=[limited, CENTRAL]) as download, \
+                patch.object(subject.time, "sleep") as delay:
+            self.assertEqual(CENTRAL, subject.fetch(url))
+            self.assertEqual([((url,), {}), ((url,), {})], download.call_args_list)
+            delay.assert_called_once_with(12)
+
+    def test_repeated_429_exhausts_the_single_retry(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+        with patch.object(subject, "fetch_once", side_effect=[limited, limited]) as download, \
+                patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
+            subject.fetch(url)
+        self.assertEqual(2, download.call_count)
+        delay.assert_called_once_with(5)
+
+    def test_fetch_refuses_other_errors_redirects_and_unbounded_retry_after(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        for status, response_url, wait in ((404, url, ""), (429, "https://example.com/index", ""),
+                                           (429, url, "120"), (429, url, "later")):
+            headers = Message()
+            headers["Retry-After"] = wait
+            error = subject.urllib.error.HTTPError(response_url, status, "Rejected", headers, None)
+            with self.subTest(status=status, response_url=response_url, wait=wait), \
+                    patch.object(subject, "fetch_once", side_effect=error) as download, \
+                    patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
+                subject.fetch(url)
+            download.assert_called_once_with(url)
+            delay.assert_not_called()
 
     def fixture(self, root):
         (root / "gradle").mkdir()
