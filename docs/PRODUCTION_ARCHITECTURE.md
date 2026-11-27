@@ -64,7 +64,9 @@ admission, reconnect, ordering, or a P2pKit instance.
 The host is the sole authority. Peers never run a reducer to predict canonical
 state.
 
-Standalone game rooms use wire protocol `4.3`. Party rooms use wire protocol
+**Standalone game rooms.** Runtime protocol: `4.3`.
+
+Party rooms use wire protocol
 `5.0` and have their own room and admission context. The process-owned Party
 keeps approved seats across matches. Each match receives a room view scoped to
 its match identity and game. See [ADR-0003](adr/0003-game-room-and-party-boundaries.md).
