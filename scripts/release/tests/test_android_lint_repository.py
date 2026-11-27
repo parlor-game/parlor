@@ -155,14 +155,24 @@ class AndroidLintRepositoryTest(unittest.TestCase):
             self.assertEqual([((url,), {}), ((url,), {})], download.call_args_list)
             delay.assert_called_once_with(12)
 
-    def test_repeated_429_exhausts_the_single_retry(self):
+    def test_retry_can_recover_after_two_central_429_responses(self):
         url = subject.MAVEN_CENTRAL + CENTRAL_PATH
         limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
-        with patch.object(subject, "fetch_once", side_effect=[limited, limited]) as download, \
-                patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
-            subject.fetch(url)
-        self.assertEqual(2, download.call_count)
-        delay.assert_called_once_with(5)
+        with patch.object(subject, "fetch_once", side_effect=[limited, limited, CENTRAL]) as download, \
+                patch.object(subject.time, "sleep") as delay:
+            self.assertEqual(CENTRAL, subject.fetch(url))
+        self.assertEqual([((url,), {})] * 3, download.call_args_list)
+        self.assertEqual([((5,), {}), ((30,), {})], delay.call_args_list)
+
+    def test_repeated_429_exhausts_the_origin_specific_budget(self):
+        for url, delays in ((subject.MAVEN_CENTRAL + CENTRAL_PATH, (5, 30)),
+                            (subject.GOOGLE_MAVEN + subject.GOOGLE_INDEXES[0], (5,))):
+            limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+            with self.subTest(url=url), patch.object(subject, "fetch_once", side_effect=limited) as download, \
+                    patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
+                subject.fetch(url)
+            self.assertEqual([((url,), {})] * (len(delays) + 1), download.call_args_list)
+            self.assertEqual([((seconds,), {}) for seconds in delays], delay.call_args_list)
 
     def test_fetch_refuses_other_errors_redirects_and_unbounded_retry_after(self):
         url = subject.MAVEN_CENTRAL + CENTRAL_PATH

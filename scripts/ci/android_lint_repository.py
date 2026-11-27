@@ -27,18 +27,20 @@ CATALOG_UPDATE = re.compile(
 
 
 def fetch(url):
-    try:
-        return fetch_once(url)
-    except urllib.error.HTTPError as error:
-        if error.code != 429 or error.geturl() != url:
-            raise
-        retry_after = error.headers.get("Retry-After", "") if error.headers else ""
-        if retry_after and (not re.fullmatch(r"[0-9]{1,2}", retry_after) or int(retry_after) > 20):
-            raise
-        error.close()
-    # Live lint inputs stay mandatory. Give an official endpoint one bounded
-    # opportunity to recover from rate limiting without restarting the job.
-    time.sleep(max(5, int(retry_after or "0")))
+    # Central can still return 429 after the first short wait. Keep the
+    # repository's serial queue paused and allow one longer same-origin wait.
+    delays = (5, 30) if url.startswith((MAVEN_CENTRAL, MAVEN_CENTRAL_ALTERNATE)) else (5,)
+    for delay in delays:
+        try:
+            return fetch_once(url)
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or error.geturl() != url:
+                raise
+            retry_after = error.headers.get("Retry-After", "") if error.headers else ""
+            if retry_after and (not re.fullmatch(r"[0-9]{1,2}", retry_after) or int(retry_after) > 20):
+                raise
+            error.close()
+        time.sleep(max(delay, int(retry_after or "0")))
     return fetch_once(url)
 
 
