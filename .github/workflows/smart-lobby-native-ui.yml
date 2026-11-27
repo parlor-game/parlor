@@ -30,6 +30,7 @@ jobs:
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       reuse_standings_android: ${{ steps.plan.outputs.reuse_standings_android }}
       build_only: ${{ steps.plan.outputs.build_only }}
+      reuse_party_integration: ${{ steps.plan.outputs.reuse_party_integration }}
       reuse_pr356: ${{ steps.plan.outputs.reuse_pr356 }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
       reuse_playlist_edit: ${{ steps.plan.outputs.reuse_playlist_edit }}
@@ -258,16 +259,35 @@ jobs:
           path: ${{ runner.temp }}/parlor-package
       - name: Verify and extract the retained UI candidate package
         if: >-
+          needs.plan.outputs.reuse_party_integration == 'true' ||
           needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true' || needs.plan.outputs.reuse_playlist_edit == 'true' ||
           (matrix.target == 'android' && needs.plan.outputs.reuse_standings_android == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           SHARED_SHELL_PACKAGE: ${{ needs.plan.outputs.reuse_pr356 }}
           PLAYLIST_EDIT_PACKAGE: ${{ needs.plan.outputs.reuse_playlist_edit }}
+          PARTY_INTEGRATION_PACKAGE: ${{ needs.plan.outputs.reuse_party_integration }}
           STANDINGS_ANDROID_PACKAGE: ${{ needs.plan.outputs.reuse_standings_android }}
         run: |
           retained=repos/parlor-game/parlor/actions
-          if [[ "$STANDINGS_ANDROID_PACKAGE" == true ]]; then
+          if [[ "$PARTY_INTEGRATION_PACKAGE" == true ]]; then
+            producer=46078287769
+            harness=a44d6dbb88c5b0170947e3f150dd63435cf213d1
+            tree=acb493d348e8ca27b7dd045080f76b1ad9111f9c
+            if [[ "$TARGET" == android ]]; then
+              job=140771165938
+              name='build (android, ubuntu-24.04)'
+              artifact=15235714179
+              digest=bc80eeab7b38b13fc448236de523349766a3689c95e581db645852af76bc63d4
+              package_digest=1609140c335c40b8d24a5809f155205bdb3878904d2554db48e7ae631e22821e
+            else
+              job=140771165986
+              name='build (ios, macos-26)'
+              artifact=15236585534
+              digest=95573e8203c45d8c94eece5481a83aab1319612fff5096ee4e37bd54129689ba
+              package_digest=3dc5471f634b360d9cab75c5a0d2c66f46bd8e4a2a6cc52b3d27ffc1eddfe851
+            fi
+          elif [[ "$STANDINGS_ANDROID_PACKAGE" == true ]]; then
             [[ "$TARGET" == android ]]
             producer=45851051814
             harness=b85b3b45ad40bf1e36d204527d8c40b2065fc749
