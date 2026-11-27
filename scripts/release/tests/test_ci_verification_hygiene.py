@@ -761,7 +761,12 @@ class VerificationWorkflowHygieneTest(unittest.TestCase):
         import re
         workflow = (ROOT / ".github/workflows/production-verification.yml").read_text()
         jobs = re.split(r"(?m)^  (?=[a-z][a-z0-9-]*:\n)", workflow.split("jobs:\n", 1)[1])[1:]
-        self.assertEqual(len(jobs), 13)
+        self.assertEqual(len(jobs), 14)
+        android = next(job for job in jobs if job.startswith("android-release:\n"))
+        self.assertIn("needs: [desktop-android]", android)
+        self.assertIn("scripts.ci.android_release_gate aggregate", android)
+        self.assertIn("if-no-files-found: error", android)
+        self.assertNotIn("./gradlew", android)
         # The focused protection diagnostic has its own closed native cleanup.
         aggregate = next(job for job in jobs if job.startswith("ios-release:\n"))
         self.assertIn("needs: [ios-release-simulator, ios-release-device, ios-release-x64]", aggregate)
@@ -779,7 +784,7 @@ class VerificationWorkflowHygieneTest(unittest.TestCase):
         self.assertIn("${{ runner.temp }}/parlor-darwin-capability-", capability)
         self.assertNotIn("./gradlew", capability)
         self.assertNotIn("verification_hygiene.py", capability)
-        jobs = [job for job in jobs if not job.startswith(("ios-protection-probe:\n", "ios-release:\n", "ios-runtime:\n", "darwin-host-capability:\n"))]
+        jobs = [job for job in jobs if not job.startswith(("android-release:\n", "ios-protection-probe:\n", "ios-release:\n", "ios-runtime:\n", "darwin-host-capability:\n"))]
         expected_stops = {"desktop-android": 2, "desktop-linux-arm64": 1, "desktop-macos-x64": 1,
                           "desktop-windows-x64": 1, "ios-kmp": 1, "ios": 1, "ios-release-simulator": 2,
                           "ios-release-device": 1, "ios-release-x64": 1}

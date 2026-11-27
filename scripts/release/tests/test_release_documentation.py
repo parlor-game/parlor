@@ -16,14 +16,14 @@ class ReleaseDocumentationTest(unittest.TestCase):
         self.assertEqual(len(job_ids), len(job_names), "Every job needs an explicit check name")
         self.assertEqual(len(job_names), len(set(job_names)), "Required check names must be unique")
         full_job_ids = (
-            "desktop-android",
+            "android-release",
             "desktop-linux-arm64",
             "desktop-macos-x64",
             "desktop-windows-x64",
             "ios-runtime",
             "ios-release",
         )
-        self.assertCountEqual(job_ids, (*full_job_ids, "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64",
+        self.assertCountEqual(job_ids, (*full_job_ids, "desktop-android", "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64",
                                        "ios-protection-probe", "darwin-host-capability"))
         names_by_id = dict(zip(job_ids, job_names))
 
@@ -35,6 +35,10 @@ class ReleaseDocumentationTest(unittest.TestCase):
         self.assertIn("require all six mandatory **Production verification** check groups", instructions)
         required_names = re.findall(r"(?m)^  - `([^`]+)`", instructions)
         self.assertCountEqual(required_names, [names_by_id[job_id] for job_id in full_job_ids])
+        self.assertIn("three isolated Android lanes", instructions)
+        android = jobs.split("  android-release:\n", 1)[1].split("  desktop-linux-arm64:\n", 1)[0]
+        self.assertIn("needs: [desktop-android]", android)
+        self.assertIn("scripts.ci.android_release_gate aggregate", android)
         self.assertIn("three isolated Release lanes", instructions)
         aggregate = jobs.split("  ios-release:\n", 1)[1].split("  ios-protection-probe:\n", 1)[0]
         self.assertIn("needs: [ios-release-simulator, ios-release-device, ios-release-x64]", aggregate)

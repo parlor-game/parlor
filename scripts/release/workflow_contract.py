@@ -42,6 +42,12 @@ FULL_VERIFICATION_FINALIZER = "always() && (" + FULL_VERIFICATION_SCOPE + ")"
 WINDOWS_VERIFICATION_SCOPE = FULL_VERIFICATION_SCOPE + " || inputs.verification_scope == 'windows-only'"
 LINUX_VERIFICATION_SCOPE = (FULL_VERIFICATION_SCOPE + " || inputs.verification_scope == 'linux-process-probe'"
                             " || inputs.verification_scope == 'android-cleanup-only'")
+ANDROID_COMMON_LANE = "matrix.lane == 'common-and-package'"
+ANDROID_MANAGED_LANE = "matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only'"
+ANDROID_RESTART_LANE = "matrix.lane == 'process-restart'"
+ANDROID_MANAGED_FINALIZER = "always() && (" + ANDROID_MANAGED_LANE + ")"
+ANDROID_EVIDENCE_NAME = ("${{ matrix.lane == 'diagnostic' && 'desktop-android-verification' || "
+                         "format('desktop-android-verification-{0}-{1}', matrix.lane, github.run_attempt) }}")
 LINUX_PROBE_SCOPE = "github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'linux-process-probe'"
 ANDROID_CLEANUP_SCOPE = "github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'android-cleanup-only'"
 ANDROID_RUNTIME_SCOPE = FULL_VERIFICATION_SCOPE + " || inputs.verification_scope == 'android-cleanup-only'"
@@ -58,7 +64,8 @@ NATIVE_VERIFICATION_SCOPE = ("github.event_name == 'workflow_dispatch' && "
 PROCESS_PROBE_SCOPE = "github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'native-process-probe'"
 PROTECTION_PROBE_SCOPE = "github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'ios-protection-probe'"
 VERIFICATION_JOBS = {
-    "desktop-android": "Common, desktop, and Android release",
+    "desktop-android": "Android verification (${{ matrix.lane }})",
+    "android-release": "Common, desktop, and Android release",
     "desktop-linux-arm64": "Desktop strict verification (Linux arm64)",
     "desktop-macos-x64": "Desktop and Kotlin Native strict verification (macOS x64)",
     "desktop-windows-x64": "Desktop, Kotlin Native, and Android resources strict verification (Windows x64)",
@@ -102,7 +109,9 @@ def verify_action_pins(name: str, text: str) -> None:
         action, revision = reference.rsplit("@", 1)
         if not action or not FULL_SHA.fullmatch(revision):
             fail(f"{name}:{line_number}: third-party Action is not pinned to a full commit SHA")
-        if action not in ALLOWED_ACTIONS:
+        android_receipt_download = (name == "production-verification.yml" and
+                                    reference == "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333")
+        if action not in ALLOWED_ACTIONS and not android_receipt_download:
             fail(f"{name}:{line_number}: Action {action!r} is outside the reviewed allowlist")
 
 
@@ -238,7 +247,7 @@ def current_verification_artifact_paths(job: str) -> list[str]:
 
 def verify_current_verification_artifacts(text: str) -> None:
     uploads = {
-        "desktop-android": ("Upload verification reports, mappings, and unsigned AAB", "desktop-android-verification"),
+        "desktop-android": ("Upload verification reports, mappings, and unsigned AAB", ANDROID_EVIDENCE_NAME),
         "desktop-linux-arm64": ("Upload Desktop verification descriptors", "desktop-verification-${{ github.job }}"),
         "desktop-macos-x64": ("Upload Desktop verification descriptors", "desktop-verification-${{ github.job }}"),
         "desktop-windows-x64": ("Upload Desktop verification descriptors", "desktop-verification-${{ github.job }}"),
@@ -411,9 +420,9 @@ def verify_macos_network_evidence(job: str) -> None:
 
 
 def verify_android_resume_process(job: str) -> None:
-    """Normal PR/main acceptance reuses APKs; no shortened qualification path."""
+    """Keep the complete acceptance against APKs built by the isolated restart lane."""
     name = "Verify Android saved-session removal across process restart"
-    expected = '''        if: ''' + FULL_VERIFICATION_SCOPE + '''
+    expected = '''        if: ''' + ANDROID_RESTART_LANE + '''
         shell: bash
         run: |
           set -euo pipefail
@@ -425,12 +434,22 @@ def verify_android_resume_process(job: str) -> None:
 '''
     if validation_step(job, name).strip("\n") != expected.strip("\n"):
         fail("Android process acceptance requires the exact full-only owned runtime and retained receipts")
-    order = ("Run release Android managed-device smoke tests", "Stop Gradle after managed-device", name,
-             "Inspect unsigned Android release artifact and merged manifest",
+    build = "Build Android Debug app and instrumentation APKs for restart"
+    expected_build = r"""        if: """ + ANDROID_RESTART_LANE + r"""
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
+            -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
+            --no-daemon --max-workers=2 --console=plain
+          ./gradlew --stop"""
+    if validation_step(job, build).strip("\n") != expected_build:
+        fail("Android process acceptance requires a fresh strict app and instrumentation pair")
+    order = (build, name,
              "Upload verification reports, mappings, and unsigned AAB", "Clean only attested verification outputs")
     positions = [job.index("- name: " + step + "\n") for step in order]
     if positions != sorted(positions):
-        fail("Android process acceptance must reuse built APKs after managed runtime and before evidence upload")
+        fail("Android process acceptance must use its isolated APK pair before evidence upload")
     upload = validation_step(job, order[-2])
     if upload.count("            build/ci-evidence/\n") != 1:
         fail("Android process acceptance logs and both runtime/cleanup receipts must remain uploaded")
@@ -452,22 +471,26 @@ def verify_linux_process_probe(job: str) -> None:
     admission = "Validate Android cleanup source and controls"
     prerequisite = "Install Linux process-probe emulator package"
     expected = ["Check out source", "Set up JDK 21", "Reclaim unused standard Linux runner toolchains", "Restore reviewed Gradle dependencies", probe[0], admission, prerequisite, "Claim fresh verification output ownership",
-                full[0], full[1], full[2], final[0], full[3], final[1], "Verify Android saved-session removal across process restart", full[4], *final[2:], *probe[1:]]
+                full[0], full[1], full[2], final[0], full[3], final[1],
+                "Build Android Debug app and instrumentation APKs for restart",
+                "Verify Android saved-session removal across process restart", full[4], *final[2:],
+                "Bind Android lane reports and cleanup to source", "Upload Android lane certificate", *probe[1:]]
     if (re.findall(r"(?m)^      - name: (.*)$", job) != expected + ["Save dependencies from trusted main only"] or
             re.findall(r"(?m)^    runs-on: (.*)$", job) != ["ubuntu-24.04"] or
             re.findall(r"(?m)^    timeout-minutes: (.*)$", job) != [
                 "${{ inputs.verification_scope == 'linux-process-probe' && 10 || inputs.verification_scope == 'android-cleanup-only' && 45 || 90 }}"]):
         fail("verification scope Linux requires closed Ubuntu24.04 probe10, managed-cleanup45 and full90 minute paths")
     for names, required in (
-        ((full[2], full[4]), FULL_VERIFICATION_SCOPE), ((final[0],), FULL_VERIFICATION_FINALIZER),
-        ((full[0], full[1], full[3]), ANDROID_RUNTIME_SCOPE), (final[1:], ANDROID_RUNTIME_FINALIZER),
+        ((full[2], full[4]), ANDROID_COMMON_LANE), ((final[0],), "always() && " + ANDROID_COMMON_LANE),
+        ((full[0], full[1]), ANDROID_RUNTIME_SCOPE), ((full[3],), ANDROID_MANAGED_LANE),
+        ((final[1],), ANDROID_MANAGED_FINALIZER), (final[2:], ANDROID_RUNTIME_FINALIZER),
         (probe[:2], LINUX_PROBE_SCOPE), (probe[2:], "always() && (" + LINUX_PROBE_SCOPE + ")"),
         ((admission,), ANDROID_CLEANUP_SCOPE), ((prerequisite,), LINUX_PREREQUISITE_SCOPE),
     ):
         for name in names:
             if re.findall(r"(?m)^        if: (.*)$", validation_step(job, name)) != [required]:
                 fail("verification scope Linux must isolate the probe/managed cleanup and preserve full gates/finalizers")
-    expected_smoke = ("        if: " + ANDROID_RUNTIME_SCOPE + "\n        shell: bash\n"
+    expected_smoke = ("        if: " + ANDROID_MANAGED_LANE + "\n        shell: bash\n"
                       "        run: scripts/android/run_release_managed_device_smoke.sh")
     if validation_step(job, full[3]).strip("\n") != expected_smoke:
         fail("verification scope managed cleanup must run only the existing Android runtime script")
@@ -947,7 +970,8 @@ def verify_free_ci_dependency_cache(text: str) -> None:
     for lane in lanes:
         body = validation_job(text, lane)
         cache = validation_step(body, "Restore reviewed Gradle dependencies")
-        if cache.strip("\n") != expected or validation_step(body, "Save dependencies from trusted main only").strip("\n") != save:
+        lane_save = save.replace("success() &&", "success() && " + ANDROID_COMMON_LANE + " &&", 1) if lane == "desktop-android" else save
+        if cache.strip("\n") != expected or validation_step(body, "Save dependencies from trusted main only").strip("\n") != lane_save:
             fail("verification scope dependency-only cache must be read-only except protected main pushes")
         if not (body.index('- name: Set up JDK 21\n') < body.index('- name: Restore reviewed Gradle dependencies\n') <
                 body.index('- name: Claim fresh verification output ownership\n') < body.index('- name: Save dependencies from trusted main only\n')):
@@ -1000,6 +1024,91 @@ def verify_darwin_host_capability(text: str) -> None:
         fail("verification scope Darwin capability requires its exact free hosted matrix, explicit source/run context and bounded native receipt control")
 
 
+def verify_android_split(text: str) -> None:
+    """Require the selected producer matrix and its original, fail-closed check."""
+    producer = validation_job(text, "desktop-android")
+    strategy = """      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","installed-runtime","process-restart"]' || '["diagnostic"]') }}"""
+    if producer.split("\n    steps:", 1)[0].partition("\n    strategy:\n")[2].strip("\n") != strategy:
+        fail("verification scope Android must produce exactly three lanes for full qualification")
+    expected = {
+        "Bind Android lane reports and cleanup to source": """        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        env:
+          PARLOR_ANDROID_LANE: ${{ matrix.lane }}
+          PARLOR_ANDROID_CLEANUP_OUTCOME: ${{ steps.verification_cleanup.outcome }}
+          PARLOR_ANDROID_CLEANUP_ID: ${{ steps.verification_cleanup.outputs.artifact-id }}
+          PARLOR_ANDROID_CLEANUP_DIGEST: ${{ steps.verification_cleanup.outputs.artifact-digest }}
+        run: python3 -B -m scripts.ci.android_release_gate lane""",
+        "Upload Android lane certificate": """        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-lane-certificate-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/lane.json""",
+    }
+    for name, block in expected.items():
+        if validation_step(producer, name).rstrip() != block:
+            fail("verification scope Android lane certificates require exact source and retained cleanup")
+    cleanup = validation_step(producer, "Upload verification cleanup receipt")
+    if (re.findall(r"(?m)^        id: (.*)$", cleanup) != ["verification_cleanup"] or
+            re.findall(r"(?m)^          name: (.*)$", cleanup) != ["${{ matrix.lane == 'diagnostic' && 'verification-cleanup-desktop-android' || format('verification-cleanup-desktop-android-{0}-{1}', matrix.lane, github.run_attempt) }}"]):
+        fail("verification scope Android cleanup receipts must be isolated by lane and attempt")
+    join = r"""    if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
+    name: Common, desktop, and Android release
+    needs: [desktop-android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Require successful Android verification producers
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: test "$PARLOR_ANDROID_PRODUCER_RESULT" = success
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the latest individual Android job results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
+            >"$RUNNER_TEMP/parlor-android-jobs.json"
+
+      - name: Download same-run Android lane certificates
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: android-lane-certificate-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/parlor-android-lanes
+          merge-multiple: false
+          digest-mismatch: error
+
+      - name: Require all three exact-source Android certificates
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: python3 -B -m scripts.ci.android_release_gate aggregate
+
+      - name: Upload Android aggregate receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-release-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/parlor-android-release.json"""
+    if (validation_job(text, "android-release").rstrip() != join or
+            text.count("uses: actions/download-artifact@") != 1):
+        fail("verification scope must retain exactly one Android required check with three source-bound receipts")
+
+
 def verify_verification_scopes(text: str) -> None:
     """Only closed reviewed diagnostic/follow-up scopes bypass six mandatory full jobs."""
     jobs_text = text.split("\njobs:\n", 1)[-1]
@@ -1008,12 +1117,13 @@ def verify_verification_scopes(text: str) -> None:
     if jobs != expected:
         fail("verification scope contract requires all full lanes, the required Release join, and one focused protection probe")
     verify_apple_runtime_isolation(text)
+    verify_android_split(text)
     for name, display in VERIFICATION_JOBS.items():
         if re.findall(r"(?m)^    name: (.*)$", validation_job(text, name)) != [display]:
             fail("verification scope requires the exact reviewed job/check identities")
     if text.count("--android-reader") != 1 or text.count("sudo-proc-exe-v2") != 1:
         fail("verification scope permits the explicit Android reader only in Linux runtime cleanup")
-    for name in expected[:4]:
+    for name in ("desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64"):
         block = validation_job(text, name)
         required = (WINDOWS_VERIFICATION_SCOPE if name == "desktop-windows-x64" else
                     LINUX_VERIFICATION_SCOPE if name == "desktop-android" else FULL_VERIFICATION_SCOPE)
@@ -1150,7 +1260,7 @@ def verify_validation(text: str) -> None:
     verify_android_runtime_smoke("production-verification.yml", text)
     verify_android_sdk_provisioning(text)
     desktop_android_marker = "\n  desktop-android:"
-    next_job_marker = "\n  desktop-linux-arm64:"
+    next_job_marker = "\n  android-release:"
     if desktop_android_marker not in text or next_job_marker not in text:
         fail("validation workflow is missing the desktop-android job boundary")
     desktop_android_job = text.split(desktop_android_marker, 1)[1].split(next_job_marker, 1)[0]

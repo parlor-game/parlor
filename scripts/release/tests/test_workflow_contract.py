@@ -571,7 +571,7 @@ class WorkflowContractTest(unittest.TestCase):
     def test_split_apple_jobs_preserve_full_lanes_and_only_two_opt_in_probes(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         self.assertEqual(re.findall(r"(?m)^  ([a-z][a-z0-9-]+):$", workflow.split("\njobs:\n", 1)[1]), [
-            "desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
+            "desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
             "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
             "darwin-host-capability"])
         workflow_contract.verify_validation(workflow)
