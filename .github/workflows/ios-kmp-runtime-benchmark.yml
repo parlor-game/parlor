@@ -1,0 +1,193 @@
+name: iOS KMP runtime split comparison
+
+on:
+  push:
+    branches: [perf/ios-kmp-runtime-split]
+    paths: ['.github/workflows/ios-kmp-runtime-benchmark.yml']
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+
+jobs:
+  ios-kmp:
+    name: KMP iOS runtime comparison (${{ matrix.suite }})
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [app, modules]
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          check-latest: false
+          problem-matcher: true
+
+      - name: Restore reviewed Gradle dependencies
+        id: dependency_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: |
+            parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-
+
+      - name: Claim fresh verification output ownership
+        id: verification_ownership
+        shell: python
+        run: |
+          import runpy, sys
+          sys.argv = ["verification_hygiene.py", "prepare"]
+          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
+
+      - name: Claim apple-aggregate native resource ownership
+        id: apple_aggregate_prepare
+        shell: bash
+        run: /usr/bin/python3 -B -m scripts.ci.apple_verification_hygiene prepare apple-aggregate
+
+      - name: Record Xcode toolchain and exact source
+        shell: bash
+        env:
+          CACHE_MATCH: ${{ steps.dependency_cache.outputs.cache-matched-key }}
+          CACHE_HIT: ${{ steps.dependency_cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-evidence
+          uname -m | tee build/ci-evidence/architecture.txt
+          test "$(cat build/ci-evidence/architecture.txt)" = arm64
+          test -x "$DEVELOPER_DIR/usr/bin/xcodebuild"
+          xcodebuild -version | tee build/ci-evidence/xcode-version.txt
+          test "$(sed -n '1p' build/ci-evidence/xcode-version.txt)" = "Xcode 26.3"
+          test "$(sed -n '2p' build/ci-evidence/xcode-version.txt)" = "Build version 17C529"
+          test "$(jq -r .toolchains.apple.developer_dir config/release-policy.json)" = "$DEVELOPER_DIR"
+          test "$(jq -r .toolchains.apple.xcode_build config/release-policy.json)" = "17C529"
+          xcrun --sdk iphoneos --show-sdk-version | tee build/ci-evidence/iphoneos-sdk.txt
+          xcrun --sdk iphonesimulator --show-sdk-version | tee build/ci-evidence/iphonesimulator-sdk.txt
+          test "$(cut -d. -f1 build/ci-evidence/iphoneos-sdk.txt)" -ge "$(jq -r .toolchains.apple.minimum_ios_sdk_major config/release-policy.json)"
+          git rev-parse HEAD | tee build/ci-evidence/commit.txt
+          git rev-parse 'HEAD^{tree}' | tee build/ci-evidence/tree.txt
+          printf '%s\n' "${ImageOS:-unknown}/${ImageVersion:-unknown}" > build/ci-evidence/runner-image.txt
+          sysctl -n hw.logicalcpu > build/ci-evidence/logical-cpus.txt
+          java -version > build/ci-evidence/java-version.txt 2>&1
+          printf '%s\n' "$CACHE_MATCH" "$CACHE_HIT" > build/ci-evidence/dependency-cache.txt
+          test -z "$(git status --porcelain)"
+
+      - name: Run assigned KMP iOS simulator runtime tests
+        id: apple_aggregate_run
+        shell: bash
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          set -euo pipefail
+          if [[ "$SUITE" == app ]]; then
+            tasks=(:composeApp:iosSimulatorArm64Test)
+          elif [[ "$SUITE" == modules ]]; then
+            tasks=(productionIosSimulatorRuntimeTests -x :composeApp:iosSimulatorArm64Test)
+          else
+            exit 1
+          fi
+          if [[ "$SUITE" == modules ]]; then
+            (
+              test -d "$RUNNER_TEMP" && test ! -L "$RUNNER_TEMP"
+              test "$(cd -- "$RUNNER_TEMP" && pwd -P)" = "$RUNNER_TEMP"
+              native_control_tmp="$(mktemp -d "$RUNNER_TEMP/parlor-native-controls.XXXXXX")"
+              retire_native_control_tmp() {
+                native_control_status=$?
+                trap - EXIT
+                if ! rmdir -- "$native_control_tmp"; then
+                  echo "Native control temporary directory is not empty; preserve it and fail." >&2
+                  native_control_status=1
+                fi
+                exit "$native_control_status"
+              }
+              trap 'retire_native_control_tmp' EXIT
+              export TMPDIR="$native_control_tmp"
+              /usr/bin/python3 -B -m unittest discover -s scripts/verification/ios-readiness -p 'test_*.py' -v 2>&1 | tee build/ci-evidence/ios-readiness-control-tests.log
+              /usr/bin/python3 -B -m unittest discover -s remediation-runs/2026-09-08-continuation/protection-application-01 -p 'test_*.py' -v 2>&1 | tee build/ci-evidence/ios-protection-application-control-tests.log
+              retire_native_control_tmp
+            )
+          fi
+          ./gradlew "${tasks[@]}" --dependency-verification=strict --no-daemon --stacktrace --console=plain \
+            | tee build/ci-evidence/ios-runtime-gradle.log
+
+      - name: Stop Gradle after apple-aggregate and retire owned Apple resources
+        id: apple_aggregate_finish
+        if: always()
+        env:
+          PARLOR_APPLE_PREPARE_OUTCOME: ${{ steps.apple_aggregate_prepare.outcome }}
+          PARLOR_APPLE_RUN_OUTCOME: ${{ steps.apple_aggregate_run.outcome }}
+        shell: bash
+        run: /usr/bin/python3 -B -m scripts.ci.apple_verification_hygiene finish apple-aggregate
+
+      - name: Validate iOS plist and privacy manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          plutil -lint iosApp/iosApp/Info.plist
+          plutil -lint iosApp/iosApp/PrivacyInfo.xcprivacy
+
+      - name: Upload Apple runtime verification evidence
+        id: verification_artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-kmp-${{ matrix.suite }}-verification
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/ci-evidence/
+            **/build/reports/tests/
+            **/build/test-results/**/*.xml
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-ownership.json
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-stop-*.json
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-apple-*-ownership.json
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-apple-ui-simulator-*.json
+            !remediation-runs/**
+            !docs/archives/**
+
+      # A successful nonempty upload must precede deletion of the last local evidence copy.
+      - name: Clean only attested verification outputs
+        if: always()
+        env:
+          PARLOR_VERIFICATION_PREPARE_OUTCOME: ${{ steps.verification_ownership.outcome }}
+          PARLOR_APPLE_CYCLE_OUTCOMES: >-
+            {"apple-aggregate":{"prepare":"${{ steps.apple_aggregate_prepare.outcome }}","run":"${{ steps.apple_aggregate_run.outcome }}","finish":"${{ steps.apple_aggregate_finish.outcome }}"}}
+          PARLOR_VERIFICATION_UPLOAD_OUTCOME: ${{ steps.verification_artifact.outcome }}
+          PARLOR_VERIFICATION_ARTIFACT_ID: ${{ steps.verification_artifact.outputs.artifact-id }}
+          PARLOR_VERIFICATION_ARTIFACT_DIGEST: ${{ steps.verification_artifact.outputs.artifact-digest }}
+        shell: python
+        run: |
+          import runpy, sys
+          sys.argv = ["verification_hygiene.py", "cleanup"]
+          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
+
+      - name: Upload verification cleanup receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-cleanup-ios-kmp-${{ matrix.suite }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-cleanup.json
+
+
+      - name: Publish qualified Apple runtime lane identity
+        id: runtime_lane
+        shell: bash
+        run: /usr/bin/python3 -B -m scripts.ci.apple_runtime_gate lane
