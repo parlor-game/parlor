@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  *
  * Annotated `@Serializable` so peer→host action submissions can ride the
  * `PeerMessage.ClientCommand(payload: ByteArray)` wire (see
- * [com.parlor.games.whodunit.domain.action.WhodunitActionCodec]).
+ * `WhodunitActionCodec`).
  * kotlinx-serialization emits a JSON polymorphic discriminator on the sealed
  * interface. Compatibility is still governed by the negotiated game version:
  * strict older decoders are not expected to understand new variants or newly

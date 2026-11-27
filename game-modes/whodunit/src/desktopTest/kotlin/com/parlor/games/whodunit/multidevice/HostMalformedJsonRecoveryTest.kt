@@ -4,7 +4,7 @@ import com.parlor.core.ids.GameId
 import com.parlor.core.ids.PlayerId
 import com.parlor.core.ids.SessionId
 import com.parlor.games.whodunit.domain.action.WhodunitAction
-import com.parlor.games.whodunit.domain.action.WhodunitActionCodec
+import com.parlor.games.whodunit.protocol.WhodunitActionCodec
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.PeerMessage

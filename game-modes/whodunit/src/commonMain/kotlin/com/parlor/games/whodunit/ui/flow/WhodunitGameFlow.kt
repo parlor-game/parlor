@@ -181,7 +181,7 @@ import com.parlor.networking.protocol.SessionProtocol
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
-import com.parlor.games.whodunit.domain.party.WhodunitReadinessGate
+import com.parlor.games.whodunit.session.WhodunitReadinessGate
 import com.parlor.session.PlayMode
 import com.parlor.session.SessionController
 import com.parlor.session.ViewerContext

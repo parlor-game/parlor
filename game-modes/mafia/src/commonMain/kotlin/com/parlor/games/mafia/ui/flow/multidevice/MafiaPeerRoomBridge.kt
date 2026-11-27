@@ -7,7 +7,7 @@ import com.parlor.engine.projection.PrivateProjection
 import com.parlor.engine.projection.PublicProjection
 import com.parlor.engine.session.SubmitError
 import com.parlor.games.mafia.domain.action.MafiaAction
-import com.parlor.games.mafia.domain.action.MafiaActionCodec
+import com.parlor.games.mafia.protocol.MafiaActionCodec
 import com.parlor.games.mafia.domain.event.MafiaEvent
 import com.parlor.games.mafia.domain.projection.MafiaProjectionPolicy
 import com.parlor.games.mafia.domain.state.MafiaPrivate

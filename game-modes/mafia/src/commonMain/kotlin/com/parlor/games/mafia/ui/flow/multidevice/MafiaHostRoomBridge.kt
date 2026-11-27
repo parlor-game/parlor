@@ -5,7 +5,7 @@ import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.games.mafia.MafiaIds
 import com.parlor.games.mafia.domain.action.MafiaAction
-import com.parlor.games.mafia.domain.action.MafiaActionCodec
+import com.parlor.games.mafia.protocol.MafiaActionCodec
 import com.parlor.games.mafia.domain.authority.MafiaActionAuthority
 import com.parlor.games.mafia.domain.event.MafiaEvent
 import com.parlor.games.mafia.domain.phase.MafiaPhase

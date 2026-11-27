@@ -4,9 +4,9 @@ import assertk.assertThat
 import assertk.assertions.contains
 import assertk.assertions.isEqualTo
 import com.parlor.core.ids.PlayerId
-import com.parlor.games.whodunit.domain.action.UnsupportedLegacyWhodunitActionException
+import com.parlor.games.whodunit.protocol.UnsupportedLegacyWhodunitActionException
 import com.parlor.games.whodunit.domain.action.WhodunitAction
-import com.parlor.games.whodunit.domain.action.WhodunitActionCodec
+import com.parlor.games.whodunit.protocol.WhodunitActionCodec
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertFails

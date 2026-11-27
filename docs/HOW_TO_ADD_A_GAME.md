@@ -19,13 +19,17 @@ game-modes/<game-id>/
 │   ├── <Game>ProjectionPolicy.kt
 │   └── <Game>SnapshotCodec.kt
 ├── protocol/                  # game payload codecs/version, not transport
+├── session/                   # game-specific adapters to shared session policy
 ├── ui/                        # screens and SessionController-facing flows
 ├── di/<Game>DiModule.kt
 └── <Game>Definition.kt
 ```
 
-The domain package remains pure Kotlin. It may depend on `:shared:core` and
-`:shared:engine`, but never Compose, Koin, storage, networking, or P2pKit.
+Keep domain rules and reducers in pure Kotlin. Place room-envelope payload codecs
+and readiness adapters outside `domain/` even when they consume domain types.
+The desktop architecture check guards domain imports of networking, sessions,
+storage, and transport. Whodunit rules also consume the immutable validated case
+model from `:shared:content`.
 
 ## Registration contract
 

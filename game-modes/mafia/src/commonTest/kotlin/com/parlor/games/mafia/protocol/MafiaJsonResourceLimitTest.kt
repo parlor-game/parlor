@@ -1,6 +1,6 @@
 package com.parlor.games.mafia.protocol
 
-import com.parlor.games.mafia.domain.action.MafiaActionCodec
+import com.parlor.games.mafia.protocol.MafiaActionCodec
 import com.parlor.games.mafia.snapshot.MafiaSnapshotCodec
 import kotlinx.serialization.json.Json
 import kotlin.test.Test

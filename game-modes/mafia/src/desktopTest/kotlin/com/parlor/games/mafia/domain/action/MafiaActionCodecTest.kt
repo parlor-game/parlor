@@ -8,6 +8,8 @@ import com.parlor.games.mafia.domain.settings.MafiaKillTie
 import com.parlor.games.mafia.domain.settings.MafiaRoleCounts
 import com.parlor.games.mafia.domain.settings.MafiaSettings
 import com.parlor.games.mafia.domain.settings.TieBehavior
+import com.parlor.games.mafia.protocol.MafiaActionCodec
+import com.parlor.games.mafia.protocol.UnsupportedLegacyMafiaActionException
 import kotlin.test.Test
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
