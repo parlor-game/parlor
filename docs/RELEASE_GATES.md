@@ -82,8 +82,7 @@ The Android matrix runs three independent producers for full verification.
 Its join, the Apple Release join, and the Apple runtime join retain the original
 required check names. All eleven producers and the three joins must qualify.
 The workflow also defines two opt-in diagnostics (`ios-protection-probe` and
-`darwin-host-capability`). Neither
-diagnostic replaces full verification. The Darwin capability matrix expands to
+`darwin-host-capability`). Neither diagnostic replaces full verification. The Darwin capability matrix expands to
 both standard macOS hosts only for its explicit focused dispatch.
 The six required check groups cover these full producers and joins:
 
@@ -91,7 +90,8 @@ The six required check groups cover these full producers and joins:
   `allTests` aggregates, Android debug/release unit tests, repository-wide
   Detekt, release compilation/R8/lint plus the enforced
   `verifyReleaseLintWarnings` contract, unsigned AAB, merged-manifest
-  inspection, and artifact hashes.
+  inspection, and artifact hashes. The managed-device and process-restart lanes
+  must also pass, with separate reports and cleanup receipts.
 - Linux arm64: the real host-selected Desktop graph and tests. This job does
   not claim Kotlin Native support.
 - macOS x64: the real host-selected Desktop graph, tests, and Kotlin Native
