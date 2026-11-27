@@ -10,7 +10,7 @@ permissions:
 
 env:
   GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
-  QUALIFICATION_SOURCE: bb649d5b5305dfe041bd8e72614d9946ac8a4c8b
+  QUALIFICATION_SOURCE: cc42947cfa785e3d7db66dd96c77e872b1b2d04c
 
 jobs:
   documentation-contracts:
