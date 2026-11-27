@@ -24,6 +24,7 @@ PARTY_NIGHT_PRODUCER = 45343614595
 PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
 PLAYLIST_EDIT_CANDIDATE = "eddc1b1f773be8499e05464e08e2b51937f3957a"
 STANDINGS_CANDIDATE = "dec09061e310b84054a6bebb23f9532e8e66c398"
+PARTY_INTEGRATION_CANDIDATE = "a357b16cdf4034b22ffbbc8968526363f8c530cd"
 
 
 def configuration():
@@ -97,8 +98,12 @@ def plan():
         and pairing == "mixed" and observe_reconnect
     )
     build_only = payload.get("build_only") is True
-    if build_only and (not exact_pr356 or reuse_candidate):
-        raise ValueError("Package-only qualification requires the exact shared shell source")
+    party_integration_packages = (
+        build_only and candidate == PARTY_INTEGRATION_CANDIDATE and pairing == "mixed"
+        and not reuse_candidate and not observe_reconnect
+    )
+    if build_only and (not (exact_pr356 or party_integration_packages) or reuse_candidate):
+        raise ValueError("Package-only qualification requires a pinned mixed-platform candidate")
     if visible_ios and not (
         (reuse_party_night or reuse_playlist_edit or fresh_playlist or exact_pr355 or exact_pr356) and payload.get("require_native_ios") is False
     ):
@@ -114,6 +119,7 @@ def plan():
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
     if candidate != RETAINED_CANDIDATE and not (
         observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android or reuse_standings_android
+        or party_integration_packages
     ):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
     targets = ("android", "ios") if pairing == "mixed" else (pairing,)
@@ -121,7 +127,7 @@ def plan():
     runners = {"android": "ubuntu-24.04", "ios": ios_runner}
     builds = [
         {"target": target, "runner": runners[target]} for target in targets
-        if target == "ios" or ((observe_reconnect or rules_restore_android) and not reuse_standings_android)
+        if target == "ios" or ((observe_reconnect or rules_restore_android or party_integration_packages) and not reuse_standings_android)
     ]
     labs = [
         {"target": target, "runner": runners[target], "pairing": pairing, "count": 1 if pairing == "mixed" else len(digests)}
