@@ -32,11 +32,11 @@ class AndroidReleaseGateTest(unittest.TestCase):
     def aggregate(self, result="success", attempt="1"):
         return gate.aggregate(self.root, result, self.head, self.tree, self.run, attempt)
 
-    def test_accepts_three_current_certificates(self):
+    def test_accepts_four_current_certificates(self):
         self.assertEqual(self.aggregate()["lanes"], self.receipts)
 
     def test_only_changed_lane_is_replaced_on_same_run_retry(self):
-        lane = "installed-runtime"
+        lane = "managed-navigation"
         newer = dict(self.receipts[lane], run_attempt="2", evidence_id="100", cleanup_id="101")
         self.write(newer)
         with self.assertRaisesRegex(RuntimeError, "foreign"):
@@ -49,7 +49,7 @@ class AndroidReleaseGateTest(unittest.TestCase):
     def test_rejects_foreign_source_or_reused_evidence(self):
         receipt = self.receipts["process-restart"]
         for changes in (dict(source_sha="5" * 40), dict(source_tree="6" * 40), dict(run_id="71"),
-                        dict(evidence_id=self.receipts["installed-runtime"]["cleanup_id"]),
+                        dict(evidence_id=self.receipts["managed-navigation"]["cleanup_id"]),
                         dict(cleanup_sha256="incomplete")):
             self.write(dict(receipt, **changes))
             with self.subTest(changes=changes), self.assertRaises(RuntimeError):
@@ -61,7 +61,7 @@ class AndroidReleaseGateTest(unittest.TestCase):
         art.unlink()
         with self.assertRaises(RuntimeError):
             self.aggregate()
-        art.symlink_to(self.root / "android-lane-certificate-70-1-installed-runtime" / "lane.json")
+        art.symlink_to(self.root / "android-lane-certificate-70-1-managed-navigation" / "lane.json")
         with self.assertRaises(RuntimeError):
             self.aggregate()
 
@@ -92,18 +92,18 @@ class AndroidReleaseGateTest(unittest.TestCase):
                              run_attempt=2, status="completed", conclusion="success"), **changes)
 
         jobs = [job(lane) for lane in gate.LANES]
-        gate.verify_latest_jobs(dict(total_count=3, jobs=jobs), self.run, "2")
+        gate.verify_latest_jobs(dict(total_count=len(jobs), jobs=jobs), self.run, "2")
         for substitute in (job("process-restart", conclusion="cancelled"), job("process-restart", run_attempt=1),
-                           job("process-restart", run_id=71), job("installed-runtime"), job("unreviewed")):
+                           job("process-restart", run_id=71), job("managed-navigation"), job("unreviewed")):
             with self.subTest(substitute=substitute), self.assertRaises(RuntimeError):
-                gate.verify_latest_jobs(dict(total_count=3, jobs=jobs[:2] + [substitute]), self.run, "2")
+                gate.verify_latest_jobs(dict(total_count=len(jobs), jobs=jobs[:-1] + [substitute]), self.run, "2")
         with self.assertRaises(RuntimeError):
-            gate.verify_latest_jobs(dict(total_count=4, jobs=jobs), self.run, "2")
+            gate.verify_latest_jobs(dict(total_count=len(jobs) + 1, jobs=jobs), self.run, "2")
 
     def test_join_cannot_drop_a_lane_or_relax_failure_and_digest_guards(self):
         workflow = (contract.WORKFLOWS / "production-verification.yml").read_text()
         contract.verify_android_split(workflow)
-        for before, after in ((',"installed-runtime"', ""),
+        for before, after in ((',"managed-navigation"', ""),
                               ("needs: [desktop-android]", "needs: []"),
                               ("digest-mismatch: error", "digest-mismatch: warn"),
                               ("= success", "!= skipped")):

@@ -10,7 +10,7 @@ from pathlib import Path
 from scripts.ci import verification_hygiene as hygiene
 from scripts.ci.apple_release_gate import read_json
 
-LANES = ("common-and-package", "installed-runtime", "process-restart")
+LANES = ("common-and-package", "managed-release", "managed-navigation", "process-restart")
 FIELDS = {"lane", "source_sha", "source_tree", "run_id", "run_attempt",
           "evidence_id", "evidence_sha256", "cleanup_id", "cleanup_sha256"}
 

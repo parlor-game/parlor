@@ -925,7 +925,7 @@ class ProductionVerificationWorkflowContractTest {
             "if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')",
             "name: Common, desktop, and Android release",
             "needs: [desktop-android]",
-            "Require all three exact-source Android certificates",
+            "Require all four exact-source Android certificates",
             "scripts.ci.android_release_gate aggregate",
             "if-no-files-found: error",
         ).forEach { assertContains(androidJoin, it) }
