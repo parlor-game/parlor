@@ -18,7 +18,7 @@ import com.parlor.designsystem.components.HostDisconnectedOverlay
 import com.parlor.designsystem.components.ReconnectingOverlay
 import com.parlor.engine.state.Player
 import com.parlor.games.mafia.MafiaDefinition
-import com.parlor.games.mafia.domain.party.MafiaReadinessGate
+import com.parlor.games.mafia.session.MafiaReadinessGate
 import com.parlor.games.mafia.domain.phase.MafiaPhase
 import com.parlor.games.mafia.domain.state.completedPartyMatch
 import com.parlor.games.mafia.resources.Res

@@ -1,7 +1,7 @@
 package com.parlor.games.mafia.domain
 
 import com.parlor.games.mafia.domain.action.MafiaAction
-import com.parlor.games.mafia.domain.action.MafiaActionCodec
+import com.parlor.games.mafia.protocol.MafiaActionCodec
 import com.parlor.games.mafia.domain.phase.MafiaPhase
 import com.parlor.games.mafia.domain.settings.MafiaRoleCounts
 import com.parlor.games.mafia.domain.settings.MafiaSettings

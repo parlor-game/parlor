@@ -1,6 +1,7 @@
-package com.parlor.games.whodunit.domain.action
+package com.parlor.games.whodunit.protocol
 
 import com.parlor.core.serialization.requireBoundedJsonNesting
+import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

@@ -18,10 +18,12 @@ Related: [Smart Lobby specification](../planning/SMART_LOBBY.md)
    keeps the value-class constructor lenient so wire and persistence boundaries
    can classify untrusted values using their existing domain errors. Enforce
    the canonical grammar explicitly at registration and protocol boundaries.
-3. Keep parties on their own protocol, introduced at 5.0. Party 5.1 adds the
-   ordered playlist and completed match IDs to the host's lobby snapshot.
-   A party admission and capability declaration never substitutes for an exact game-room admission. Close
-   party admissions during active matches. Reject a game switch if the current
+3. Keep parties on their own protocol, introduced at 5.0. Party 5.2 carries
+   the ordered playlist, completed match IDs, and host-confirmed score receipts
+   in the lobby snapshot. Peers must use a compatible Party protocol. Standalone
+   game-room admission remains on 4.3. A party admission and capability
+   declaration never substitutes for an exact game-room admission. Close party
+   admissions during active matches. Reject a game switch if the current
    membership cannot play it. Host departure ends the party.
 4. Keep v1 adverts immutable and public-data-only. Exclude display names,
    capacity and availability probes from the first version. Refresh or expire

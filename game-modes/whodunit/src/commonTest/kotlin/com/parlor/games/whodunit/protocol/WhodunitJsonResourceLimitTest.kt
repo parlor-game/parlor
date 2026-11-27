@@ -1,6 +1,6 @@
 package com.parlor.games.whodunit.protocol
 
-import com.parlor.games.whodunit.domain.action.WhodunitActionCodec
+import com.parlor.games.whodunit.protocol.WhodunitActionCodec
 import com.parlor.games.whodunit.snapshot.WhodunitSnapshotCodec
 import kotlinx.serialization.json.Json
 import kotlin.test.Test

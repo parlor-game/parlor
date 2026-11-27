@@ -25,7 +25,7 @@ import com.parlor.games.whodunit.WhodunitDefinition
 import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.games.whodunit.domain.event.WhodunitEvent
-import com.parlor.games.whodunit.domain.party.WhodunitReadinessGate
+import com.parlor.games.whodunit.session.WhodunitReadinessGate
 import com.parlor.games.whodunit.domain.phase.WhodunitPhase
 import com.parlor.games.whodunit.domain.projection.WhodunitProjectionPolicy
 import com.parlor.games.whodunit.domain.reducer.WhodunitReducer

@@ -1,6 +1,7 @@
-package com.parlor.games.mafia.domain.action
+package com.parlor.games.mafia.protocol
 
 import com.parlor.core.serialization.requireBoundedJsonNesting
+import com.parlor.games.mafia.domain.action.MafiaAction
 import com.parlor.networking.protocol.MAX_COMMAND_PAYLOAD_BYTES
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -10,7 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Codec for sending [MafiaAction] payloads over the wire as `ByteArray`.
  *
- * Mirrors [com.parlor.games.whodunit.domain.action.WhodunitActionCodec]: a peer
+ * Mirrors [com.parlor.games.whodunit.protocol.WhodunitActionCodec]: a peer
  * submits a `MafiaAction` to the host by wrapping the encoded bytes in
  * `PeerMessage.ClientCommand(payload)`; the shared coordinator authenticates,
  * orders, and acknowledges the command before the host decodes it to a typed
