@@ -9,7 +9,9 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import time
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,6 +45,40 @@ def execution_evidence(log: str, mode: str) -> dict:
             }}
 
 
+MATCHED_FIELDS = (
+    "mode", "link_task", "xcode", "macos", "architecture", "runner_image_version",
+    "logical_cpus", "jdk", "kotlin_version", "gradle_distribution", "dependency_cache_match",
+    "dependency_cache_exact_hit", "gradle_task_output_cache", "gradle_configuration_cache",
+)
+
+
+def compare_reports(baseline: dict, candidate: dict) -> dict:
+    if (baseline.get("role") != "baseline" or candidate.get("role") != "candidate" or
+            any(r.get("result") != "PASS" or r.get("schema") != 1 for r in (baseline, candidate)) or
+            not baseline.get("run_id") or not baseline.get("run_attempt") or
+            any(baseline.get(key) != candidate.get(key) for key in ("run_id", "run_attempt"))):
+        raise RuntimeError("Expected the two successful roles from the same lab attempt")
+    mismatches = [
+        field for field in MATCHED_FIELDS
+        if field not in baseline or field not in candidate or baseline[field] != candidate[field]
+    ]
+    if mismatches:
+        raise RuntimeError(f"Unmatched runner, toolchain or cache conditions: {', '.join(mismatches)}")
+    before, after = (r["gradle_wall_seconds"] for r in (baseline, candidate))
+    phase_deltas = {
+        name: candidate["native_phase_ms"][name] - duration
+        for name, duration in baseline["native_phase_ms"].items()
+        if name in candidate["native_phase_ms"]
+    }
+    return {"schema": 1, "mode": baseline["mode"], "run_id": baseline["run_id"],
+            "baseline_sha": baseline["source_sha"], "candidate_sha": candidate["source_sha"],
+            "baseline_gradle_seconds": before, "candidate_gradle_seconds": after,
+            "gradle_delta_seconds": after - before, "native_phase_delta_ms": phase_deltas,
+            "dependency_cache_window_seconds": {
+                r["role"]: r["dependency_cache_step_window_seconds"] for r in (baseline, candidate)
+            }}
+
+
 def run(args: argparse.Namespace) -> None:
     root, out = args.source.resolve(strict=True), args.report.resolve()
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
@@ -69,6 +105,13 @@ def run(args: argparse.Namespace) -> None:
     with (out / "gradle.log").open("wb") as log:
         build = subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT, check=False)
     seconds = (time.monotonic_ns() - start) / 1e9
+    with (root / "gradle/libs.versions.toml").open("rb") as catalog:
+        kotlin_version = tomllib.load(catalog)["versions"]["kotlin"]
+    gradle_distribution = next(
+        line.split("=", 1)[1].replace(r"\:", ":")
+        for line in (root / "gradle/wrapper/gradle-wrapper.properties").read_text().splitlines()
+        if line.startswith("distributionUrl=")
+    )
     report = {"schema": 1, "run_id": os.environ.get("GITHUB_RUN_ID"),
               "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "source_sha": head,
               "source_tree": tree, "role": args.role, "mode": args.mode,
@@ -78,6 +121,7 @@ def run(args: argparse.Namespace) -> None:
               "runner_image_version": os.environ.get("ImageVersion"),
               "logical_cpus": output(root, "sysctl", "-n", "hw.logicalcpu"),
               "jdk": output(root, "java", "--version").splitlines()[0],
+              "kotlin_version": kotlin_version, "gradle_distribution": gradle_distribution,
               "dependency_cache_step_window_seconds": int(os.environ["PARLOR_LAB_CACHE_SECONDS"]),
               "dependency_cache_match": os.environ.get("PARLOR_LAB_CACHE_MATCH"),
               "dependency_cache_exact_hit": os.environ.get("PARLOR_LAB_CACHE_HIT") == "true",
@@ -107,6 +151,13 @@ def run(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    if len(sys.argv) > 1 and sys.argv[1] == "compare":
+        parser.add_argument("baseline", type=Path)
+        parser.add_argument("candidate", type=Path)
+        args = parser.parse_args(sys.argv[2:])
+        report = compare_reports(json.loads(args.baseline.read_text()), json.loads(args.candidate.read_text()))
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--expected-sha", required=True)
