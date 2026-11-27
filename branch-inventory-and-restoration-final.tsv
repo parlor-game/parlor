@@ -1,7 +1,7 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	0c8cf6e7c6a7f57c483e44648e46b650134b69df	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	eeb3a9dde900d6e992b80e8d57726fa92051ed53	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest.
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
-ci/android-production-lanes	21ea3c8dc13e27384e529d365663365accb10216	kept	Protected Production promotion PR #363 and pending exact-head qualification 45934609438 for #342
+ci/android-production-lanes	21ea3c8dc13e27384e529d365663365accb10216	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
 diagnostic/ios-xcresult-review-2026-10-29	b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	kept	Retained iOS XCTest evidence extraction route for #276
@@ -10,21 +10,21 @@ diagnostic/pr355-arabic-join	5c6d94343faf8d83a8aa0debce9519a00b58760c	deleted-fr
 diagnostic/pr362-rationale-tap	6f513f6a322fae1827cde92d41372d1a813eb10c	deleted-from-remote	Approved retirement after Production 45894297619 attempt 2 passed. Exact tip remains reachable.
 diagnostic/xcode-worker-inventory-2026-10-29	febe91cef00a5f7f63c1560cc9757e711844c166	kept	Hosted Xcode worker/runtime capability route for #267 and #276
 docs/smart-lobby-plan	a4c1f70c81c1713ad92cfbeeb156ac7f7a8bc96e	deleted-from-remote	Reviewed ADR and original plan preserved under its exact approved SHA
-feat/last-light	afe783838461afae1029f0369280a1bafadc395f	kept	Pinned GitHub distribution and GitHub test release workflow target
+feat/last-light	afe783838461afae1029f0369280a1bafadc395f	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 fix/ci-lint-central-backoff	c3379847db71f97fe195663322c9bf42447e07d3	kept	Verified focused follow-up for Central rate limiting. Protected PR qualification remains pending.
 fix/ci-lint-index-rate-limit	297f5f7aac171125d619681cad5d9d1a658ceea9	deleted-from-remote	Approved retirement after Production 45894297619 attempt 2 passed. Exact tip remains reachable.
 fix/input-diagnostic-integration-2026-10-29	458a63e7901de7a2661a7c042a41f1693c09c97c	kept	Branch-specific iOS input investigation workflow
 fix/ios-complete-protection-readback-2026-11-04	7d4907ecea59741c3e81e1bdf4a897c64118501a	kept	Unmerged iOS storage-protection candidate blocked on native #258 qualification
-main	66eaecd96d37cfb596d33feb354f95418f1e72fa	kept	Protected main. Production verification 45894297619 attempt 2 verified green.
+main	30d57d76bfe9082645a75e871e097116436c2da1	kept	Protected main after PR #363 and Production 45940466368 attempt 2.
 perf/android-api34-cold-timing	7bb57fda3ab4594fda627e0f938765354eafc0f1	deleted-from-remote	Completed API 34 diagnosis. Exact control, selection and process-exit traces are reproducible by archive SHA
 perf/android-api34-lavapipe	16a0b290e545460b1c3e85892c5a9e720e9c4afa	deleted-from-remote	Completed hosted 35-test comparison 45851460650; exact source is preserved and managed follow-up has its own active ref
-perf/android-production-contract	08cd6e0f7c50b49075cc5acf4e15948d891c1156	kept	Exact production Android three-lane required-check candidate and hosted contract preview 45924139938 for #342
-perf/android-three-lane	b841af93b3e752b198c4244a38135622fe743ed0	kept	Active #342 exact-source Android runtime concurrency comparison.
+perf/android-production-contract	08cd6e0f7c50b49075cc5acf4e15948d891c1156	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
+perf/android-three-lane	b841af93b3e752b198c4244a38135622fe743ed0	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 perf/android-verification-parallel	6b467291481d825f7dac628cfb352e904400e824	deleted-from-remote	Approved retirement after Production 45894297619 attempt 2 passed. Exact tip remains reachable.
-perf/android-verified-split	dfeebdda3fc1c5d92da5120ca2553757902c8842	kept	Completed and verified #342 two-lane comparison.
-perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	kept	Active isolated ARM64 device and x64 simulator link timing for #342
-perf/ios-release-runtime-acceptance	46cfdc548648a8573b294a75b15453c6828be1b2	kept	Completed #342 Release runtime experiment preserved at its exact tip.
-perf/ios-release-small-binary	922771074fabdebb2f85c18209845e63c3397527	kept	Isolated cold Apple Release wrapper optimization trial 45923612465 with regular startup gate for #342
+perf/android-verified-split	dfeebdda3fc1c5d92da5120ca2553757902c8842	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
+perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
+perf/ios-release-runtime-acceptance	46cfdc548648a8573b294a75b15453c6828be1b2	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
+perf/ios-release-small-binary	922771074fabdebb2f85c18209845e63c3397527	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
 test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
 test/smart-lobby-native-ui	9111eaa22f5394677a8d47ef2f313c84edd18366	kept	Hosted #350 two-Android Party verification passed. Exact harness remains available for iOS pairing.
