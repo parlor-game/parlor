@@ -1,9 +1,7 @@
 name: Android runtime suite benchmark
 
 on:
-  push:
-    branches: [perf/native-link-lab]
-    paths: ['.github/workflows/android-runtime-benchmark.yml', 'scripts/android/run_release_managed_device_smoke.sh', 'scripts/release/tests/test_android_managed_gpu.py']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +11,7 @@ env:
 
 jobs:
   controls:
+    if: startsWith(github.ref, 'refs/heads/perf/')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -127,7 +126,8 @@ jobs:
           started=$(date +%s)
           status=0
           scripts/android/run_release_managed_device_smoke.sh "$SUITE" 2>&1 | tee build/ci-evidence/suite.log || status=$?
-          jq -n --arg source "$GITHUB_SHA" --arg tree "$(git rev-parse HEAD^{tree})" \
+          tree=$(git rev-parse 'HEAD^{tree}')
+          jq -n --arg source "$GITHUB_SHA" --arg tree "$tree" \
             --arg baseline "$baseline" --arg suite "$SUITE" --arg cache "$CACHE_MATCH" --arg hit "$CACHE_HIT" \
             --argjson seconds "$(( $(date +%s) - started ))" --argjson exit_code "$status" \
             '{source_sha:$source,source_tree:$tree,baseline_sha:$baseline,suite:$suite,cache_match:$cache,cache_hit:$hit,suite_seconds:$seconds,exit_code:$exit_code}' \

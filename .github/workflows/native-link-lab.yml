@@ -13,9 +13,10 @@ on:
         options: [plan, link]
         default: plan
   push:
-    branches: [perf/native-link-lab]
+    branches: [perf/native-link-lab-preflight]
     paths:
       - '.github/workflows/native-link-lab.yml'
+      - '.github/workflows/android-runtime-benchmark.yml'
       - '.github/workflows/production-verification.yml'
       - 'docs/RELEASE_AUTOMATION.md'
       - 'docs/RELEASE_GATES.md'
@@ -32,18 +33,23 @@ jobs:
   report-contract:
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Verify measurement contract
-        run: >-
-          python3 -B -m unittest scripts.release.tests.test_native_link_lab
-          scripts.release.tests.test_android_release_gate scripts.release.tests.test_workflow_contract
-          scripts.release.tests.test_android_managed_gpu scripts.release.tests.test_release_documentation
-      - name: Check the workflow security contract
-        run: python3 -B scripts/release/workflow_contract.py
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Run Production release automation checks without building the app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          bash scripts/release/validate_release_system.sh
 
   compare:
     if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/perf/')
