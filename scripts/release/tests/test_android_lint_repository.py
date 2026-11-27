@@ -1,4 +1,5 @@
 import contextlib
+from email.message import Message
 import io
 import json
 from pathlib import Path
@@ -119,7 +120,7 @@ class AndroidLintRepositoryTest(unittest.TestCase):
                 subject.prepare(root, URL_RESPONSES.__getitem__)
             self.assertFalse(list((root / "gradle").glob("lint-repository-inputs-*.json")))
 
-    def test_fetch_is_single_bounded_official_request_without_redirect_or_retry(self):
+    def test_fetch_enforces_the_fresh_official_url_and_response_size(self):
         class Response:
             status = 200
             def __init__(self, url, raw=MASTER):
@@ -142,6 +143,121 @@ class AndroidLintRepositoryTest(unittest.TestCase):
         for invalid in (Response("https://example.com/index"), Response(url, b''), Response(url, b'x' * (subject.MAX_BYTES + 1))):
             with patch.object(subject.urllib.request, "urlopen", return_value=invalid), self.assertRaises(ValueError):
                 subject.fetch(url)
+
+    def test_fetch_retries_only_an_official_429_and_uses_the_fresh_response(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        headers = Message()
+        headers["Retry-After"] = "12"
+        limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", headers, None)
+        with patch.object(subject, "fetch_once", side_effect=[limited, CENTRAL]) as download, \
+                patch.object(subject.time, "sleep") as delay:
+            self.assertEqual(CENTRAL, subject.fetch(url))
+            self.assertEqual([((url,), {}), ((url,), {})], download.call_args_list)
+            delay.assert_called_once_with(12)
+
+    def test_retry_can_recover_after_two_central_429_responses(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+        with patch.object(subject, "fetch_once", side_effect=[limited, limited, CENTRAL]) as download, \
+                patch.object(subject.time, "sleep") as delay:
+            self.assertEqual(CENTRAL, subject.fetch(url))
+        self.assertEqual([((url,), {})] * 3, download.call_args_list)
+        self.assertEqual([((5,), {}), ((30,), {})], delay.call_args_list)
+
+    def test_repeated_429_exhausts_the_origin_specific_budget(self):
+        for url, delays in ((subject.MAVEN_CENTRAL + CENTRAL_PATH, (5, 30)),
+                            (subject.GOOGLE_MAVEN + subject.GOOGLE_INDEXES[0], (5,))):
+            limited = subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+            with self.subTest(url=url), patch.object(subject, "fetch_once", side_effect=limited) as download, \
+                    patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
+                subject.fetch(url)
+            self.assertEqual([((url,), {})] * (len(delays) + 1), download.call_args_list)
+            self.assertEqual([((seconds,), {}) for seconds in delays], delay.call_args_list)
+
+    def test_fetch_refuses_other_errors_redirects_and_unbounded_retry_after(self):
+        url = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        for status, response_url, wait in ((404, url, ""), (429, "https://example.com/index", ""),
+                                           (429, url, "120"), (429, url, "later")):
+            headers = Message()
+            headers["Retry-After"] = wait
+            error = subject.urllib.error.HTTPError(response_url, status, "Rejected", headers, None)
+            with self.subTest(status=status, response_url=response_url, wait=wait), \
+                    patch.object(subject, "fetch_once", side_effect=error) as download, \
+                    patch.object(subject.time, "sleep") as delay, self.assertRaises(subject.urllib.error.HTTPError):
+                subject.fetch(url)
+            download.assert_called_once_with(url)
+            delay.assert_not_called()
+
+    def test_prepare_stops_requests_to_a_rate_limited_repository(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = self.fixture(Path(name))
+            inventory = root / subject.INVENTORY
+            with inventory.open("a") as stream:
+                stream.write("DependencyUpdate|gradle/libs.versions.toml|A newer version of "
+                             "com.example:later than 1.0.0\n")
+            central_calls = []
+            first = subject.MAVEN_CENTRAL + CENTRAL_PATH
+
+            def download(url):
+                if url.startswith(subject.MAVEN_CENTRAL):
+                    central_calls.append(url)
+                    raise subject.urllib.error.HTTPError(url, 429, "Too Many Requests", None, None)
+                return URL_RESPONSES[url]
+
+            with self.assertRaises(subject.urllib.error.HTTPError):
+                subject.prepare(root, download)
+            self.assertEqual([first], central_calls)
+            self.assertFalse((root / "composeApp/build").exists())
+
+    def test_central_404_uses_and_records_the_canonical_alternate(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        alternate = subject.MAVEN_CENTRAL_ALTERNATE + CENTRAL_PATH
+        missing = subject.urllib.error.HTTPError(primary, 404, "Not Found", None, None)
+        with tempfile.TemporaryDirectory() as name:
+            root = self.fixture(Path(name))
+            calls = []
+
+            def download(url):
+                calls.append(url)
+                if url == primary:
+                    raise missing
+                if url == alternate:
+                    return CENTRAL
+                return URL_RESPONSES[url]
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = subject.prepare(root, download)
+            self.assertCountEqual([*URL_RESPONSES, alternate], calls)
+            self.assertLess(calls.index(primary), calls.index(alternate))
+            self.assertEqual(alternate, result["inputs"][-1]["url"])
+
+    def test_lint_inputs_stay_invalid_when_the_alternate_is_missing_or_wrong(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        alternate = subject.MAVEN_CENTRAL_ALTERNATE + CENTRAL_PATH
+        for alternate_response in (None, MASTER):
+            with tempfile.TemporaryDirectory() as name:
+                root = self.fixture(Path(name))
+
+                def download(url):
+                    if url == alternate and alternate_response is not None:
+                        return alternate_response
+                    if url in (primary, alternate):
+                        raise subject.urllib.error.HTTPError(url, 404, "Not Found", None, None)
+                    return URL_RESPONSES[url]
+
+                failure = ValueError if alternate_response is not None else subject.urllib.error.HTTPError
+                with self.assertRaises(failure):
+                    subject.prepare(root, download)
+                self.assertFalse((root / "composeApp/build").exists())
+
+    def test_alternate_requires_an_unredirected_maven_central_404(self):
+        primary = subject.MAVEN_CENTRAL + CENTRAL_PATH
+        google = subject.GOOGLE_MAVEN + subject.GOOGLE_INDEXES[0]
+        for url, response_url in ((google, google), (primary, "https://example.com/index")):
+            error = subject.urllib.error.HTTPError(response_url, 404, "Not Found", None, None)
+            with patch.object(subject, "fetch", side_effect=error) as download, self.assertRaises(type(error)):
+                subject.fetch_index(url, download)
+            download.assert_called_once_with(url)
 
     def fixture(self, root):
         (root / "gradle").mkdir()

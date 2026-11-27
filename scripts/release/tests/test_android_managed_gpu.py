@@ -13,7 +13,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = "scripts/android/run_release_managed_device_smoke.sh"
-GPU = "-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader"
+LINUX_GPU = "-Pandroid.testoptions.manageddevices.emulator.gpu=lavapipe"
+OTHER_GPU = "-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader"
 RELEASE = "productionAndroidRuntimeCheck"
 NAVIGATION = "productionAndroidNavigationRuntimeCheck"
 ASSEMBLE = ":composeApp:assembleDebug"
@@ -31,7 +32,9 @@ class AndroidManagedGpuTest(unittest.TestCase):
                 contract.verify_android_runtime_script()
         contract.verify_android_runtime_script()
 
-    def run_wrapper(self, failed_task: str = "") -> tuple[int, list[list[str]]]:
+    def run_wrapper(
+        self, failed_task: str = "", host_kernel: str = "Linux", suite: str | None = None,
+    ) -> tuple[int, list[list[str]]]:
         with TemporaryDirectory(prefix="parlor-gpu-shell-control-") as temporary:
             root = Path(temporary)
             script = root / SCRIPT
@@ -75,15 +78,17 @@ class AndroidManagedGpuTest(unittest.TestCase):
                 '''))
             supervisor.chmod(0o700)
             for name, content in (
-                ("uname", "#!/bin/sh\nprintf 'Linux\\n'\n"),
+                ("uname", "#!/bin/sh\nprintf '%s\\n' \"$TEST_HOST_KERNEL\"\n"),
                 ("keytool", "#!/bin/sh\nexit 0\n"),
             ):
                 tool = tools / name
                 tool.write_text(content)
                 tool.chmod(0o700)
             env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"],
-                       CALLS=str(calls), FAILED_TASK=failed_task, TMPDIR=str(root))
-            result = subprocess.run(["bash", str(script)], cwd=root, env=env,
+                       CALLS=str(calls), FAILED_TASK=failed_task, TMPDIR=str(root),
+                       TEST_HOST_KERNEL=host_kernel)
+            command = ["bash", str(script)] + ([suite] if suite is not None else [])
+            result = subprocess.run(command, cwd=root, env=env,
                                     capture_output=True, text=True, timeout=15)
             rows = [json.loads(line) for line in calls.read_text().splitlines()]
             return result.returncode, rows
@@ -93,7 +98,8 @@ class AndroidManagedGpuTest(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, SETUP, NAVIGATION, "--stop"])
         for args, variant in zip((calls[0], calls[3]), ("release", "debug"), strict=True):
-            self.assertEqual(args.count(GPU), 1)
+            self.assertEqual(args.count(LINUX_GPU), 1)
+            self.assertNotIn(OTHER_GPU, args)
             self.assertEqual(args.count("--info"), 1)
             self.assertIn(f"-Pparlor.androidRuntimeTestVariant={variant}", args)
             self.assertIn("--dependency-verification=strict", args)
@@ -110,11 +116,19 @@ class AndroidManagedGpuTest(unittest.TestCase):
         self.assertTrue(any(arg.startswith("-Dorg.gradle.jvmargs=-Xmx4g ") for arg in calls[3]))
         self.assertFalse(any("signing" in arg for arg in calls[3]))
 
+    def test_non_linux_invocations_keep_the_existing_renderer(self) -> None:
+        status, calls = self.run_wrapper(host_kernel="Darwin")
+        self.assertEqual(status, 0)
+        self.assertEqual([args[0] for args in calls], [RELEASE, NAVIGATION, "--stop"])
+        for args in calls[:2]:
+            self.assertEqual(args.count(OTHER_GPU), 1)
+            self.assertNotIn(LINUX_GPU, args)
+
     def test_failed_release_propagates_without_replay_or_navigation(self) -> None:
         status, calls = self.run_wrapper(RELEASE)
         self.assertEqual(status, 23)
         self.assertEqual([args[0] for args in calls], [RELEASE, "--stop"])
-        self.assertEqual(calls[0].count(GPU), 1)
+        self.assertEqual(calls[0].count(LINUX_GPU), 1)
         self.assertEqual(calls[0].count("--info"), 1)
 
     def test_failed_debug_assembly_does_not_start_navigation_device(self) -> None:
@@ -126,5 +140,26 @@ class AndroidManagedGpuTest(unittest.TestCase):
         status, calls = self.run_wrapper(NAVIGATION)
         self.assertEqual(status, 23)
         self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, SETUP, NAVIGATION, "--stop"])
-        self.assertEqual(calls[3].count(GPU), 1)
+        self.assertEqual(calls[3].count(LINUX_GPU), 1)
         self.assertEqual(calls[3].count("--info"), 1)
+
+
+    def test_explicit_preview_suites_execute_only_the_selected_original_commands(self) -> None:
+        status, combined = self.run_wrapper()
+        self.assertEqual(status, 0)
+        for suite, selected in (("release-only", combined[:1]), ("navigation-only", combined[1:4])):
+            with self.subTest(suite=suite):
+                status, calls = self.run_wrapper(suite=suite)
+                self.assertEqual(status, 0)
+                # The disposable Release signing path changes with the sandbox.
+                def normalize(command: list[str]) -> list[str]:
+                    return [
+                        arg.split("=")[0] if arg.startswith("-Pandroid.injected.signing.store.file=") else arg
+                        for arg in command
+                    ]
+                self.assertEqual([normalize(args) for args in calls], [normalize(args) for args in selected] + [["--stop"]])
+
+    def test_invalid_preview_suite_fails_before_building(self) -> None:
+        status, calls = self.run_wrapper(suite="invalid")
+        self.assertEqual(status, 2)
+        self.assertEqual(calls, [["--stop"]])

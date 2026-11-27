@@ -26,41 +26,19 @@ trap 'cleanup $?' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-temporary_dir=$(mktemp -d "${TMPDIR:-/tmp}/parlor-android-runtime.XXXXXX")
-chmod 700 "$temporary_dir"
-
-keystore="$temporary_dir/managed-device.p12"
-keystore_password=parlor-managed-device-only
-key_alias=parlor-managed-device
-
-keytool -genkeypair \
-  -alias "$key_alias" \
-  -keyalg RSA \
-  -keysize 2048 \
-  -validity 2 \
-  -dname "CN=Parlor Managed Device,OU=CI,O=Parlor,L=Cairo,C=EG" \
-  -keystore "$keystore" \
-  -storetype PKCS12 \
-  -storepass "$keystore_password" \
-  -keypass "$keystore_password" \
-  -noprompt
+suite=${1:-all}
+if (( $# > 1 )) || [[ "$suite" != all && "$suite" != release-only && "$suite" != navigation-only ]]; then
+  printf 'Usage: %s [all|release-only|navigation-only]\n' "$0" >&2
+  exit 2
+fi
 
 cd "$repo_root"
-# AGP retains only uppercase ERROR lines in snapshot-start exceptions. INFO
-# exposes both emulator streams, including loader/PANIC diagnostics it omits.
-gradle_command=(./gradlew productionAndroidRuntimeCheck \
-  -Pparlor.androidRuntimeTestVariant=release \
-  -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader \
-  --dependency-verification=strict \
-  --no-daemon \
-  --max-workers=2 \
-  --info \
-  --stacktrace \
-  --console=plain \
-  "-Pandroid.injected.signing.store.file=$keystore" \
-  "-Pandroid.injected.signing.store.password=$keystore_password" \
-  "-Pandroid.injected.signing.key.alias=$key_alias" \
-  "-Pandroid.injected.signing.key.password=$keystore_password")
+# Both managed-device suites passed with Lavapipe on the hosted Linux runner.
+host_kernel=$(uname -s)
+managed_device_gpu=swiftshader
+if [[ "$host_kernel" == Linux ]]; then
+  managed_device_gpu=lavapipe
+fi
 
 cold_probe() {
   local variant=$1 receipt=$2
@@ -74,23 +52,67 @@ cold_probe() {
   fi
 }
 
-if [[ "$(uname -s)" == Linux ]]; then
-  # AGP's emulator exit request is not an exit guarantee. Retire only this
-  # build's kernel-owned descendants, including helpers detached with setsid.
-  # A fresh ANDROID_AVD_HOME is retired only after that proof and a passing
-  # runtime. API35's completed writable images must not overlap API34's peak.
-  release_status=0
-  python3 -B scripts/android/supervise_managed_device.py \
-    --receipt build/ci-evidence/android-managed-device-supervision.json \
-    --isolated-avd \
-    -- "${gradle_command[@]}" || release_status=$?
-  if ((release_status != 0)); then
-    cold_probe release android-managed-device-supervision.json
-    exit "$release_status"
+run_release() {
+  temporary_dir=$(mktemp -d "${TMPDIR:-/tmp}/parlor-android-runtime.XXXXXX")
+  chmod 700 "$temporary_dir"
+
+  keystore="$temporary_dir/managed-device.p12"
+  keystore_password=parlor-managed-device-only
+  key_alias=parlor-managed-device
+
+  keytool -genkeypair \
+    -alias "$key_alias" \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 2 \
+    -dname "CN=Parlor Managed Device,OU=CI,O=Parlor,L=Cairo,C=EG" \
+    -keystore "$keystore" \
+    -storetype PKCS12 \
+    -storepass "$keystore_password" \
+    -keypass "$keystore_password" \
+    -noprompt
+
+  # AGP retains only uppercase ERROR lines in snapshot-start exceptions. INFO
+  # exposes both emulator streams, including loader/PANIC diagnostics it omits.
+  gradle_command=(./gradlew productionAndroidRuntimeCheck \
+    -Pparlor.androidRuntimeTestVariant=release \
+    "-Pandroid.testoptions.manageddevices.emulator.gpu=$managed_device_gpu" \
+    --dependency-verification=strict \
+    --no-daemon \
+    --max-workers=2 \
+    --info \
+    --stacktrace \
+    --console=plain \
+    "-Pandroid.injected.signing.store.file=$keystore" \
+    "-Pandroid.injected.signing.store.password=$keystore_password" \
+    "-Pandroid.injected.signing.key.alias=$key_alias" \
+    "-Pandroid.injected.signing.key.password=$keystore_password")
+
+  if [[ "$host_kernel" == Linux ]]; then
+    # AGP's emulator exit request is not an exit guarantee. Retire only this
+    # build's kernel-owned descendants, including helpers detached with setsid.
+    # A fresh ANDROID_AVD_HOME is retired only after that proof and a passing
+    # runtime. API35's completed writable images must not overlap API34's peak.
+    release_status=0
+    python3 -B scripts/android/supervise_managed_device.py \
+      --receipt build/ci-evidence/android-managed-device-supervision.json \
+      --isolated-avd \
+      -- "${gradle_command[@]}" || release_status=$?
+    if ((release_status != 0)); then
+      cold_probe release android-managed-device-supervision.json
+      exit "$release_status"
+    fi
+  else
+    # Preserve the existing non-Linux invocation; it makes no subreaper claim.
+    "${gradle_command[@]}"
   fi
-else
-  # Preserve the existing non-Linux invocation; it makes no subreaper claim.
-  "${gradle_command[@]}"
+}
+
+if [[ "$suite" != navigation-only ]]; then
+  run_release
+fi
+if [[ "$suite" == release-only ]]; then
+  exit 0
 fi
 
 # R8 may remove/internalize APIs that are called only by white-box tests.
@@ -98,7 +120,7 @@ fi
 # without changing the optimized Release app or dropping its smoke tests.
 navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   -Pparlor.androidRuntimeTestVariant=debug \
-  -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader \
+  "-Pandroid.testoptions.manageddevices.emulator.gpu=$managed_device_gpu" \
   --dependency-verification=strict \
   --no-daemon \
   --max-workers=2 \
@@ -106,7 +128,7 @@ navigation_command=(./gradlew productionAndroidNavigationRuntimeCheck \
   --stacktrace \
   --console=plain)
 
-if [[ "$(uname -s)" == Linux ]]; then
+if [[ "$host_kernel" == Linux ]]; then
   # APK compilation can retain a large JVM heap when AGP starts the emulator.
   # Build the exact debug pair first and let that single-use JVM exit. Leave
   # both managed-device gates, their APK inputs and assertions in place.

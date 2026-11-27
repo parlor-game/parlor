@@ -33,7 +33,15 @@ internal class AndroidPublicRecoveryUi(
 
     /** A shared navigation caption is not evidence that its destination was composed. */
     fun awaitHeading(text: String) {
-        awaitNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }.recycle()
+        awaitObservation {
+            // A transition can leave UiAutomation caching the previous tree,
+            // even after an initial refresh before the destination renders.
+            if (instrumentation.uiAutomation.clearCache()) {
+                findNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }
+            } else {
+                null
+            }
+        }.recycle()
     }
 
     /** Fixed public heading probe for failure-only evidence, never a tree/text dump. */
