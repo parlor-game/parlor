@@ -761,7 +761,7 @@ class VerificationWorkflowHygieneTest(unittest.TestCase):
         import re
         workflow = (ROOT / ".github/workflows/production-verification.yml").read_text()
         jobs = re.split(r"(?m)^  (?=[a-z][a-z0-9-]*:\n)", workflow.split("jobs:\n", 1)[1])[1:]
-        self.assertEqual(len(jobs), 14)
+        self.assertEqual(len(jobs), 15)
         android = next(job for job in jobs if job.startswith("android-release:\n"))
         self.assertIn("needs: [desktop-android]", android)
         self.assertIn("scripts.ci.android_release_gate aggregate", android)

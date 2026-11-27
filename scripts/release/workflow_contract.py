@@ -1432,7 +1432,7 @@ def verify_validation(text: str) -> None:
           test "$(cut -d. -f1 build/ci-evidence/iphoneos-sdk.txt)" -ge "$(jq -r .toolchains.apple.minimum_ios_sdk_major config/release-policy.json)"
           git rev-parse HEAD | tee build/ci-evidence/commit.txt
           test -z "$(git status --porcelain)"'''
-    for job in (runtime, swift, release):
+    for job in (runtime, runtime_app, swift, release):
         expected_source = (source_script if job == release else source_script.replace(
             "          mkdir -p build/ci-evidence\n",
             "          mkdir -p build/ci-evidence\n"

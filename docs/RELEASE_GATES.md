@@ -77,7 +77,7 @@ unit test.
 
 ## CI policy
 
-`.github/workflows/production-verification.yml` configures 14 job definitions.
+`.github/workflows/production-verification.yml` configures 15 job definitions.
 The Android matrix runs four independent producers for full verification.
 Its join, the Apple Release join, and the Apple runtime join retain the original
 required check names. All twelve producers and the three joins must qualify.
