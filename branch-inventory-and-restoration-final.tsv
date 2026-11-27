@@ -1,7 +1,7 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	d1c1a311d756e03b934a6fe292bd8b0cf886d1d4	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	4239c4913f6f4f3a959dd9302ee52e036982710c	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
-ci/android-production-lanes	7f432a751b5222999dce350f2216776bafd84403	kept	Protected Production promotion PR #363 and pending exact-head qualification 45924415312 for #342
+ci/android-production-lanes	30409bd87be3ec2ff85c7aab94670c825e2fb048	kept	Protected Production promotion PR #363 and pending exact-head qualification 45925268992 for #342
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
 diagnostic/ios-xcresult-review-2026-10-29	b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	kept	Retained iOS XCTest evidence extraction route for #276
