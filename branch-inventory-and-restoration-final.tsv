@@ -1,5 +1,5 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	b59b8bc9c97b3d223476e4986e686c45288b75fe	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	af0aca07f17ba7549267a269225cdb8be35a6119	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
 diagnostic/ios-original-host-runtime-2026-10-29	91eec0eceff4cef067e472b6d2523aaa753af47b	kept	Preserves the original iOS host reproduction route for #276
@@ -17,7 +17,7 @@ fix/ios-complete-protection-readback-2026-11-04	7d4907ecea59741c3e81e1bdf4a897c6
 main	66eaecd96d37cfb596d33feb354f95418f1e72fa	kept	Protected main. Production verification 45894297619 attempt 2 verified green.
 perf/android-api34-cold-timing	7bb57fda3ab4594fda627e0f938765354eafc0f1	deleted-from-remote	Completed API 34 diagnosis. Exact control, selection and process-exit traces are reproducible by archive SHA
 perf/android-api34-lavapipe	16a0b290e545460b1c3e85892c5a9e720e9c4afa	deleted-from-remote	Completed hosted 35-test comparison 45851460650; exact source is preserved and managed follow-up has its own active ref
-perf/android-production-contract	f475f44a191686adada8bd205adbb9fa8adcd2e9	kept	Exact production Android three-lane required-check candidate and hosted contract preview 45923571430 for #342
+perf/android-production-contract	ef0d3e607984dce41fa5bfc1ab57a9cac7fa2be8	kept	Exact production Android three-lane required-check candidate and hosted contract preview 45923951796 for #342
 perf/android-three-lane	b841af93b3e752b198c4244a38135622fe743ed0	kept	Active #342 exact-source Android runtime concurrency comparison.
 perf/android-verification-parallel	6b467291481d825f7dac628cfb352e904400e824	deleted-from-remote	Approved retirement after Production 45894297619 attempt 2 passed. Exact tip remains reachable.
 perf/android-verified-split	dfeebdda3fc1c5d92da5120ca2553757902c8842	kept	Completed and verified #342 two-lane comparison.
