@@ -48,7 +48,7 @@ def execution_evidence(log: str, mode: str) -> dict:
 MATCHED_FIELDS = (
     "mode", "link_task", "xcode", "macos", "architecture", "runner_image_version",
     "logical_cpus", "jdk", "kotlin_version", "gradle_distribution", "dependency_cache_match",
-    "dependency_cache_exact_hit", "gradle_task_output_cache", "gradle_configuration_cache",
+    "dependency_cache_exact_hit", "konan_before", "gradle_task_output_cache", "gradle_configuration_cache",
 )
 
 
@@ -79,6 +79,14 @@ def compare_reports(baseline: dict, candidate: dict) -> dict:
             }}
 
 
+def konan_state(root: Path) -> dict:
+    home = Path.home() / ".konan"
+    if not home.is_dir():
+        return {"entries": [], "kib": 0}
+    return {"entries": sorted(path.name for path in home.iterdir()),
+            "kib": int(output(root, "du", "-sk", str(home)).split()[0])}
+
+
 def run(args: argparse.Namespace) -> None:
     root, out = args.source.resolve(strict=True), args.report.resolve()
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
@@ -100,6 +108,7 @@ def run(args: argparse.Namespace) -> None:
                "-Pparlor.profileIosReleaseLink=true",
                "-Pkotlin.internal.compiler.arguments.log.level=warning"]
     command += ["--dry-run"] if args.mode == "plan" else ["--profile"]
+    konan_before = konan_state(root)
     start = time.monotonic_ns()
     started_at = datetime.now(timezone.utc).isoformat()
     with (out / "gradle.log").open("wb") as log:
@@ -125,6 +134,7 @@ def run(args: argparse.Namespace) -> None:
               "dependency_cache_step_window_seconds": int(os.environ["PARLOR_LAB_CACHE_SECONDS"]),
               "dependency_cache_match": os.environ.get("PARLOR_LAB_CACHE_MATCH"),
               "dependency_cache_exact_hit": os.environ.get("PARLOR_LAB_CACHE_HIT") == "true",
+              "konan_before": konan_before, "konan_after": konan_state(root),
               "gradle_task_output_cache": False, "gradle_configuration_cache": False,
               "command": command}
     try:
