@@ -16,7 +16,7 @@ import com.parlor.games.whodunit.content.WhodunitCase
 import com.parlor.games.whodunit.content.contentIdentity
 import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.games.whodunit.domain.event.WhodunitEvent
-import com.parlor.games.whodunit.domain.party.WhodunitReadinessGate
+import com.parlor.games.whodunit.session.WhodunitReadinessGate
 import com.parlor.games.whodunit.domain.reducer.WhodunitReducerContext
 import com.parlor.games.whodunit.domain.state.WhodunitState
 import com.parlor.networking.protocol.HostMessage

@@ -1,4 +1,4 @@
-package com.parlor.games.whodunit.domain.party
+package com.parlor.games.whodunit.session
 
 import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.games.whodunit.domain.state.PartyReadiness

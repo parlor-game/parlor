@@ -1,6 +1,5 @@
 # Production architecture
 
-This document describes the implemented architecture as of 2026-09-17.
 Android and iOS are the mobile targets. Desktop also supports development and
 deterministic tests; the requested [GitHub distribution](GITHUB_DISTRIBUTION.md)
 channel now builds self-contained macOS/Windows/Linux installers. Signing,
@@ -11,41 +10,36 @@ physical acceptance and publication are separate gates, not implied by packaging
 ```mermaid
 flowchart TD
     App[Compose app shell and catalog]
-    Registry[Game and navigation registries]
-    Lobby[Shared lobby and session flows]
+    Games[Six game modules]
+    Engine[Shared engine]
     Session[Host-authoritative session coordinator]
     Protocol[Versioned transport-independent protocol]
     Adapter[P2pKit room adapter]
     Kit[P2pKit 0.7.0-rc3 LAN discovery and authenticated encrypted TCP]
-    W[Whodunit module]
-    M[Mafia module]
-    L[Last Light module]
-    Games[Dominoes / Ghamza / Word Impostor modules]
-    GameShell[Typed multiplayer game-shell adapter]
 
-    App --> Registry
-    App --> Lobby
-    Registry --> W
-    Registry --> M
-    Registry --> L
-    Registry --> Games
-    Lobby --> W
-    Lobby --> M
-    Lobby --> L
-    Lobby --> GameShell
-    GameShell --> Games
-    GameShell --> Session
-    W --> Session
-    M --> Session
-    L --> Session
+    App --> Games
+    App --> Session
+    App --> Adapter
+    Games --> Engine
+    Games -->|Whodunit, Mafia, Last Light adapters| Session
+    Session --> Engine
     Session --> Protocol
-    Protocol --> Adapter
+    Protocol --> Engine
+    Adapter --> Protocol
     Adapter --> Kit
 ```
 
+The arrows show dependencies between the selected modules. The app composition
+root provides the concrete transport through the networking interfaces.
 Only `:shared:transport-p2p` imports P2pKit. Game modules supply rules,
 serialization, projection, and authority policy; they do not own discovery,
 admission, reconnect, ordering, or a P2pKit instance.
+
+Android and iOS entry points connect platform lifecycle and permission signals
+to shared policies. The Swift host imports the dynamic `ComposeApp` framework.
+The application framework uses compiled Kotlin libraries for internal modules
+and declares no dependency framework exports. Production links that application
+framework for each required Apple target.
 
 | Layer | Responsibility |
 |---|---|

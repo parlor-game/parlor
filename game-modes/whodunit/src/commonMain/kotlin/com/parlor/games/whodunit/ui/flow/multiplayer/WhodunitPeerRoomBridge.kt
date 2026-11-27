@@ -9,7 +9,7 @@ import com.parlor.engine.projection.PublicProjection
 import com.parlor.engine.session.SubmitError
 import com.parlor.games.whodunit.domain.action.WhodunitAction
 import com.parlor.games.whodunit.content.WhodunitCase
-import com.parlor.games.whodunit.domain.action.WhodunitActionCodec
+import com.parlor.games.whodunit.protocol.WhodunitActionCodec
 import com.parlor.games.whodunit.domain.event.WhodunitEvent
 import com.parlor.games.whodunit.domain.projection.WhodunitProjectionPolicy
 import com.parlor.games.whodunit.domain.state.WhodunitPrivate

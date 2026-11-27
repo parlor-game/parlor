@@ -5,7 +5,7 @@ import com.parlor.core.result.Result
 import com.parlor.engine.state.Player
 import com.parlor.games.whodunit.WhodunitIds
 import com.parlor.games.whodunit.domain.action.WhodunitAction
-import com.parlor.games.whodunit.domain.action.WhodunitActionCodec
+import com.parlor.games.whodunit.protocol.WhodunitActionCodec
 import com.parlor.games.whodunit.domain.authority.WhodunitActionAuthority
 import com.parlor.games.whodunit.domain.event.WhodunitEvent
 import com.parlor.games.whodunit.domain.phase.WhodunitPhase

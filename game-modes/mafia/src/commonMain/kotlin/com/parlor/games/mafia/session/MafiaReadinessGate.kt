@@ -1,4 +1,4 @@
-package com.parlor.games.mafia.domain.party
+package com.parlor.games.mafia.session
 
 import com.parlor.core.ids.PlayerId
 import com.parlor.games.mafia.domain.action.MafiaAction
