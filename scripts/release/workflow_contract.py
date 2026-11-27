@@ -1055,7 +1055,7 @@ def verify_android_split(text: str) -> None:
     if (re.findall(r"(?m)^        id: (.*)$", cleanup) != ["verification_cleanup"] or
             re.findall(r"(?m)^          name: (.*)$", cleanup) != ["${{ matrix.lane == 'diagnostic' && 'verification-cleanup-desktop-android' || format('verification-cleanup-desktop-android-{0}-{1}', matrix.lane, github.run_attempt) }}"]):
         fail("verification scope Android cleanup receipts must be isolated by lane and attempt")
-    join = """    if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
+    join = r"""    if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
     name: Common, desktop, and Android release
     needs: [desktop-android]
     runs-on: ubuntu-24.04
