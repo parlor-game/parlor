@@ -55,7 +55,7 @@ class MacosNetworkWorkflowTests(unittest.TestCase):
     def test_only_macos_x64_artifact_adds_network_snapshot(self):
         for name in contract.VERIFICATION_JOBS:
             if name in {"desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-                        "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64"}:
+                        "ios-kmp", "ios-kmp-app", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64"}:
                 with self.subTest(job=name):
                     self.assertEqual(sum(path.endswith("-network.json") for path in contract.current_verification_artifact_paths(name)),
                                      int(name == "desktop-macos-x64"))

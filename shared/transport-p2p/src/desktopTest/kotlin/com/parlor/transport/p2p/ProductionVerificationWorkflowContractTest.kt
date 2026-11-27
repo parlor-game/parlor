@@ -623,7 +623,8 @@ class ProductionVerificationWorkflowContractTest {
     @Test
     fun apple_jobs_run_kotlin_and_app_launch_tests_all_link_targets_and_unsigned_swift_release() {
         val workflow = read(".github/workflows/production-verification.yml")
-        val runtimeJob = workflow.substringAfter("\n  ios-kmp:\n").substringBefore("\n  ios:\n")
+        val runtimeJob = workflow.substringAfter("\n  ios-kmp:\n").substringBefore("\n  ios-kmp-app:\n")
+        val appRuntimeJob = workflow.substringAfter("\n  ios-kmp-app:\n").substringBefore("\n  ios:\n")
         val swiftJob = workflow.substringAfter("\n  ios:\n").substringBefore("\n  ios-runtime:\n")
         val releaseJob = workflow.substringAfter("\n  ios-release-simulator:\n").substringBefore("\n  ios-release-device:\n")
         assertContains(
@@ -671,13 +672,14 @@ class ProductionVerificationWorkflowContractTest {
         }
 
         val appleTestStep = runtimeJob
-            .substringAfter("- name: Run all KMP iOS simulator runtime tests")
+            .substringAfter("- name: Run KMP iOS simulator module tests and native controls")
             .substringBefore("\n      - name:")
         assertContains(
             appleTestStep,
-            "./gradlew productionIosSimulatorRuntimeTests --dependency-verification=strict --no-daemon",
-            message = "The runtime job must run every executable KMP simulator test",
+            "./gradlew productionIosSimulatorRuntimeTests -x :composeApp:iosSimulatorArm64Test --dependency-verification=strict --no-daemon",
+            message = "The module shard must run the KMP aggregate excluding only the independently run app suite",
         )
+        assertContains(appRuntimeJob, "./gradlew :composeApp:iosSimulatorArm64Test --dependency-verification=strict --no-daemon")
         val appleReleaseStep = releaseJob
             .substringAfter("- name: Run complete Apple static analysis")
             .substringBefore("\n      - name:")
@@ -855,10 +857,11 @@ class ProductionVerificationWorkflowContractTest {
     @Test
     fun split_apple_jobs_keep_independent_source_toolchain_cycles_and_evidence() {
         val workflow = read(".github/workflows/production-verification.yml")
-        val runtime = workflow.substringAfter("\n  ios-kmp:\n").substringBefore("\n  ios:\n")
+        val runtime = workflow.substringAfter("\n  ios-kmp:\n").substringBefore("\n  ios-kmp-app:\n")
+        val appRuntime = workflow.substringAfter("\n  ios-kmp-app:\n").substringBefore("\n  ios:\n")
         val swift = workflow.substringAfter("\n  ios:\n").substringBefore("\n  ios-runtime:\n")
         val release = workflow.substringAfter("\n  ios-release-simulator:\n").substringBefore("\n  ios-release-device:\n")
-        listOf(runtime to listOf("apple-aggregate"), swift to listOf("apple-ui"),
+        listOf(runtime to listOf("apple-aggregate"), appRuntime to listOf("apple-aggregate"), swift to listOf("apple-ui"),
             release to listOf("apple-aggregate", "apple-wrapper"))
             .forEach { (job, cycles) ->
                 val header = job.substringBefore("\n    steps:")
@@ -887,16 +890,17 @@ class ProductionVerificationWorkflowContractTest {
                 assertContains(cleanup, "steps.verification_artifact.outputs.artifact-digest")
             }
         assertContains(runtime, "name: ios-runtime-verification")
+        assertContains(appRuntime, "name: ios-kmp-app-verification")
         assertContains(swift, "name: ios-swift-verification")
         assertFalse("productionIosSimulatorRuntimeTests" in swift)
         assertFalse("create-simulator apple-ui" in runtime)
-        listOf(runtime, swift).forEach { job ->
+        listOf(runtime, appRuntime, swift).forEach { job ->
             assertContains(job, "test \"\$(cat build/ci-evidence/architecture.txt)\" = arm64")
             assertContains(job, "scripts.ci.apple_runtime_gate lane")
         }
         val join = workflow.substringAfter("\n  ios-runtime:\n").substringBefore("\n  ios-release-simulator:\n")
         assertContains(join, "name: iOS simulator runtime and Swift host")
-        assertContains(join, "needs: [ios-kmp, ios]")
+        assertContains(join, "needs: [ios-kmp, ios-kmp-app, ios]")
         assertContains(join, "if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')")
         assertContains(join, "PARLOR_APPLE_RUNTIME_NEEDS: \${{ toJSON(needs) }}")
         assertContains(join, "scripts.ci.apple_runtime_gate aggregate")
@@ -914,7 +918,7 @@ class ProductionVerificationWorkflowContractTest {
         val workflow = read(".github/workflows/production-verification.yml")
         assertEquals(
             listOf("desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-                "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
+                "ios-kmp", "ios-kmp-app", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
                 "darwin-host-capability"),
             Regex("(?m)^  ([a-z][a-z0-9-]+):$").findAll(workflow.substringAfter("\njobs:\n"))
                 .map { it.groupValues[1] }.toList(),
@@ -969,7 +973,7 @@ class ProductionVerificationWorkflowContractTest {
     fun workflow_job_boundaries_are_preserved_for_lf_and_windows_crlf_checkouts() {
         val jobs = listOf(
             "desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-            "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
+            "ios-kmp", "ios-kmp-app", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
         )
         val lf = "on:\n  push:\njobs:\n" + jobs.joinToString("") { job -> "  $job:\n    name: $job\n" }
         fun assertJobBoundaries(checkoutText: String) {

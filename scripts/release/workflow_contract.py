@@ -74,6 +74,7 @@ VERIFICATION_JOBS = {
     "desktop-macos-x64": "Desktop and Kotlin Native strict verification (macOS x64)",
     "desktop-windows-x64": "Desktop, Kotlin Native, and Android resources strict verification (Windows x64)",
     "ios-kmp": "KMP iOS simulator runtime (arm64)",
+    "ios-kmp-app": "KMP iOS simulator app runtime (arm64)",
     "ios": "iOS Swift host acceptance (arm64)",
     "ios-runtime": "iOS simulator runtime and Swift host",
     "ios-release-simulator": "iOS Release simulator and Swift wrapper",
@@ -234,7 +235,7 @@ def current_verification_artifact_paths(job: str) -> list[str]:
         ]
     elif job in {"desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64"}:
         paths = reports + custody
-    elif job in {"ios-kmp", "ios"}:
+    elif job in {"ios-kmp", "ios-kmp-app", "ios"}:
         paths = ["build/ci-evidence/"] + reports + custody + [
             prefix + "-apple-*-ownership.json", prefix + "-apple-ui-simulator-*.json"]
     elif job == "ios-release-simulator":
@@ -256,6 +257,7 @@ def verify_current_verification_artifacts(text: str) -> None:
         "desktop-macos-x64": ("Upload Desktop verification descriptors", "desktop-verification-${{ github.job }}"),
         "desktop-windows-x64": ("Upload Desktop verification descriptors", "desktop-verification-${{ github.job }}"),
         "ios-kmp": ("Upload Apple runtime verification evidence", "ios-runtime-verification"),
+        "ios-kmp-app": ("Upload Apple runtime verification evidence", "ios-kmp-app-verification"),
         "ios": ("Upload Apple Swift verification evidence", "ios-swift-verification"),
         "ios-release-simulator": ("Upload Apple release verification evidence", "ios-release-verification"),
         "ios-release-device": ("Upload IosArm64 release verification evidence", "ios-release-device-verification"),
@@ -567,7 +569,7 @@ def verify_verification_jdk(job: str) -> None:
 
 def verify_split_apple_scopes(text: str) -> None:
     """Isolated ARM64 runtime/Swift and Release jobs retain all owned cycles."""
-    runtime_run = "Run all KMP iOS simulator runtime tests"
+    runtime_run = "Run KMP iOS simulator module tests and native controls"
     release_run = "Run complete Apple static analysis"
     shared_start = ["Claim fresh verification output ownership", "Claim apple-aggregate native resource ownership",
                     "Record Xcode toolchain and exact source"]
@@ -580,6 +582,7 @@ def verify_split_apple_scopes(text: str) -> None:
     prefix = "${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}"
     for job_id, cycle, run, upload, artifact_name in (
         ("ios-kmp", None, runtime_run, "Upload Apple runtime verification evidence", "ios-runtime-verification"),
+        ("ios-kmp-app", None, "Run KMP iOS simulator app tests", "Upload Apple runtime verification evidence", "ios-kmp-app-verification"),
         ("ios", "apple-ui", None, "Upload Apple Swift verification evidence", "ios-swift-verification"),
         ("ios-release-simulator", "apple-wrapper", release_run, "Upload Apple release verification evidence", "ios-release-verification"),
     ):
@@ -621,7 +624,8 @@ def verify_split_apple_scopes(text: str) -> None:
                        "Publish qualified Apple runtime lane identity"]
         expected_steps = (native_steps if job_id == "ios" else ["Check out source", "Set up JDK 21"]) + full_steps
         expected_steps.insert(expected_steps.index("Set up JDK 21") + 1, "Restore reviewed Gradle dependencies")
-        expected_steps += ["Save dependencies from trusted main only"]
+        if job_id != "ios-kmp-app":
+            expected_steps += ["Save dependencies from trusted main only"]
         if re.findall(r"(?m)^      - name: (.*)$", job) != expected_steps:
             fail("verification scope split Apple jobs require all full gates and immediate finalizers in reviewed order")
         for name in full_steps:
@@ -881,7 +885,7 @@ def verify_apple_release_fanout(text: str) -> None:
 def verify_apple_runtime_isolation(text: str) -> None:
     """The old required check cannot pass with either ARM64 runtime omitted."""
     fields = ("source_sha", "source_tree", "evidence_id", "evidence_sha256", "cleanup_sha256", "architecture")
-    for name in ("ios-kmp", "ios"):
+    for name in ("ios-kmp", "ios-kmp-app", "ios"):
         job = validation_job(text, name)
         outputs = job.split("    outputs:\n", 1)[-1].split("    env:\n", 1)[0]
         expected = "".join("      " + field + ": ${{ steps.runtime_lane.outputs." + field + " }}\n" for field in fields)
@@ -896,10 +900,10 @@ def verify_apple_runtime_isolation(text: str) -> None:
     header, steps = gate.split("    steps:\n", 1)
     if re.findall(r"(?m)^    ([a-z-]+): (.*)$", header) != [
             ("if", FULL_VERIFICATION_FINALIZER), ("name", "iOS simulator runtime and Swift host"),
-            ("needs", "[ios-kmp, ios]"), ("runs-on", "ubuntu-24.04"), ("timeout-minutes", "5")]:
-        fail("verification scope runtime join requires both mandatory ARM64 lanes on a free runner")
+            ("needs", "[ios-kmp, ios-kmp-app, ios]"), ("runs-on", "ubuntu-24.04"), ("timeout-minutes", "5")]:
+        fail("verification scope runtime join requires all mandatory ARM64 lanes on a free runner")
     if re.findall(r"(?m)^      - name: (.*)$", steps) != [
-            "Check out source", "Require ARM64 KMP runtime and the complete Swift suite",
+            "Check out source", "Require both ARM64 KMP shards and the complete Swift suite",
             "Upload aggregate Apple runtime qualification"]:
         fail("verification scope runtime join cannot add or omit producers or qualification")
     expected_checkout = '''uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -912,8 +916,8 @@ def verify_apple_runtime_isolation(text: str) -> None:
         env:
           PARLOR_APPLE_RUNTIME_NEEDS: ${{ toJSON(needs) }}
         run: python3 -B -m scripts.ci.apple_runtime_gate aggregate'''
-    if validation_step(gate, "Require ARM64 KMP runtime and the complete Swift suite").strip() != expected_join:
-        fail("verification scope runtime join must validate both actual mandatory producer results")
+    if validation_step(gate, "Require both ARM64 KMP shards and the complete Swift suite").strip() != expected_join:
+        fail("verification scope runtime join must validate all actual mandatory producer results")
     expected_upload = '''uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-runtime-gate-verification
@@ -950,7 +954,7 @@ def verify_apple_runtime_isolation(text: str) -> None:
 def verify_free_ci_dependency_cache(text: str) -> None:
     """GitHub-owned dependency cache; only protected main pushes can write."""
     lanes = ("desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-             "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64")
+             "ios-kmp", "ios-kmp-app", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64")
     prefix = ("parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-"
               "${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-")
     key = prefix + "${{ hashFiles('**/*.gradle.kts') }}"
@@ -971,16 +975,23 @@ def verify_free_ci_dependency_cache(text: str) -> None:
             '            ~/.gradle/caches/modules-2\n'
             '            ~/.gradle/wrapper/dists\n'
             '          key: ${{ steps.dependency_cache.outputs.cache-primary-key }}')
-    if text.count('uses: actions/cache/restore@') != len(lanes) or text.count('uses: actions/cache/save@') != len(lanes):
+    if text.count('uses: actions/cache/restore@') != len(lanes) or text.count('uses: actions/cache/save@') != len(lanes) - 1:
         fail("verification scope requires only reviewed dependency caches in ordinary build lanes")
     for lane in lanes:
         body = validation_job(text, lane)
         cache = validation_step(body, "Restore reviewed Gradle dependencies")
         lane_save = save.replace("success() &&", "success() && " + ANDROID_COMMON_LANE + " &&", 1) if lane == "desktop-android" else save
-        if cache.strip("\n") != expected or validation_step(body, "Save dependencies from trusted main only").strip("\n") != lane_save:
+        save_step = "- name: Save dependencies from trusted main only\n"
+        if cache.strip("\n") != expected:
+            fail("verification scope dependency-only cache does not match the reviewed restore")
+        if lane == "ios-kmp-app":
+            if save_step in body:
+                fail("verification scope app shard restores the shared dependency cache read-only")
+        elif (validation_step(body, "Save dependencies from trusted main only").strip("\n") != lane_save or
+              body.index('- name: Claim fresh verification output ownership\n') >= body.index(save_step)):
             fail("verification scope dependency-only cache must be read-only except protected main pushes")
         if not (body.index('- name: Set up JDK 21\n') < body.index('- name: Restore reviewed Gradle dependencies\n') <
-                body.index('- name: Claim fresh verification output ownership\n') < body.index('- name: Save dependencies from trusted main only\n')):
+                body.index('- name: Claim fresh verification output ownership\n')):
             fail("verification scope dependency cache must not restore owned build outputs")
     selections = re.findall(r"(?m)^      apple_release_runner:\n((?:        .*\n)+)", text.split("\nconcurrency:", 1)[0])
     if (len(selections) != 1 or
@@ -1273,9 +1284,21 @@ def verify_validation(text: str) -> None:
     if "fetch-depth: 0" not in desktop_android_job:
         fail("validation workflow review-inventory gate requires full Git history")
     runtime = validation_job(text, "ios-kmp")
+    runtime_app = validation_job(text, "ios-kmp-app")
     swift = validation_job(text, "ios")
     release = validation_job(text, "ios-release-simulator")
-    native_controls = validation_step(runtime, "Run all KMP iOS simulator runtime tests")
+    native_controls = validation_step(runtime, "Run KMP iOS simulator module tests and native controls")
+    app_step = validation_step(runtime_app, "Run KMP iOS simulator app tests")
+    if app_step.strip() != (
+        "if: " + FULL_VERIFICATION_SCOPE + "\n"
+        "        id: apple_aggregate_run\n"
+        "        shell: bash\n"
+        "        run: |\n"
+        "          set -euo pipefail\n"
+        "          ./gradlew :composeApp:iosSimulatorArm64Test"
+        " --dependency-verification=strict --no-daemon --stacktrace --console=plain"
+    ):
+        fail("validation workflow must enforce the complete split Apple aggregate in the app shard")
     temporary_scope = '''          (
           test -d "$RUNNER_TEMP" && test ! -L "$RUNNER_TEMP"
           test "$(cd -- "$RUNNER_TEMP" && pwd -P)" = "$RUNNER_TEMP"
@@ -1311,7 +1334,9 @@ def verify_validation(text: str) -> None:
                 "          set -euo pipefail\n" not in native_controls):
             fail("validation workflow must run complete macOS diagnostic controls fail-closed before the Apple runtime aggregate")
     for job, name, task in (
-        (runtime, "Run all KMP iOS simulator runtime tests", "productionIosSimulatorRuntimeTests"),
+        (runtime, "Run KMP iOS simulator module tests and native controls",
+         "productionIosSimulatorRuntimeTests -x :composeApp:iosSimulatorArm64Test"),
+        (runtime_app, "Run KMP iOS simulator app tests", ":composeApp:iosSimulatorArm64Test"),
         (release, "Run complete Apple static analysis", "productionAppleStaticAnalysis"),
     ):
         aggregate = validation_step(job, name)

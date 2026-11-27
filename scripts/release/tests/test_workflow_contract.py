@@ -58,7 +58,7 @@ class WorkflowContractTest(unittest.TestCase):
             with self.subTest(original=original), self.assertRaisesRegex(RuntimeError, "verification scope"):
                 workflow_contract.verify_verification_scopes(changed)
         for name in ("desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-                     "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release"):
+                     "ios-kmp", "ios-kmp-app", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release"):
             job = workflow_contract.validation_job(workflow, name)
             changed_job = re.sub(r"(?m)^    if: (.*)$", r"    if: \1 || inputs.verification_scope == 'darwin-host-capability'", job)
             changed = workflow.replace(job, changed_job, 1)
@@ -554,7 +554,7 @@ class WorkflowContractTest(unittest.TestCase):
     def test_scoped_full_finalizers_reject_every_nonexact_predicate(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text(encoding="utf-8")
         original = "if: " + workflow_contract.FULL_VERIFICATION_FINALIZER
-        for job_id, cycles in (("ios-kmp", ("apple-aggregate",)), ("ios", ("apple-ui",)),
+        for job_id, cycles in (("ios-kmp", ("apple-aggregate",)), ("ios-kmp-app", ("apple-aggregate",)), ("ios", ("apple-ui",)),
                                ("ios-release-simulator", ("apple-aggregate", "apple-wrapper"))):
             job = workflow_contract.validation_job(workflow, job_id)
             for cycle in cycles:
@@ -572,7 +572,7 @@ class WorkflowContractTest(unittest.TestCase):
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         self.assertEqual(re.findall(r"(?m)^  ([a-z][a-z0-9-]+):$", workflow.split("\njobs:\n", 1)[1]), [
             "desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
-            "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
+            "ios-kmp", "ios-kmp-app", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
             "darwin-host-capability"])
         workflow_contract.verify_validation(workflow)
         for original, replacement in (
@@ -606,7 +606,8 @@ class WorkflowContractTest(unittest.TestCase):
     def test_split_apple_aggregates_cannot_drop_static_analysis_or_duplicate_runtime(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         for job_id, task, wrong_task in (
-            ("ios-kmp", "productionIosSimulatorRuntimeTests", "productionAppleCheck"),
+            ("ios-kmp", "productionIosSimulatorRuntimeTests -x :composeApp:iosSimulatorArm64Test", "productionAppleCheck"),
+            ("ios-kmp-app", ":composeApp:iosSimulatorArm64Test", "productionAppleCheck"),
             ("ios-release-simulator", "productionAppleStaticAnalysis", ":composeApp:linkReleaseFrameworkIosArm64"),
         ):
             job = workflow_contract.validation_job(workflow, job_id)
@@ -626,7 +627,7 @@ class WorkflowContractTest(unittest.TestCase):
     def test_macos_diagnostic_control_suites_are_complete_fail_closed_and_before_runtime(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         job = workflow_contract.validation_job(workflow, "ios-kmp")
-        original = workflow_contract.validation_step(job, "Run all KMP iOS simulator runtime tests")
+        original = workflow_contract.validation_step(job, "Run KMP iOS simulator module tests and native controls")
         workflow_contract.verify_validation(workflow)
         commands = [line.strip() for line in original.splitlines() if line.strip().startswith('/usr/bin/python3 -B -m unittest')]
         self.assertEqual(len(commands), 2)
@@ -644,7 +645,7 @@ class WorkflowContractTest(unittest.TestCase):
     def test_macos_diagnostic_temporary_scope_cannot_alias_escape_or_force_remove(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         job = workflow_contract.validation_job(workflow, "ios-kmp")
-        original = workflow_contract.validation_step(job, "Run all KMP iOS simulator runtime tests")
+        original = workflow_contract.validation_step(job, "Run KMP iOS simulator module tests and native controls")
         for old, new in (
             ('test ! -L "$RUNNER_TEMP"', 'true'),
             ('test "$(cd -- "$RUNNER_TEMP" && pwd -P)" = "$RUNNER_TEMP"', 'true'),
@@ -662,7 +663,7 @@ class WorkflowContractTest(unittest.TestCase):
 
     def test_each_apple_job_requires_its_own_exact_source_and_toolchain_guard_body(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
-        for job_id in ("ios-kmp", "ios", "ios-release-simulator"):
+        for job_id in ("ios-kmp", "ios-kmp-app", "ios", "ios-release-simulator"):
             job = workflow_contract.validation_job(workflow, job_id)
             block = workflow_contract.validation_step(job, "Record Xcode toolchain and exact source")
             for original, replacement in (
@@ -684,7 +685,7 @@ class WorkflowContractTest(unittest.TestCase):
 
     def test_each_apple_job_requires_its_own_checkout_jdk_and_common_cleanup_commands(self) -> None:
         workflow = (workflow_contract.ROOT / ".github/workflows/production-verification.yml").read_text()
-        for job_id in ("ios-kmp", "ios", "ios-release-simulator"):
+        for job_id in ("ios-kmp", "ios-kmp-app", "ios", "ios-release-simulator"):
             job = workflow_contract.validation_job(workflow, job_id)
             for name, original, replacement in (
                 ("Check out source", "persist-credentials: false", "persist-credentials: true"),

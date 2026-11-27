@@ -23,7 +23,7 @@ class ReleaseDocumentationTest(unittest.TestCase):
             "ios-runtime",
             "ios-release",
         )
-        self.assertCountEqual(job_ids, (*full_job_ids, "desktop-android", "ios-kmp", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64",
+        self.assertCountEqual(job_ids, (*full_job_ids, "desktop-android", "ios-kmp", "ios-kmp-app", "ios", "ios-release-simulator", "ios-release-device", "ios-release-x64",
                                        "ios-protection-probe", "darwin-host-capability"))
         names_by_id = dict(zip(job_ids, job_names))
 
@@ -42,9 +42,9 @@ class ReleaseDocumentationTest(unittest.TestCase):
         self.assertIn("three isolated Release lanes", instructions)
         aggregate = jobs.split("  ios-release:\n", 1)[1].split("  ios-protection-probe:\n", 1)[0]
         self.assertIn("needs: [ios-release-simulator, ios-release-device, ios-release-x64]", aggregate)
-        self.assertIn("both ARM64 runtime lanes", instructions)
+        self.assertIn("all three ARM64 runtime lanes", instructions)
         runtime = jobs.split("  ios-runtime:\n", 1)[1].split("  ios-release-simulator:\n", 1)[0]
-        self.assertIn("needs: [ios-kmp, ios]", runtime)
+        self.assertIn("needs: [ios-kmp, ios-kmp-app, ios]", runtime)
         self.assertIn("scripts.ci.apple_runtime_gate aggregate", runtime)
         self.assertIn(
             f"The opt-in `{names_by_id['ios-protection-probe']}` is not a mandatory full check.",

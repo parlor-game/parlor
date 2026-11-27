@@ -99,17 +99,18 @@ The six required check groups cover these full producers and joins:
 - Windows x64: the real host-selected Desktop graph, tests, Kotlin Native
   distribution download, and Android resource processing through Windows
   `aapt2`.
-- macOS arm64 KMP runtime (`ios-kmp`): pinned Xcode `26.3` build `17C529`,
-  SDK/source validation, every KMP `iosSimulatorArm64Test` through the dedicated
-  `productionIosSimulatorRuntimeTests` aggregate, and complete native-readiness
-  controls. The job owns only `apple-aggregate`.
+- The macOS arm64 KMP runtime jobs pin Xcode `26.3` build `17C529` and validate the
+  SDK and source. `ios-kmp` runs the native readiness and protection controls and
+  the `productionIosSimulatorRuntimeTests` aggregate with only
+  `:composeApp:iosSimulatorArm64Test` excluded. `ios-kmp-app` runs that app task
+  directly. Each job owns its own `apple-aggregate` cycle.
 - macOS arm64 Swift runtime (`ios`): an independent free runner, the identical
   pinned toolchain/source guards, plist/privacy and effective Debug/Release
   identity checks, and the **complete original** Debug SwiftUI/Compose XCTest
   suite on its own fresh Simulator. The job owns only `apple-ui`; focused native
   diagnostic modes retain their existing job identity and separate guards.
 - The Linux `ios-runtime` join retains the protected check name **iOS simulator
-  runtime and Swift host**. Both ARM64 producers, their current-source artifact
+  runtime and Swift host**. All three ARM64 producers, their current-source artifact
   identity and successful native/output cleanup are required. Failed, skipped,
   cancelled, missing, stale or non-ARM64 outputs fail closed. Passing Intel UI
   evidence never substitutes for this ARM64 gate.
@@ -123,16 +124,18 @@ The six required check groups cover these full producers and joins:
   check name and rejects any unsuccessful, skipped, cancelled, missing-custody
   or differing-source lane. The local `productionAppleCheck` stays unchanged.
 
-Both runtime jobs are independent of all Release workers. Six standard macOS
-producers (three Release, two runtime and Desktop x64) share GitHub Free's
-five concurrent macOS slots; one may queue. Other account workflows can cause
+The runtime jobs are independent of all Release workers. Seven standard macOS
+producers (three Release, three runtime and Desktop x64) share GitHub Free's
+five concurrent macOS slots. Other account workflows can cause
 additional queueing. This does not require paid capacity or guarantee a speedup.
-No parallel LTO links share one JVM. KMP evidence is `ios-runtime-verification`,
-Swift evidence is `ios-swift-verification`, and their join retains
+No parallel LTO links share one JVM. The module and app KMP artifacts are
+`ios-runtime-verification` and `ios-kmp-app-verification`. Swift evidence is
+`ios-swift-verification`, and their join retains
 `ios-runtime-gate-verification`. Simulator Release package evidence remains
 `ios-release-verification`, with distinct device, Intel-simulator and Release-join
 records. Every lane keeps source/run/job ownership and cleanup receipts.
-`ios-kmp` owns `apple-aggregate`; `ios` owns `apple-ui`;
+`ios-kmp` and `ios-kmp-app` own independent `apple-aggregate` cycles.
+`ios` owns `apple-ui`.
 `ios-release-simulator` owns `apple-aggregate`/`apple-wrapper`; each link-only lane
 owns `apple-aggregate`. Every cycle immediately stops Gradle and retires owned
 resources. Successful upload custody precedes output deletion; only then can

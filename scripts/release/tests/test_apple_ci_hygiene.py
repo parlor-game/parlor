@@ -1073,7 +1073,7 @@ class AppleWorkflowOwnershipTest(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/production-verification.yml").read_text()
         jobs = {block.split(":\n", 1)[0]: block for block in
                 re.split(r"(?m)^  (?=[a-z][a-z0-9-]*:\n)", workflow.split("jobs:\n", 1)[1])[1:]}
-        self.assertEqual(hygiene.APPLE_JOB_CYCLES, {"ios-kmp": ("apple-aggregate",), "ios": ("apple-ui",),
+        self.assertEqual(hygiene.APPLE_JOB_CYCLES, {"ios-kmp": ("apple-aggregate",), "ios-kmp-app": ("apple-aggregate",), "ios": ("apple-ui",),
                                                    "ios-release-simulator": ("apple-aggregate", "apple-wrapper"),
                                                    "ios-release-device": ("apple-aggregate",),
                                                    "ios-release-x64": ("apple-aggregate",)})

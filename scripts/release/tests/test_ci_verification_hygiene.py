@@ -786,7 +786,7 @@ class VerificationWorkflowHygieneTest(unittest.TestCase):
         self.assertNotIn("verification_hygiene.py", capability)
         jobs = [job for job in jobs if not job.startswith(("android-release:\n", "ios-protection-probe:\n", "ios-release:\n", "ios-runtime:\n", "darwin-host-capability:\n"))]
         expected_stops = {"desktop-android": 2, "desktop-linux-arm64": 1, "desktop-macos-x64": 1,
-                          "desktop-windows-x64": 1, "ios-kmp": 1, "ios": 1, "ios-release-simulator": 2,
+                          "desktop-windows-x64": 1, "ios-kmp": 1, "ios-kmp-app": 1, "ios": 1, "ios-release-simulator": 2,
                           "ios-release-device": 1, "ios-release-x64": 1}
         self.assertEqual({job.split(":\n", 1)[0] for job in jobs}, set(expected_stops))
         for job in jobs:

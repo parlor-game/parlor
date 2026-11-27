@@ -16,7 +16,7 @@ from pathlib import Path
 
 from scripts.ci import verification_hygiene as hygiene
 
-LANES = ("ios-kmp", "ios")
+LANES = ("ios-kmp", "ios-kmp-app", "ios")
 FIELDS = ("source_sha", "source_tree", "evidence_id", "evidence_sha256", "cleanup_sha256", "architecture")
 
 
@@ -33,7 +33,7 @@ def lane_identity(root: Path, prefix: Path, task: dict) -> dict:
     if task.get("GITHUB_JOB") not in LANES:
         raise RuntimeError("Unknown Apple runtime lane")
     if platform.machine() != "arm64":
-        raise RuntimeError("Both iOS runtime lanes require native ARM64 execution")
+        raise RuntimeError("All iOS runtime lanes require native ARM64 execution")
     source = hygiene.source_identity(root)
     claim = read_json(Path(str(prefix) + "-ownership.json"))
     cleanup_path = Path(str(prefix) + "-cleanup.json")
@@ -70,7 +70,7 @@ def lane_identity(root: Path, prefix: Path, task: dict) -> dict:
 
 def aggregate(needs: dict, head: str, tree: str) -> dict:
     if not isinstance(needs, dict) or set(needs) != set(LANES):
-        raise RuntimeError("Apple runtime requires both the ARM64 KMP and Swift suites")
+        raise RuntimeError("Apple runtime requires both ARM64 KMP shards and the Swift suite")
     for lane in LANES:
         value = needs[lane]
         if not isinstance(value, dict) or value.get("result") != "success":

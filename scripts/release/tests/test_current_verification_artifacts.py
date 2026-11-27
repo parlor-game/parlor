@@ -18,6 +18,7 @@ UPLOADS = {
     "desktop-macos-x64": "Upload Desktop verification descriptors",
     "desktop-windows-x64": "Upload Desktop verification descriptors",
     "ios-kmp": "Upload Apple runtime verification evidence",
+    "ios-kmp-app": "Upload Apple runtime verification evidence",
     "ios": "Upload Apple Swift verification evidence",
     "ios-release-simulator": "Upload Apple release verification evidence",
     "ios-release-device": "Upload IosArm64 release verification evidence",

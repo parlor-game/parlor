@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 
 APPLE_JOB_CYCLES = {
     "ios-kmp": ("apple-aggregate",),
+    "ios-kmp-app": ("apple-aggregate",),
     "ios": ("apple-ui",),
     "ios-release-simulator": ("apple-aggregate", "apple-wrapper"),
     "ios-release-device": ("apple-aggregate",),

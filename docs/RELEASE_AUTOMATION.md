@@ -377,10 +377,10 @@ Configure `main`, `testing`, and `release` independently:
   succeed at the same source with retained evidence and successful cleanup.
   These standard free macOS workers preserve every Release architecture without
   changing the required check name or requiring new protection settings.
-  The unchanged runtime check similarly joins both ARM64 runtime lanes
-  (`ios-kmp` and `ios`). Neither KMP tests nor the complete native Swift suite
-  may be skipped or replaced by Intel evidence; source, retained artifacts and
-  successful cleanup must match the triggering checkout.
+  The required runtime check joins all three ARM64 runtime lanes
+  (`ios-kmp`, `ios-kmp-app`, and `ios`). It requires every KMP test and the
+  complete native Swift suite on ARM64, with retained evidence and cleanup
+  bound to the triggering checkout.
   An authorized owner must update external branch-protection settings for these
   two Apple check names; this source contract does not prove those settings were
   changed. Include newly added mandatory full jobs when updating protection;

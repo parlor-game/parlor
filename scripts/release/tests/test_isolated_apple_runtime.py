@@ -159,7 +159,7 @@ class RuntimeIsolationWorkflowTest(unittest.TestCase):
     def test_gate_and_exact_full_swift_command_cannot_be_weakened(self):
         workflow = (contract.ROOT / ".github/workflows/production-verification.yml").read_text()
         for old, new in (
-            ("needs: [ios-kmp, ios]", "needs: [ios]"),
+            ("needs: [ios-kmp, ios-kmp-app, ios]", "needs: [ios]"),
             ("run: python3 -B -m scripts.ci.apple_runtime_gate aggregate", "run: true"),
             ("PARLOR_APPLE_RUNTIME_NEEDS: ${{ toJSON(needs) }}", "PARLOR_APPLE_RUNTIME_NEEDS: '{}'"),
             ("run: /usr/bin/python3 -B -m scripts.ci.apple_runtime_gate lane", "run: true"),
@@ -176,7 +176,7 @@ class RuntimeIsolationWorkflowTest(unittest.TestCase):
 
     def test_both_native_runtime_lanes_reject_paid_or_non_arm64_hosts(self):
         workflow = (contract.ROOT / ".github/workflows/production-verification.yml").read_text()
-        for name in ("ios-kmp", "ios"):
+        for name in ("ios-kmp", "ios-kmp-app", "ios"):
             job = contract.validation_job(workflow, name)
             for label in ("macos-15-intel", "macos-15-large", "macos-15-xlarge", "self-hosted"):
                 changed = workflow.replace(job, job.replace("runs-on: macos-15", "runs-on: " + label, 1), 1)
