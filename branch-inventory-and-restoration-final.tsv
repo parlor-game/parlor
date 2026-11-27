@@ -1,5 +1,5 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	da08702c2bb03348466e5e8b70eac11f6d291ac6	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	e179c30cfefb34d4f12be573d6bd0e511d96901d	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 ci/android-production-lanes	21ea3c8dc13e27384e529d365663365accb10216	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
@@ -26,6 +26,7 @@ perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	deleted-
 perf/ios-release-runtime-acceptance	46cfdc548648a8573b294a75b15453c6828be1b2	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 perf/ios-release-small-binary	922771074fabdebb2f85c18209845e63c3397527	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 perf/native-link-lab	b2e81440a648415c5569a48fc29db90ccbc8fc1a	kept	Research and exact-source Native/Android CI experiment tooling for #342. Hosted evidence runs 45951330752, 45951548690 and 45950876790.
+perf/native-release-cache-2421	3eb32e7761db100407428bd6e6cc8b0c8e07bbe8	kept	Same-version Native Release Binary Cache preflight for #342, run 45951923348. Not qualified for Production.
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
 test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
 test/smart-lobby-native-ui	9111eaa22f5394677a8d47ef2f313c84edd18366	kept	Hosted #350 two-Android Party verification passed. Exact harness remains available for iOS pairing.
