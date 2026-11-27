@@ -1,6 +1,6 @@
 # Production architecture
 
-This document describes the implemented architecture as of 2026-09-17.
+This document describes the implemented architecture.
 Android and iOS are the mobile targets. Desktop also supports development and
 deterministic tests; the requested [GitHub distribution](GITHUB_DISTRIBUTION.md)
 channel now builds self-contained macOS/Windows/Linux installers. Signing,
@@ -64,14 +64,18 @@ admission, reconnect, ordering, or a P2pKit instance.
 The host is the sole authority. Peers never run a reducer to predict canonical
 state.
 
-Runtime protocol: `4.3`.
+Standalone game rooms use wire protocol `4.3`. Party rooms use wire protocol
+`5.0` and have their own room and admission context. The process-owned Party
+keeps approved seats across matches. Each match receives a room view scoped to
+its match identity and game. See [ADR-0003](adr/0003-game-room-and-party-boundaries.md).
 
 A game-scoped join includes the selected game ID and version in the encrypted
 admission request. A game host rejects missing or invalid game context and
 rejects a mismatch after checking the room code, before recording a pending
 approval. The joiner still verifies the game context in the credential offer.
-Game-scoped discovery and room-instance binding must qualify alongside this
-change before the 4.3 Smart Lobby is available to users.
+Discovery filters by the selected game and compatible version before dialing.
+The room identity remains distinct from both the game identity and its human
+room code.
 
 Protocol 4.0 introduced the acknowledged, idempotent game-entry barrier;
 protocol 4.1 added the canonical host display name and explicit duplicate-name
@@ -171,13 +175,19 @@ stateDiagram-v2
     Lobby --> Ended: host exits
 ```
 
-Rooms are same-LAN only. P2pKit advertises the generic same-app Bonjour service;
-the human room code is not advertised. A joining transport session must pass
-P2pKit authenticated-v2 encryption, present the code, and receive explicit host
-approval. The host binds actions to the admitted transport seat instead of
-trusting a sender field from the payload. Room-code entry locates this generic
-service through discovery; Parlor does not support a raw-IP/manual endpoint
-fallback. See [ADR-0002](adr/0002-manual-endpoint-connection.md).
+Rooms are same-LAN only. P2pKit advertises the generic same-app Bonjour service.
+Parlor encodes the room type, protocol and public tag in the advertised device
+name. Standalone advertisements also carry the game ID and version. The human
+room code stays private to the host and the people receiving an invitation.
+A joining transport session uses authenticated-v2 encryption, presents the
+code and receives explicit host approval. The host binds actions to the
+admitted transport seat.
+
+Versioned QR and share invitations identify the target room and pin the host
+fingerprint. A standalone invitation identifies the game and version. A Party
+invitation identifies the Party across game changes. The joiner still discovers
+the eligible host on the same LAN. See [ADR-0002](adr/0002-manual-endpoint-connection.md)
+for the endpoint policy.
 
 Join scheduling owns a 30-second discovery/dial/first-response deadline, a
 5-second budget for each dial plus secure handshake, and candidate-local retry
