@@ -279,7 +279,10 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         self.assertIn("throw cancelled", failure)
         self.assertIn('"captureFailed=true"', failure)
         self.assertIn("$original; evidence=$evidence", failure)
-        self.assertNotIn("clearCache", ui)
+        self.assertNotIn("clearCache", failure)
+        self.assertEqual(ui.count(".clearCache()"), 1)
+        heading = ui.split("fun awaitHeading(", 1)[1].split("fun headingPresentNow", 1)[0]
+        self.assertIn(".clearCache()", heading)
         self.assertEqual(evidence.count(".clearCache()"), 1)
         self.assertLess(evidence.index("val composeBefore = composeState()"), evidence.index("val cached ="))
         self.assertLess(evidence.index("val cached ="), evidence.index(".clearCache()"))
@@ -365,9 +368,7 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         games = 'ui.clickDescription(if (fixture.language == "ar") "افتح مكتبة الألعاب." else "Open the game library.")'
         self.assertLess(prepare.index(settings), prepare.index(heading))
         refresh = "instrumentation.uiAutomation.clearCache()"
-        self.assertEqual(prepare.count(refresh), 2)
-        self.assertLess(prepare.index(settings), prepare.index(refresh))
-        self.assertLess(prepare.index(refresh), prepare.index(heading))
+        self.assertEqual(prepare.count(refresh), 1)
         for write in ("store.save(selected)", "store.save(sibling)", "secure.put(", "membership?.seed()"):
             self.assertLess(prepare.index(heading), prepare.index(write))
             self.assertLess(prepare.index(write), prepare.rindex(refresh))
@@ -378,7 +379,11 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         self.assertIn(prefix + "AndroidRecoveryHeadingRuntimeTest.kt", driver.SOURCE_PATHS)
         ui = (driver.ROOT / (prefix + "AndroidPublicRecoveryUi.kt")).read_text()
         await_heading = ui.split("fun awaitHeading(", 1)[1].split("fun headingPresentNow", 1)[0]
-        self.assertIn("awaitNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }.recycle()", await_heading)
+        self.assertIn("awaitObservation {", await_heading)
+        read = "findNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }"
+        self.assertIn("if (instrumentation.uiAutomation.clearCache()) {", await_heading)
+        self.assertLess(await_heading.index("clearCache()"), await_heading.index(read))
+        self.assertIn("}.recycle()", await_heading)
         self.assertNotIn("performAction", await_heading)
         self.assertIn("node.isHeading && node.text?.toString() == text", ui)
         self.assertIn("OBSERVATION_TIMEOUT_MILLIS = 10_000L", ui)
@@ -602,7 +607,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         source = (driver.ROOT / ".github/workflows/production-verification.yml").read_text()
         return workflow_contract, workflow_contract.validation_job(source, "desktop-android")
 
-    def test_exact_mandatory_full_only_step_reuses_existing_apks_and_evidence_selection(self):
+    def test_exact_mandatory_restart_step_uses_isolated_apks_and_evidence_selection(self):
         rules, job = self.workflow()
         rules.verify_android_resume_process(job)
         # The integrated validator, rather than this test alone, owns the gate.
@@ -617,7 +622,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         name = "Verify Android saved-session removal across process restart"
         step = rules.validation_step(job, name)
         mutations = (
-            step.replace("'full'", "'android-cleanup-only'"),
+            step.replace(rules.ANDROID_RESTART_LANE, rules.ANDROID_CLEANUP_SCOPE),
             step.replace("--isolated-avd", ""),
             step.replace("supervise_managed_device.py", "other.py"),
             step.replace("scripts.android.run_resume_process_acceptance", "other"),
@@ -642,7 +647,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         name = "Verify Android saved-session removal across process restart"
         step = "\n      - name: " + name + "\n" + rules.validation_step(job, name)
         removed = job.replace(step, "", 1)
-        for marker in ("\n      - name: Run release Android managed-device smoke tests\n",
+        for marker in ("\n      - name: Build Android Debug app and instrumentation APKs for restart\n",
                        "\n      - name: Clean only attested verification outputs\n"):
             candidate = removed.replace(marker, step + marker, 1)
             with self.assertRaises(RuntimeError):

@@ -913,12 +913,22 @@ class ProductionVerificationWorkflowContractTest {
     fun supplemental_native_diagnostics_do_not_replace_any_full_gate() {
         val workflow = read(".github/workflows/production-verification.yml")
         assertEquals(
-            listOf("desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
+            listOf("desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
                 "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
                 "darwin-host-capability"),
             Regex("(?m)^  ([a-z][a-z0-9-]+):$").findAll(workflow.substringAfter("\njobs:\n"))
                 .map { it.groupValues[1] }.toList(),
         )
+        val androidJoin = workflow.substringAfter("\n  android-release:\n")
+            .substringBefore("\n  desktop-linux-arm64:\n")
+        listOf(
+            "if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')",
+            "name: Common, desktop, and Android release",
+            "needs: [desktop-android]",
+            "Require all four exact-source Android certificates",
+            "scripts.ci.android_release_gate aggregate",
+            "if-no-files-found: error",
+        ).forEach { assertContains(androidJoin, it) }
         val probe = workflow.substringAfter("\n  ios-protection-probe:\n").substringBefore("\n  darwin-host-capability:\n")
         assertContains(probe, "if: github.event_name == 'workflow_dispatch' && inputs.verification_scope == 'ios-protection-probe'")
         assertContains(probe, "timeout-minutes: 20")
@@ -958,7 +968,7 @@ class ProductionVerificationWorkflowContractTest {
     @Test
     fun workflow_job_boundaries_are_preserved_for_lf_and_windows_crlf_checkouts() {
         val jobs = listOf(
-            "desktop-android", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
+            "desktop-android", "android-release", "desktop-linux-arm64", "desktop-macos-x64", "desktop-windows-x64",
             "ios-kmp", "ios", "ios-runtime", "ios-release-simulator", "ios-release-device", "ios-release-x64", "ios-release", "ios-protection-probe",
         )
         val lf = "on:\n  push:\njobs:\n" + jobs.joinToString("") { job -> "  $job:\n    name: $job\n" }

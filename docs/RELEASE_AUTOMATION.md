@@ -365,6 +365,13 @@ Configure `main`, `testing`, and `release` independently:
   it verifies actual native process identity/tracking/token-bound cleanup on both
   standard free macOS host architectures before a new benchmark. It runs no
   application or build and cannot qualify the required Release join.
+  The original Android required check joins four isolated Android lanes.
+  The common and package lane runs the strict Gradle gates and inspects the
+  unsigned AAB, separate managed-device lanes run the API 35 Release and API 34
+  Debug suites, and the restart lane builds the Debug APK pair and runs all
+  saved-session process-restart cases. Each lane must pass at the same source
+  and retain its reports and cleanup receipt. Failed-job reruns may reuse
+  successful certificates from the same run at that exact source.
   The unchanged Release check is a fail-closed join of three isolated Release lanes
   (`ios-release-simulator`, `ios-release-device`, `ios-release-x64`); each must
   succeed at the same source with retained evidence and successful cleanup.

@@ -1,0 +1,184 @@
+name: Android runtime suite benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+
+jobs:
+  controls:
+    if: startsWith(github.ref, 'refs/heads/perf/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify selected and default suite contracts
+        run: python3 -B -m unittest scripts.release.tests.test_android_managed_gpu
+      - name: Verify unchanged release workflow requirements
+        run: python3 -B scripts/release/workflow_contract.py
+
+  desktop-android:
+    needs: controls
+    name: Android runtime benchmark (${{ matrix.suite }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [release-only, navigation-only]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The review-inventory gate derives per-file findings from the
+          # accepted review baseline, so this job needs that history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          check-latest: false
+          problem-matcher: true
+
+      - name: Reclaim unused standard Linux runner toolchains
+        run: python3 -B scripts/ci/hosted_linux_capacity.py
+
+      - name: Restore reviewed Gradle dependencies
+        id: dependency_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: |
+            parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-
+
+      - name: Claim fresh verification output ownership
+        id: verification_ownership
+        shell: python
+        run: |
+          import runpy, sys
+          sys.argv = ["verification_hygiene.py", "prepare"]
+          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
+
+      - name: Install pinned Android SDK packages
+        timeout-minutes: 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          managed_device_image=$(jq -r '.toolchains.android_managed_device.system_image_package' config/release-policy.json)
+          test "$managed_device_image" = "system-images;android-35;google_apis;x86_64"
+          navigation_device_image=$(jq -r '.toolchains.android_navigation_device.system_image_package' config/release-policy.json)
+          test "$navigation_device_image" = "system-images;android-34;google_apis;x86_64"
+          # Install both required lanes before spending time on compilation.
+          # Do not let AGP fetch an unreviewed/missing image halfway through tests.
+          /usr/bin/timeout --signal=TERM --kill-after=10s 600s \
+            "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_HOME}" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "platform-tools" \
+            "emulator" \
+            "$managed_device_image" \
+            "$navigation_device_image"
+          image_properties="${ANDROID_HOME}/system-images/android-35/google_apis/x86_64/source.properties"
+          test -s "$image_properties"
+          image_revision=$(sed -n 's/^Pkg.Revision=//p' "$image_properties" | tr -d '\r')
+          test "$image_revision" = "$(jq -r '.toolchains.android_managed_device.system_image_revision' config/release-policy.json)"
+          image_properties="${ANDROID_HOME}/system-images/android-34/google_apis/x86_64/source.properties"
+          test -s "$image_properties"
+          image_revision=$(sed -n 's/^Pkg.Revision=//p' "$image_properties" | tr -d '\r')
+          test "$image_revision" = "$(jq -r '.toolchains.android_navigation_device.system_image_revision' config/release-policy.json)"
+
+      - name: Record exact source and require a clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-evidence
+          git rev-parse HEAD | tee build/ci-evidence/commit.txt
+          test -z "$(git status --porcelain)"
+
+      - name: Measure one existing managed-device suite
+        shell: bash
+        env:
+          SUITE: ${{ matrix.suite }}
+          CACHE_MATCH: ${{ steps.dependency_cache.outputs.cache-matched-key }}
+          CACHE_HIT: ${{ steps.dependency_cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          baseline=30d57d76bfe9082645a75e871e097116436c2da1
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$baseline" HEAD
+          git diff --exit-code "$baseline" -- composeApp gradle gradle.properties build.gradle.kts settings.gradle.kts shared game-modes build-logic config
+          started=$(date +%s)
+          status=0
+          scripts/android/run_release_managed_device_smoke.sh "$SUITE" 2>&1 | tee build/ci-evidence/suite.log || status=$?
+          tree=$(git rev-parse 'HEAD^{tree}')
+          jq -n --arg source "$GITHUB_SHA" --arg tree "$tree" \
+            --arg baseline "$baseline" --arg suite "$SUITE" --arg cache "$CACHE_MATCH" --arg hit "$CACHE_HIT" \
+            --argjson seconds "$(( $(date +%s) - started ))" --argjson exit_code "$status" \
+            '{source_sha:$source,source_tree:$tree,baseline_sha:$baseline,suite:$suite,cache_match:$cache,cache_hit:$hit,suite_seconds:$seconds,exit_code:$exit_code}' \
+            > build/ci-evidence/suite.json
+          exit "$status"
+
+      - name: Upload verification reports, mappings, and unsigned AAB
+        id: verification_artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-runtime-benchmark-${{ matrix.suite }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/ci-evidence/
+            **/build/reports/detekt/
+            **/build/reports/tests/
+            **/build/test-results/**/*.xml
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-ownership.json
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-hosted-disk.json
+            ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-stop-*.json
+            **/build/reports/androidTests/managedDevice/
+            **/build/outputs/androidTest-results/managedDevice/
+            **/build/reports/lint-results-*
+            composeApp/build/reports/lint-repository-inputs-*.json
+            composeApp/build/outputs/mapping/release/
+            composeApp/build/outputs/bundle/release/*.aab
+            !remediation-runs/**
+            !docs/archives/**
+
+      # A successful nonempty upload must precede deletion of the last local evidence copy.
+
+      - name: Clean only attested verification outputs
+        env:
+          PARLOR_VERIFICATION_PREPARE_OUTCOME: ${{ steps.verification_ownership.outcome }}
+          PARLOR_VERIFICATION_UPLOAD_OUTCOME: ${{ steps.verification_artifact.outcome }}
+          PARLOR_VERIFICATION_ARTIFACT_ID: ${{ steps.verification_artifact.outputs.artifact-id }}
+          PARLOR_VERIFICATION_ARTIFACT_DIGEST: ${{ steps.verification_artifact.outputs.artifact-digest }}
+        if: always()
+        shell: python
+        run: |
+          import runpy, sys
+          sys.argv = ["verification_hygiene.py", "cleanup", "--android-reader=sudo-proc-exe-v2"]
+          runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
+
+      - name: Upload verification cleanup receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-runtime-benchmark-cleanup-${{ matrix.suite }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-cleanup.json
