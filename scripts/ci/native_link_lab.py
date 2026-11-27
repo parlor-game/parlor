@@ -52,8 +52,10 @@ def task_cache_evidence(log: str, role: str) -> dict:
     expected_status, verb = ("", "Stored") if role == "baseline" else ("FROM-CACHE", "Loaded")
     if re.search(r"(?m)^> Task :\S+:link(?:Debug|Release)\w+", log):
         raise RuntimeError("The Kotlin library cache probe must not link a binary")
-    statuses = set(re.findall(rf"(?m)^> Task {KLIB_TASK}(?: (.*))?$", log))
-    if statuses != {expected_status}:
+    headings = re.findall(rf"(?m)^> Task {KLIB_TASK}(?: (.*))?$", log)
+    # Gradle --info can print the task heading before it announces the cache hit.
+    statuses = {status for status in headings if status}
+    if not headings or statuses != ({expected_status} if expected_status else set()):
         raise RuntimeError(f"Unexpected Kotlin library task status for {role}: {statuses}")
     keys = re.findall(
         rf"(?m)^{verb} cache entry for task '{KLIB_TASK}' with cache key ([0-9a-f]{{32}})$", log
@@ -201,9 +203,9 @@ def run(args: argparse.Namespace) -> None:
             raise RuntimeError(f"Gradle exited with {exit_code}. Inspect gradle.log.")
         log = (out / "gradle.log").read_text(errors="replace")
         if probe:
+            report["klib"] = kotlin_library_evidence(root / KLIB_OUTPUT)
             report.update(task_cache_evidence(log, args.role))
             report["task_cache_transfer_seconds"] = int(os.environ.get("PARLOR_LAB_TASK_CACHE_TRANSFER_SECONDS", "0"))
-            report["klib"] = kotlin_library_evidence(root / KLIB_OUTPUT)
         else:
             report.update(execution_evidence(log, args.mode))
         if args.mode == "link":

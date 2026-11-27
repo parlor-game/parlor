@@ -63,10 +63,15 @@ class NativeLinkLabTest(unittest.TestCase):
     def test_cache_probe_requires_real_store_and_restore_of_the_library(self):
         key = "a" * 32
         stored = f"> Task {KLIB_TASK}\nStored cache entry for task '{KLIB_TASK}' with cache key {key}\n"
-        restored = f"> Task {KLIB_TASK} FROM-CACHE\nLoaded cache entry for task '{KLIB_TASK}' with cache key {key}\n"
+        restored = (
+            f"> Task {KLIB_TASK}\n"
+            f"Loaded cache entry for task '{KLIB_TASK}' with cache key {key}\n"
+            f"> Task {KLIB_TASK} FROM-CACHE\n"
+        )
         self.assertEqual(task_cache_evidence(stored, "baseline")["task_cache"], {"key": key, "outcome": "stored"})
         self.assertEqual(task_cache_evidence(restored, "candidate")["task_cache"], {"key": key, "outcome": "loaded"})
-        for wrong in (restored.replace("FROM-CACHE", "UP-TO-DATE"), stored, restored + f"> Task {TASK}\n"):
+        for wrong in (restored.replace("FROM-CACHE", "UP-TO-DATE"), stored, restored + f"> Task {TASK}\n",
+                      restored + f"> Task {KLIB_TASK} FAILED\n"):
             with self.subTest(log=wrong), self.assertRaises(RuntimeError):
                 task_cache_evidence(wrong, "candidate")
 
