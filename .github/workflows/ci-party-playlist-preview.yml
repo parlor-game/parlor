@@ -10,6 +10,7 @@ on:
       - 'composeApp/src/desktopTest/kotlin/com/parlor/app/shell/party/**'
       - 'shared/session/src/common*/kotlin/com/parlor/session/lobby/**'
       - 'shared/networking/src/common*/kotlin/com/parlor/networking/protocol/**'
+      - 'shared/storage/src/common*/kotlin/com/parlor/storage/settings/**'
 
 permissions:
   contents: read
@@ -52,6 +53,7 @@ jobs:
           ./gradlew \
             :shared:networking:desktopTest --tests '*RoomMessageCodecTest' \
             :shared:session:desktopTest --tests '*PartyLobbyTest' --tests '*PartyHostRoomBindingTest' \
+            :shared:storage:desktopTest --tests '*PersistentSettingsStoreTest' \
             :composeApp:desktopTest --tests '*PartyPlaylistJourneyTest' --tests '*PartyLobbyRenderingTest' \
             --dependency-verification=strict --no-daemon --stacktrace --console=plain | tee "$evidence/gradle.log"
       - name: Retain source-bound Party JUnit reports
@@ -63,6 +65,7 @@ jobs:
             build/party-playlist-evidence/
             composeApp/build/test-results/desktopTest/TEST-*.xml
             shared/session/build/test-results/desktopTest/TEST-*.xml
+            shared/storage/build/test-results/desktopTest/TEST-*.xml
             shared/networking/build/test-results/desktopTest/TEST-*.xml
           if-no-files-found: error
           retention-days: 14
