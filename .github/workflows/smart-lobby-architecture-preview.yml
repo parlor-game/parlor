@@ -1,0 +1,60 @@
+name: Smart Lobby architecture documentation preview
+
+on:
+  push:
+    branches: [docs/smart-lobby-architecture-readback]
+    paths: ['.github/workflows/smart-lobby-architecture-preview.yml']
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+  QUALIFICATION_SOURCE: bb649d5b5305dfe041bd8e72614d9946ac8a4c8b
+
+jobs:
+  documentation-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.QUALIFICATION_SOURCE }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Restore reviewed Gradle dependencies
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: |
+            parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-
+      - name: Verify architecture text and inventory at the documentation revision
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SOURCE"
+          mkdir -p build/architecture-evidence
+          git rev-parse HEAD | tee build/architecture-evidence/commit.txt
+          git rev-parse 'HEAD^{tree}' | tee build/architecture-evidence/tree.txt
+          python3 -B scripts/generate_review_inventory.py --check 2>&1 | tee build/architecture-evidence/inventory.log
+          python3 -B -m unittest scripts.release.tests.test_release_documentation scripts.release.tests.test_review_inventory -v \
+            2>&1 | tee build/architecture-evidence/documentation-controls.log
+          ./gradlew :shared:transport-p2p:desktopTest --tests '*MultiplayerDocumentationContractTest' \
+            --dependency-verification=strict --no-daemon --console=plain 2>&1 | tee build/architecture-evidence/gradle.log
+      - name: Retain documentation checks
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: smart-lobby-architecture-documentation-verification
+          path: |
+            build/architecture-evidence/
+            shared/transport-p2p/build/test-results/desktopTest/TEST-*MultiplayerDocumentationContractTest.xml
+          if-no-files-found: error
+          retention-days: 14
