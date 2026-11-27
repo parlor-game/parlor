@@ -26,7 +26,7 @@ EXPECTED = {
 # Exact reviewed evidence-only workflow. Adding it never widens the generic
 # security contract: changed privileges, runners, triggers or uploads fail closed.
 INPUT_INVESTIGATION_SHA256 = "c28af012df60dc989d9b5ae0e22c1b2b85b977d33c6d7a4877068eadec8cd3de"
-NATIVE_LINK_LAB_SHA256 = "cb6d2e88992404ddac40e525f1cb7fc3e8380f729d1ebacca9db5624383a96f4"
+NATIVE_LINK_LAB_SHA256 = "19de80bb16ac2b181a8d7e5e79ce7ad62930e48bf2324d85e4a8c8ad79a27007"
 ANDROID_RUNTIME_BENCHMARK_SHA256 = "755c0afaa590e164c19a368975d63c5c72c95c815059b454864467ef04d27f3c"
 STORE_WORKFLOWS = {"testing-candidate.yml", "testing-external-promotion.yml", "production-promotion.yml"}
 PROMOTION_WORKFLOWS = {"testing-external-promotion.yml", "production-promotion.yml"}

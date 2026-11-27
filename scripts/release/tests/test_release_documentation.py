@@ -35,7 +35,7 @@ class ReleaseDocumentationTest(unittest.TestCase):
         self.assertIn("require all six mandatory **Production verification** check groups", instructions)
         required_names = re.findall(r"(?m)^  - `([^`]+)`", instructions)
         self.assertCountEqual(required_names, [names_by_id[job_id] for job_id in full_job_ids])
-        self.assertIn("three isolated Android lanes", instructions)
+        self.assertIn("four isolated Android lanes", instructions)
         android = jobs.split("  android-release:\n", 1)[1].split("  desktop-linux-arm64:\n", 1)[0]
         self.assertIn("needs: [desktop-android]", android)
         self.assertIn("scripts.ci.android_release_gate aggregate", android)

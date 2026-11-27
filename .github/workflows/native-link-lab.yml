@@ -14,7 +14,16 @@ on:
         default: plan
   push:
     branches: [perf/native-link-lab]
-    paths: ['.github/workflows/native-link-lab.yml', '.github/workflows/production-verification.yml', 'scripts/ci/native_link_lab.py', 'scripts/ci/android_release_gate.py', 'scripts/release/tests/test_native_link_lab.py', 'scripts/release/tests/test_android_release_gate.py']
+    paths:
+      - '.github/workflows/native-link-lab.yml'
+      - '.github/workflows/production-verification.yml'
+      - 'docs/RELEASE_AUTOMATION.md'
+      - 'docs/RELEASE_GATES.md'
+      - 'scripts/ci/native_link_lab.py'
+      - 'scripts/ci/android_release_gate.py'
+      - 'scripts/release/tests/test_native_link_lab.py'
+      - 'scripts/release/tests/test_android_release_gate.py'
+      - 'scripts/release/tests/test_release_documentation.py'
 
 permissions:
   contents: read
@@ -32,7 +41,7 @@ jobs:
         run: >-
           python3 -B -m unittest scripts.release.tests.test_native_link_lab
           scripts.release.tests.test_android_release_gate scripts.release.tests.test_workflow_contract
-          scripts.release.tests.test_android_managed_gpu
+          scripts.release.tests.test_android_managed_gpu scripts.release.tests.test_release_documentation
       - name: Check the workflow security contract
         run: python3 -B scripts/release/workflow_contract.py
 
