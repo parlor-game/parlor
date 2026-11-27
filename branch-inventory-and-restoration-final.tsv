@@ -1,5 +1,5 @@
 ref	verified-tip	status	reason
-archive/branches-2026-11-20	c2216a59aa5ea841cf0153a7be851263ee5ce0ed	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
+archive/branches-2026-11-20	59a2695ba2afd8df5247ed4450ed2b4e9d14bbdd	kept	Single archive. Listed SHA is the prior archive parent of the commit containing this manifest
 capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6	deleted-from-remote	Finished capture experiment. Screens and exact source are archived
 ci/android-production-lanes	21ea3c8dc13e27384e529d365663365accb10216	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 diagnostic/ios-input-probe-2026-10-29	c62fdc739ec1fb1f9663abbe7524b472a627e0ae	kept	Native input timing route for open #276 and #267
@@ -26,7 +26,7 @@ perf/ios-release-phase-targets	53fc8b31f44e0c130c352662f7ef02cc2c57d463	deleted-
 perf/ios-release-runtime-acceptance	46cfdc548648a8573b294a75b15453c6828be1b2	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 perf/ios-release-small-binary	922771074fabdebb2f85c18209845e63c3397527	deleted-from-remote	Owner-approved retirement after Production 45940466368 attempt 2 passed. Exact tip preserved in the single archive.
 perf/native-link-cache-probe	94cc3937f0b72f20538b88fb68b227d1888a295c	kept	Exact-source cache relocation probe for #342. Debug only. No Production cache is used or populated.
-perf/native-link-lab	d73ab33ebe47578656ae23fc85c6b275d5675b22	kept	Hosted Android runtime split 45950876790, matched Native link lab, and protected Production candidate for #342.
+perf/native-link-lab	c4a6e560bee09ea8c745672386c6a6d70cfb241a	kept	Protected PR #364 candidate with four-lane release documentation verification.
 perf/native-release-cache-2421	3eb32e7761db100407428bd6e6cc8b0c8e07bbe8	kept	Native Release Binary Cache graph preflight 45951923348. Stopped before linking due to upstream KT-89013.
 release	bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	kept	Production promotion workflow target
 test/distributed-smart-lobby	dee6831dc534c6e46b5fab6f442bc49177b636e2	kept	Distributed app harness for the remaining #357 device matrix
