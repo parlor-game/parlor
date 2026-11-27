@@ -32,7 +32,9 @@ class AndroidManagedGpuTest(unittest.TestCase):
                 contract.verify_android_runtime_script()
         contract.verify_android_runtime_script()
 
-    def run_wrapper(self, failed_task: str = "", host_kernel: str = "Linux") -> tuple[int, list[list[str]]]:
+    def run_wrapper(
+        self, failed_task: str = "", host_kernel: str = "Linux", suite: str | None = None,
+    ) -> tuple[int, list[list[str]]]:
         with TemporaryDirectory(prefix="parlor-gpu-shell-control-") as temporary:
             root = Path(temporary)
             script = root / SCRIPT
@@ -85,7 +87,8 @@ class AndroidManagedGpuTest(unittest.TestCase):
             env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"],
                        CALLS=str(calls), FAILED_TASK=failed_task, TMPDIR=str(root),
                        TEST_HOST_KERNEL=host_kernel)
-            result = subprocess.run(["bash", str(script)], cwd=root, env=env,
+            command = ["bash", str(script)] + ([suite] if suite is not None else [])
+            result = subprocess.run(command, cwd=root, env=env,
                                     capture_output=True, text=True, timeout=15)
             rows = [json.loads(line) for line in calls.read_text().splitlines()]
             return result.returncode, rows
@@ -139,3 +142,24 @@ class AndroidManagedGpuTest(unittest.TestCase):
         self.assertEqual([args[0] for args in calls], [RELEASE, ASSEMBLE, SETUP, NAVIGATION, "--stop"])
         self.assertEqual(calls[3].count(LINUX_GPU), 1)
         self.assertEqual(calls[3].count("--info"), 1)
+
+
+    def test_explicit_preview_suites_execute_only_the_selected_original_commands(self) -> None:
+        status, combined = self.run_wrapper()
+        self.assertEqual(status, 0)
+        for suite, selected in (("release-only", combined[:1]), ("navigation-only", combined[1:4])):
+            with self.subTest(suite=suite):
+                status, calls = self.run_wrapper(suite=suite)
+                self.assertEqual(status, 0)
+                # The disposable Release signing path changes with the sandbox.
+                def normalize(command: list[str]) -> list[str]:
+                    return [
+                        arg.split("=")[0] if arg.startswith("-Pandroid.injected.signing.store.file=") else arg
+                        for arg in command
+                    ]
+                self.assertEqual([normalize(args) for args in calls], [normalize(args) for args in selected] + [["--stop"]])
+
+    def test_invalid_preview_suite_fails_before_building(self) -> None:
+        status, calls = self.run_wrapper(suite="invalid")
+        self.assertEqual(status, 2)
+        self.assertEqual(calls, [["--stop"]])

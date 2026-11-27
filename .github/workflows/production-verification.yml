@@ -81,7 +81,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","installed-runtime","process-restart"]' || '["diagnostic"]') }}
+        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","managed-release","managed-navigation","process-restart"]' || '["diagnostic"]') }}
 
     steps:
       - name: Check out source
@@ -199,12 +199,14 @@ jobs:
           runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
 
       - name: Run release Android managed-device smoke tests
-        if: matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only'
+        if: matrix.lane == 'managed-release' || matrix.lane == 'managed-navigation' || inputs.verification_scope == 'android-cleanup-only'
         shell: bash
-        run: scripts/android/run_release_managed_device_smoke.sh
+        env:
+          PARLOR_ANDROID_SUITE: ${{ matrix.lane == 'managed-release' && 'release-only' || matrix.lane == 'managed-navigation' && 'navigation-only' || 'all' }}
+        run: scripts/android/run_release_managed_device_smoke.sh "$PARLOR_ANDROID_SUITE"
 
       - name: Stop Gradle after managed-device
-        if: always() && (matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only')
+        if: always() && (matrix.lane == 'managed-release' || matrix.lane == 'managed-navigation' || inputs.verification_scope == 'android-cleanup-only')
         shell: python
         run: |
           import runpy, sys
@@ -411,7 +413,7 @@ jobs:
           merge-multiple: false
           digest-mismatch: error
 
-      - name: Require all three exact-source Android certificates
+      - name: Require all four exact-source Android certificates
         env:
           PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
         run: python3 -B -m scripts.ci.android_release_gate aggregate

@@ -1,0 +1,137 @@
+name: Native link lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: Full SHA of a distinct ancestor of this experiment branch
+        required: true
+        type: string
+      mode:
+        description: Plan checks the graph. Link executes one optimized Release link per revision.
+        type: choice
+        options: [plan, link]
+        default: plan
+  push:
+    branches: [perf/native-link-lab-preflight]
+    paths:
+      - '.github/workflows/native-link-lab.yml'
+      - '.github/workflows/android-runtime-benchmark.yml'
+      - '.github/workflows/production-verification.yml'
+      - 'docs/RELEASE_AUTOMATION.md'
+      - 'docs/RELEASE_GATES.md'
+      - 'scripts/ci/native_link_lab.py'
+      - 'scripts/ci/android_release_gate.py'
+      - 'scripts/release/tests/test_native_link_lab.py'
+      - 'scripts/release/tests/test_android_release_gate.py'
+      - 'scripts/release/tests/test_release_documentation.py'
+
+permissions:
+  contents: read
+
+jobs:
+  report-contract:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Run Production release automation checks without building the app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          bash scripts/release/validate_release_system.sh
+
+  compare:
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/perf/')
+    name: Native ${{ inputs.mode }} (matched runner)
+    runs-on: macos-15
+    timeout-minutes: ${{ inputs.mode == 'plan' && 12 || 160 }}
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          path: harness
+          persist-credentials: false
+      - name: Check out both source revisions from the experiment branch history
+        shell: bash
+        env:
+          BASELINE: ${{ inputs.baseline_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BASELINE" =~ ^[0-9a-f]{40}$ ]]
+          test "$BASELINE" != "$GITHUB_SHA"
+          test "$(git -C harness rev-parse HEAD)" = "$GITHUB_SHA"
+          git -C harness merge-base --is-ancestor "$BASELINE" "$GITHUB_SHA"
+          git -C harness worktree add --detach "$GITHUB_WORKSPACE/baseline" "$BASELINE"
+          git -C harness worktree add --detach "$GITHUB_WORKSPACE/candidate" "$GITHUB_SHA"
+          kotlin_version="$(python3 -c 'import tomllib; from pathlib import Path; print(tomllib.loads(Path("candidate/gradle/libs.versions.toml").read_text())["versions"]["kotlin"])')"
+          [[ "$kotlin_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          grep -Fqx "kotlin = \"$kotlin_version\"" baseline/gradle/libs.versions.toml
+          cmp baseline/gradle/wrapper/gradle-wrapper.properties candidate/gradle/wrapper/gradle-wrapper.properties
+          printf 'kotlin_version=%s\n' "$kotlin_version" >> "$GITHUB_OUTPUT"
+        id: revision
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+      - name: Start dependency cache timer
+        id: cache_start
+        run: printf 'epoch=%s\n' "$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Restore verified Gradle dependencies only
+        id: dependencies
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin${{ steps.revision.outputs.kotlin_version }}-xcode26.3-${{ hashFiles('candidate/gradle/libs.versions.toml', 'candidate/gradle/verification-metadata.xml', 'candidate/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('candidate/**/*.gradle.kts') }}
+      - name: Measure exactly one Apple target per revision with isolated build state
+        env:
+          BASELINE: ${{ inputs.baseline_sha }}
+          MODE: ${{ inputs.mode }}
+          CACHE_STARTED_AT: ${{ steps.cache_start.outputs.epoch }}
+          PARLOR_LAB_CACHE_MATCH: ${{ steps.dependencies.outputs.cache-matched-key }}
+          PARLOR_LAB_CACHE_HIT: ${{ steps.dependencies.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          export PARLOR_LAB_CACHE_SECONDS="$(( $(date +%s) - CACHE_STARTED_AT ))"
+          gradle_seed="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          reports="$RUNNER_TEMP/native-link-lab"
+          for role in baseline candidate; do
+            source_sha="$BASELINE"
+            if [[ "$role" == candidate ]]; then source_sha="$GITHUB_SHA"; fi
+            role_gradle="$RUNNER_TEMP/native-link-gradle/$role"
+            for cached in caches/modules-2 wrapper/dists; do
+              mkdir -p "$role_gradle/$cached"
+              if [[ -d "$gradle_seed/$cached" ]]; then
+                rsync -a --exclude='*.lock' --exclude=gc.properties "$gradle_seed/$cached/" "$role_gradle/$cached/"
+              fi
+            done
+            GRADLE_USER_HOME="$role_gradle" python3 -B harness/scripts/ci/native_link_lab.py \
+              --source "$role" --report "$reports/$role" --native-data "$RUNNER_TEMP/native-link-konan/$role" \
+              --expected-sha "$source_sha" --role "$role" --mode "$MODE"
+          done
+          python3 -B harness/scripts/ci/native_link_lab.py compare \
+            "$reports/baseline/report.json" "$reports/candidate/report.json" > "$reports/comparison.json"
+      - name: Preserve benchmark reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-link-lab-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-link-lab/
+          if-no-files-found: error
+          retention-days: 14

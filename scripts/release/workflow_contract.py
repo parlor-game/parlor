@@ -20,10 +20,14 @@ EXPECTED = {
     "testing-external-promotion.yml",
     "production-promotion.yml",
     "ios-input-investigation.yml",
+    "native-link-lab.yml",
+    "android-runtime-benchmark.yml",
 }
 # Exact reviewed evidence-only workflow. Adding it never widens the generic
 # security contract: changed privileges, runners, triggers or uploads fail closed.
 INPUT_INVESTIGATION_SHA256 = "c28af012df60dc989d9b5ae0e22c1b2b85b977d33c6d7a4877068eadec8cd3de"
+NATIVE_LINK_LAB_SHA256 = "b820e09aff4e37dbb15d6d695086f87a0d513bcc4087da62a3f76badbb96ca25"
+ANDROID_RUNTIME_BENCHMARK_SHA256 = "cbdf379a8192d6b8ee8dbb3305fbf5ab61238c378fe1e07cd052271a3429784a"
 STORE_WORKFLOWS = {"testing-candidate.yml", "testing-external-promotion.yml", "production-promotion.yml"}
 PROMOTION_WORKFLOWS = {"testing-external-promotion.yml", "production-promotion.yml"}
 FREE_APPLE_RELEASE_RUNNER = "${{ inputs.apple_release_runner == 'intel' && 'macos-15-intel' || 'macos-15' }}"
@@ -43,7 +47,7 @@ WINDOWS_VERIFICATION_SCOPE = FULL_VERIFICATION_SCOPE + " || inputs.verification_
 LINUX_VERIFICATION_SCOPE = (FULL_VERIFICATION_SCOPE + " || inputs.verification_scope == 'linux-process-probe'"
                             " || inputs.verification_scope == 'android-cleanup-only'")
 ANDROID_COMMON_LANE = "matrix.lane == 'common-and-package'"
-ANDROID_MANAGED_LANE = "matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only'"
+ANDROID_MANAGED_LANE = "matrix.lane == 'managed-release' || matrix.lane == 'managed-navigation' || inputs.verification_scope == 'android-cleanup-only'"
 ANDROID_RESTART_LANE = "matrix.lane == 'process-restart'"
 ANDROID_MANAGED_FINALIZER = "always() && (" + ANDROID_MANAGED_LANE + ")"
 ANDROID_EVIDENCE_NAME = ("${{ matrix.lane == 'diagnostic' && 'desktop-android-verification' || "
@@ -491,7 +495,9 @@ def verify_linux_process_probe(job: str) -> None:
             if re.findall(r"(?m)^        if: (.*)$", validation_step(job, name)) != [required]:
                 fail("verification scope Linux must isolate the probe/managed cleanup and preserve full gates/finalizers")
     expected_smoke = ("        if: " + ANDROID_MANAGED_LANE + "\n        shell: bash\n"
-                      "        run: scripts/android/run_release_managed_device_smoke.sh")
+                      "        env:\n"
+                      "          PARLOR_ANDROID_SUITE: ${{ matrix.lane == 'managed-release' && 'release-only' || matrix.lane == 'managed-navigation' && 'navigation-only' || 'all' }}\n"
+                      '        run: scripts/android/run_release_managed_device_smoke.sh "$PARLOR_ANDROID_SUITE"')
     if validation_step(job, full[3]).strip("\n") != expected_smoke:
         fail("verification scope managed cleanup must run only the existing Android runtime script")
     expected_cleanup = '''        if: ''' + ANDROID_RUNTIME_FINALIZER + '''
@@ -1029,9 +1035,9 @@ def verify_android_split(text: str) -> None:
     producer = validation_job(text, "desktop-android")
     strategy = """      fail-fast: false
       matrix:
-        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","installed-runtime","process-restart"]' || '["diagnostic"]') }}"""
+        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","managed-release","managed-navigation","process-restart"]' || '["diagnostic"]') }}"""
     if producer.split("\n    steps:", 1)[0].partition("\n    strategy:\n")[2].strip("\n") != strategy:
-        fail("verification scope Android must produce exactly three lanes for full qualification")
+        fail("verification scope Android must produce exactly four lanes for full qualification")
     expected = {
         "Bind Android lane reports and cleanup to source": """        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
         env:
@@ -1092,7 +1098,7 @@ def verify_android_split(text: str) -> None:
           merge-multiple: false
           digest-mismatch: error
 
-      - name: Require all three exact-source Android certificates
+      - name: Require all four exact-source Android certificates
         env:
           PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
         run: python3 -B -m scripts.ci.android_release_gate aggregate
@@ -1106,7 +1112,7 @@ def verify_android_split(text: str) -> None:
           path: ${{ runner.temp }}/parlor-android-release.json"""
     if (validation_job(text, "android-release").rstrip() != join or
             text.count("uses: actions/download-artifact@") != 1):
-        fail("verification scope must retain exactly one Android required check with three source-bound receipts")
+        fail("verification scope must retain exactly one Android required check with four source-bound receipts")
 
 
 def verify_verification_scopes(text: str) -> None:
@@ -2108,6 +2114,10 @@ def main() -> int:
         verify_common(name, text)
     verify_validation(files["production-verification.yml"])
     verify_input_investigation(files["ios-input-investigation.yml"])
+    if hashlib.sha256(files["native-link-lab.yml"].encode("utf-8")).hexdigest() != NATIVE_LINK_LAB_SHA256:
+        fail("Native link lab must retain the reviewed read-only benchmark workflow")
+    if hashlib.sha256(files["android-runtime-benchmark.yml"].encode("utf-8")).hexdigest() != ANDROID_RUNTIME_BENCHMARK_SHA256:
+        fail("Android runtime benchmark must retain the reviewed read-only benchmark workflow")
     for name in STORE_WORKFLOWS:
         verify_store_workflow(name, files[name])
     verify_store_serialization(files)
