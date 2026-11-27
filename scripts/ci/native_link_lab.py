@@ -12,11 +12,13 @@ import subprocess
 import sys
 import time
 import tomllib
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 TASK = ":composeApp:linkReleaseFrameworkIosSimulatorArm64"
-DEBUG_TASK = ":composeApp:linkDebugFrameworkIosSimulatorArm64"
+KLIB_TASK = ":shared:core:compileKotlinIosSimulatorArm64"
+KLIB_OUTPUT = Path("shared/core/build/classes/kotlin/iosSimulatorArm64/main")
 FRAMEWORK_DIR = Path("composeApp/build/bin/iosSimulatorArm64")
 FRAMEWORK_BINARY = Path("ComposeApp.framework/ComposeApp")
 LINK = re.compile(r"(?m)^(?:> Task )?(:\S+:link(?:Debug|Release)Framework\w+)(?: (.*))?$")
@@ -48,16 +50,18 @@ def execution_evidence(log: str, mode: str) -> dict:
 
 
 def task_cache_evidence(log: str, role: str) -> dict:
-    links = LINK.findall(log)
     expected_status, verb = ("", "Stored") if role == "baseline" else ("FROM-CACHE", "Loaded")
-    if links != [(DEBUG_TASK, expected_status)]:
-        raise RuntimeError(f"Expected the Debug link to be {verb.lower()} for {role}, observed {links}")
+    if re.search(r"(?m)^> Task :\S+:link(?:Debug|Release)\w+", log):
+        raise RuntimeError("The Kotlin library cache probe must not link a binary")
+    statuses = set(re.findall(rf"(?m)^> Task {KLIB_TASK}(?: (.*))?$", log))
+    if statuses != {expected_status}:
+        raise RuntimeError(f"Unexpected Kotlin library task status for {role}: {statuses}")
     keys = re.findall(
-        rf"(?m)^{verb} cache entry for task '{DEBUG_TASK}' with cache key ([0-9a-f]{{32}})$", log
+        rf"(?m)^{verb} cache entry for task '{KLIB_TASK}' with cache key ([0-9a-f]{{32}})$", log
     )
     if len(keys) != 1:
         raise RuntimeError(f"No unique task output cache key for {role}")
-    return {"link_task": DEBUG_TASK, "mode": "cache-probe", "native_phase_ms": {},
+    return {"link_task": None, "mode": "cache-probe", "native_phase_ms": {},
             "task_cache": {"key": keys[0], "outcome": verb.lower()}}
 
 
@@ -97,11 +101,11 @@ def compare_reports(baseline: dict, candidate: dict) -> dict:
         producer, consumer = baseline["task_cache"], candidate["task_cache"]
         if (baseline["source_sha"] != candidate["source_sha"] or
                 baseline["source_tree"] != candidate["source_tree"] or
-                baseline["framework"] != candidate["framework"] or
+                baseline["klib"] != candidate["klib"] or
                 producer["key"] != consumer["key"] or
                 (producer["outcome"], consumer["outcome"]) != ("stored", "loaded")):
-            raise RuntimeError("Expected one exact-source framework restored across checkout paths")
-        report.update(task_cache_key=producer["key"], framework=baseline["framework"],
+            raise RuntimeError("Expected one exact-source Kotlin library restored across checkout paths")
+        report.update(task_cache_key=producer["key"], klib=baseline["klib"],
                       task_cache_transfer_seconds=candidate["task_cache_transfer_seconds"])
     return report
 
@@ -127,15 +131,14 @@ def run(args: argparse.Namespace) -> None:
     if xcode != "Xcode 26.3\nBuild version 17C529":
         raise RuntimeError(f"Unexpected Xcode build: {xcode}")
     probe = args.mode == "cache-probe"
-    variant = "debugFramework" if probe else "releaseFramework"
-    binary = root / FRAMEWORK_DIR / variant / FRAMEWORK_BINARY
-    if binary.parent.exists():
-        raise RuntimeError("Framework output must be cold")
+    binary = root / FRAMEWORK_DIR / "releaseFramework" / FRAMEWORK_BINARY
+    if (root / KLIB_OUTPUT if probe else binary.parent).exists():
+        raise RuntimeError("Measured task output must start cold")
     native_data = args.native_data.resolve()
     if native_data.exists():
         raise RuntimeError("Each comparison role requires a clean Native data path")
     out.mkdir(parents=True, exist_ok=False)
-    command = ["./gradlew", DEBUG_TASK if probe else TASK, "--dependency-verification=strict",
+    command = ["./gradlew", KLIB_TASK if probe else TASK, "--dependency-verification=strict",
                "--no-daemon", "--no-configuration-cache", "--console=plain", f"-Pkonan.data.dir={native_data}"]
     if probe:
         command += ["--build-cache", "--info"]
@@ -147,7 +150,7 @@ def run(args: argparse.Namespace) -> None:
     start = time.monotonic_ns()
     started_at = datetime.now(timezone.utc).isoformat()
     with (out / "gradle.log").open("wb") as log:
-        timeout = {"baseline": 1200, "candidate": 480}[args.role] if probe else None
+        timeout = {"baseline": 720, "candidate": 480}[args.role] if probe else None
         try:
             exit_code = subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT,
                                        timeout=timeout, check=False).returncode
@@ -184,9 +187,16 @@ def run(args: argparse.Namespace) -> None:
         if probe:
             report.update(task_cache_evidence(log, args.role))
             report["task_cache_transfer_seconds"] = int(os.environ.get("PARLOR_LAB_TASK_CACHE_TRANSFER_SECONDS", "0"))
+            klib, = (root / KLIB_OUTPUT).rglob("*.klib")
+            with zipfile.ZipFile(klib) as archive:
+                manifest, = [entry for entry in archive.namelist() if entry == "default/manifest"]
+                if b"ios_simulator_arm64" not in archive.read(manifest):
+                    raise RuntimeError("Expected an ARM64 simulator Kotlin library")
+            with klib.open("rb") as stream:
+                report["klib"] = {"bytes": klib.stat().st_size, "sha256": hashlib.file_digest(stream, "sha256").hexdigest()}
         else:
             report.update(execution_evidence(log, args.mode))
-        if args.mode != "plan":
+        if args.mode == "link":
             subprocess.run(["xcrun", "lipo", "-verify_arch", "arm64", str(binary)], check=True)
             with binary.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()

@@ -3,7 +3,7 @@ from copy import deepcopy
 import unittest
 
 from scripts.ci.native_link_lab import (
-    DEBUG_TASK, MATCHED_FIELDS, TASK, compare_reports, execution_evidence, task_cache_evidence,
+    KLIB_TASK, MATCHED_FIELDS, TASK, compare_reports, execution_evidence, task_cache_evidence,
 )
 
 
@@ -58,22 +58,22 @@ class NativeLinkLabTest(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 compare_reports(baseline, {**candidate, field: "other"})
 
-    def test_cache_probe_requires_real_store_and_restore_of_the_debug_link(self):
+    def test_cache_probe_requires_real_store_and_restore_of_the_library(self):
         key = "a" * 32
-        stored = f"> Task {DEBUG_TASK}\nStored cache entry for task '{DEBUG_TASK}' with cache key {key}\n"
-        restored = f"> Task {DEBUG_TASK} FROM-CACHE\nLoaded cache entry for task '{DEBUG_TASK}' with cache key {key}\n"
+        stored = f"> Task {KLIB_TASK}\nStored cache entry for task '{KLIB_TASK}' with cache key {key}\n"
+        restored = f"> Task {KLIB_TASK} FROM-CACHE\nLoaded cache entry for task '{KLIB_TASK}' with cache key {key}\n"
         self.assertEqual(task_cache_evidence(stored, "baseline")["task_cache"], {"key": key, "outcome": "stored"})
         self.assertEqual(task_cache_evidence(restored, "candidate")["task_cache"], {"key": key, "outcome": "loaded"})
-        for wrong in (restored.replace("FROM-CACHE", "UP-TO-DATE"), stored, restored.replace(DEBUG_TASK, TASK)):
+        for wrong in (restored.replace("FROM-CACHE", "UP-TO-DATE"), stored, restored + f"> Task {TASK}\n"):
             with self.subTest(log=wrong), self.assertRaises(RuntimeError):
                 task_cache_evidence(wrong, "candidate")
 
-    def test_cache_probe_comparison_rejects_different_source_key_or_framework(self):
+    def test_cache_probe_comparison_rejects_different_source_key_or_library(self):
         stored = dict.fromkeys(MATCHED_FIELDS, "same")
         stored.update(
             schema=1, result="PASS", role="baseline", run_id="1", run_attempt="1",
             source_sha="1" * 40, source_tree="2" * 40, mode="cache-probe", gradle_wall_seconds=80,
-            native_phase_ms={}, dependency_cache_step_window_seconds=10, framework={"bytes": 10, "sha256": "3" * 64},
+            native_phase_ms={}, dependency_cache_step_window_seconds=10, klib={"bytes": 10, "sha256": "3" * 64},
             task_cache={"key": "a" * 32, "outcome": "stored"},
         )
         restored = {**stored, "role": "candidate", "gradle_wall_seconds": 20, "task_cache_transfer_seconds": 2,
@@ -81,7 +81,7 @@ class NativeLinkLabTest(unittest.TestCase):
         comparison = compare_reports(stored, restored)
         self.assertEqual(comparison["gradle_delta_seconds"], -60)
         self.assertEqual(comparison["task_cache_transfer_seconds"], 2)
-        for field in ("source_sha", "source_tree", "task_cache", "framework"):
+        for field in ("source_sha", "source_tree", "task_cache", "klib"):
             different = {"key": "b" * 32, "outcome": "loaded"} if field == "task_cache" else "different"
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 compare_reports(stored, {**restored, field: different})
