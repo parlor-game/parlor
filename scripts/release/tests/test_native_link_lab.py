@@ -1,9 +1,11 @@
 """Guard the lab against counting a plan, cached output or another target as a link."""
 from copy import deepcopy
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.ci.native_link_lab import (
-    KLIB_TASK, MATCHED_FIELDS, TASK, compare_reports, execution_evidence, task_cache_evidence,
+    KLIB_TASK, MATCHED_FIELDS, TASK, compare_reports, execution_evidence, kotlin_library_evidence, task_cache_evidence,
 )
 
 
@@ -85,3 +87,19 @@ class NativeLinkLabTest(unittest.TestCase):
             different = {"key": "b" * 32, "outcome": "loaded"} if field == "task_cache" else "different"
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 compare_reports(stored, {**restored, field: different})
+
+    def test_library_digest_ignores_checkout_paths_and_includes_each_file(self):
+        with TemporaryDirectory() as temp:
+            for role in ("baseline", "candidate"):
+                library = Path(temp, role, "core", "default")
+                library.mkdir(parents=True)
+                (library / "manifest").write_text("native_targets=ios_simulator_arm64\n")
+                (library / "ir").write_bytes(b"library IR")
+            baseline = kotlin_library_evidence(Path(temp, "baseline"))
+            candidate = Path(temp, "candidate")
+            self.assertEqual(kotlin_library_evidence(candidate), baseline)
+            (candidate / "core/default/ir").write_bytes(b"updated IR")
+            self.assertNotEqual(kotlin_library_evidence(candidate), baseline)
+            (candidate / "core/default/manifest").write_text("native_targets=ios_arm64\n")
+            with self.assertRaises(RuntimeError):
+                kotlin_library_evidence(candidate)

@@ -12,13 +12,12 @@ import subprocess
 import sys
 import time
 import tomllib
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 TASK = ":composeApp:linkReleaseFrameworkIosSimulatorArm64"
 KLIB_TASK = ":shared:core:compileKotlinIosSimulatorArm64"
-KLIB_OUTPUT = Path("shared/core/build/classes/kotlin/iosSimulatorArm64/main")
+KLIB_OUTPUT = Path("shared/core/build/classes/kotlin/iosSimulatorArm64/main/klib")
 FRAMEWORK_DIR = Path("composeApp/build/bin/iosSimulatorArm64")
 FRAMEWORK_BINARY = Path("ComposeApp.framework/ComposeApp")
 LINK = re.compile(r"(?m)^(?:> Task )?(:\S+:link(?:Debug|Release)Framework\w+)(?: (.*))?$")
@@ -63,6 +62,23 @@ def task_cache_evidence(log: str, role: str) -> dict:
         raise RuntimeError(f"No unique task output cache key for {role}")
     return {"link_task": None, "mode": "cache-probe", "native_phase_ms": {},
             "task_cache": {"key": keys[0], "outcome": verb.lower()}}
+
+
+def kotlin_library_evidence(destination: Path) -> dict:
+    manifest, = destination.glob("*/default/manifest")
+    klib = manifest.parent.parent
+    files = []
+    for entry in sorted(klib.rglob("*")):
+        if entry.is_symlink():
+            raise RuntimeError("Unexpected symlink in the Kotlin library output")
+        if entry.is_file():
+            with entry.open("rb") as stream:
+                files.append((entry.relative_to(klib).as_posix(), entry.stat().st_size,
+                              hashlib.file_digest(stream, "sha256").hexdigest()))
+    if "native_targets=ios_simulator_arm64" not in manifest.read_text().splitlines():
+        raise RuntimeError("Expected an ARM64 simulator Kotlin library")
+    digest = hashlib.sha256(json.dumps(files, ensure_ascii=True).encode()).hexdigest()
+    return {"bytes": sum(size for _, size, _ in files), "files": len(files), "sha256": digest}
 
 
 MATCHED_FIELDS = (
@@ -187,13 +203,7 @@ def run(args: argparse.Namespace) -> None:
         if probe:
             report.update(task_cache_evidence(log, args.role))
             report["task_cache_transfer_seconds"] = int(os.environ.get("PARLOR_LAB_TASK_CACHE_TRANSFER_SECONDS", "0"))
-            klib, = (root / KLIB_OUTPUT).rglob("*.klib")
-            with zipfile.ZipFile(klib) as archive:
-                manifest, = [entry for entry in archive.namelist() if entry == "default/manifest"]
-                if b"ios_simulator_arm64" not in archive.read(manifest):
-                    raise RuntimeError("Expected an ARM64 simulator Kotlin library")
-            with klib.open("rb") as stream:
-                report["klib"] = {"bytes": klib.stat().st_size, "sha256": hashlib.file_digest(stream, "sha256").hexdigest()}
+            report["klib"] = kotlin_library_evidence(root / KLIB_OUTPUT)
         else:
             report.update(execution_evidence(log, args.mode))
         if args.mode == "link":
