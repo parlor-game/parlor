@@ -20,10 +20,12 @@ EXPECTED = {
     "testing-external-promotion.yml",
     "production-promotion.yml",
     "ios-input-investigation.yml",
+    "native-link-lab.yml",
 }
 # Exact reviewed evidence-only workflow. Adding it never widens the generic
 # security contract: changed privileges, runners, triggers or uploads fail closed.
 INPUT_INVESTIGATION_SHA256 = "c28af012df60dc989d9b5ae0e22c1b2b85b977d33c6d7a4877068eadec8cd3de"
+NATIVE_LINK_LAB_SHA256 = "a1ad461a717a2631cb52c026705d1eaaf672a446bca06d3de10f6b24dc5eee8a"
 STORE_WORKFLOWS = {"testing-candidate.yml", "testing-external-promotion.yml", "production-promotion.yml"}
 PROMOTION_WORKFLOWS = {"testing-external-promotion.yml", "production-promotion.yml"}
 FREE_APPLE_RELEASE_RUNNER = "${{ inputs.apple_release_runner == 'intel' && 'macos-15-intel' || 'macos-15' }}"
@@ -2108,6 +2110,8 @@ def main() -> int:
         verify_common(name, text)
     verify_validation(files["production-verification.yml"])
     verify_input_investigation(files["ios-input-investigation.yml"])
+    if hashlib.sha256(files["native-link-lab.yml"].encode("utf-8")).hexdigest() != NATIVE_LINK_LAB_SHA256:
+        fail("Native link lab must retain the reviewed read-only benchmark workflow")
     for name in STORE_WORKFLOWS:
         verify_store_workflow(name, files[name])
     verify_store_serialization(files)
