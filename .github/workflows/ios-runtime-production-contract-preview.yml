@@ -13,13 +13,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      QUALIFICATION_SOURCE: e592d6c7283ca95d8e69dde8c0ca2f3955996374
+      QUALIFICATION_SOURCE: ffd8d18171fa11a4e9e097effd78f883285c72f8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.QUALIFICATION_SOURCE }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
       - name: Verify release-system controls at the exact candidate
         run: |
           set -euo pipefail
