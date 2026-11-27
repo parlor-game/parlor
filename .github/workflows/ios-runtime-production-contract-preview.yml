@@ -1,0 +1,37 @@
+name: iOS runtime Production contract preview
+
+on:
+  push:
+    branches: [perf/ios-runtime-production-contract]
+    paths: ['.github/workflows/ios-runtime-production-contract-preview.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QUALIFICATION_SOURCE: e592d6c7283ca95d8e69dde8c0ca2f3955996374
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.QUALIFICATION_SOURCE }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify release-system controls at the exact candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SOURCE"
+          mkdir -p build/ios-runtime-contract-evidence
+          git rev-parse HEAD 'HEAD^{tree}' > build/ios-runtime-contract-evidence/source.txt
+          bash scripts/release/validate_release_system.sh 2>&1 | tee build/ios-runtime-contract-evidence/validation.log
+      - name: Retain validation evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ios-runtime-production-contract-verification
+          path: build/ios-runtime-contract-evidence/
+          if-no-files-found: error
+          retention-days: 14
