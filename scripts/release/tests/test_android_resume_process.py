@@ -602,7 +602,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         source = (driver.ROOT / ".github/workflows/production-verification.yml").read_text()
         return workflow_contract, workflow_contract.validation_job(source, "desktop-android")
 
-    def test_exact_mandatory_full_only_step_reuses_existing_apks_and_evidence_selection(self):
+    def test_exact_mandatory_restart_step_uses_isolated_apks_and_evidence_selection(self):
         rules, job = self.workflow()
         rules.verify_android_resume_process(job)
         # The integrated validator, rather than this test alone, owns the gate.
@@ -617,7 +617,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         name = "Verify Android saved-session removal across process restart"
         step = rules.validation_step(job, name)
         mutations = (
-            step.replace("'full'", "'android-cleanup-only'"),
+            step.replace(rules.ANDROID_RESTART_LANE, rules.ANDROID_CLEANUP_SCOPE),
             step.replace("--isolated-avd", ""),
             step.replace("supervise_managed_device.py", "other.py"),
             step.replace("scripts.android.run_resume_process_acceptance", "other"),
@@ -642,7 +642,7 @@ class AndroidResumeProcessWorkflowTest(unittest.TestCase):
         name = "Verify Android saved-session removal across process restart"
         step = "\n      - name: " + name + "\n" + rules.validation_step(job, name)
         removed = job.replace(step, "", 1)
-        for marker in ("\n      - name: Run release Android managed-device smoke tests\n",
+        for marker in ("\n      - name: Build Android Debug app and instrumentation APKs for restart\n",
                        "\n      - name: Clean only attested verification outputs\n"):
             candidate = removed.replace(marker, step + marker, 1)
             with self.assertRaises(RuntimeError):

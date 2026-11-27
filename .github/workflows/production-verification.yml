@@ -74,9 +74,14 @@ env:
 jobs:
   desktop-android:
     if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full' || inputs.verification_scope == 'linux-process-probe' || inputs.verification_scope == 'android-cleanup-only'
-    name: Common, desktop, and Android release
+    name: Android verification (${{ matrix.lane }})
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ inputs.verification_scope == 'linux-process-probe' && 10 || inputs.verification_scope == 'android-cleanup-only' && 45 || 90 }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full') && '["common-and-package","installed-runtime","process-restart"]' || '["diagnostic"]') }}
 
     steps:
       - name: Check out source
@@ -182,11 +187,11 @@ jobs:
           test -z "$(git status --porcelain)"
 
       - name: Run common, desktop, Android, static-analysis, and release gates
-        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        if: matrix.lane == 'common-and-package'
         run: ./gradlew productionCheck productionStaticAnalysis productionReleaseAutomationCheck allTests --dependency-verification=strict --no-daemon --stacktrace --console=plain
 
       - name: Stop Gradle after common-android
-        if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
+        if: always() && matrix.lane == 'common-and-package'
         shell: python
         run: |
           import runpy, sys
@@ -194,20 +199,30 @@ jobs:
           runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
 
       - name: Run release Android managed-device smoke tests
-        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full' || inputs.verification_scope == 'android-cleanup-only'
+        if: matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only'
         shell: bash
         run: scripts/android/run_release_managed_device_smoke.sh
 
       - name: Stop Gradle after managed-device
-        if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full' || inputs.verification_scope == 'android-cleanup-only')
+        if: always() && (matrix.lane == 'installed-runtime' || inputs.verification_scope == 'android-cleanup-only')
         shell: python
         run: |
           import runpy, sys
           sys.argv = ["verification_hygiene.py", "stop", "managed-device"]
           runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
 
+      - name: Build Android Debug app and instrumentation APKs for restart
+        if: matrix.lane == 'process-restart'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :composeApp:assembleDebug :composeApp:assembleDebugAndroidTest \
+            -Pparlor.androidRuntimeTestVariant=debug --dependency-verification=strict \
+            --no-daemon --max-workers=2 --console=plain
+          ./gradlew --stop
+
       - name: Verify Android saved-session removal across process restart
-        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        if: matrix.lane == 'process-restart'
         shell: bash
         run: |
           set -euo pipefail
@@ -218,7 +233,7 @@ jobs:
               --output build/ci-evidence/android-process-acceptance
 
       - name: Inspect unsigned Android release artifact and merged manifest
-        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        if: matrix.lane == 'common-and-package'
         shell: bash
         run: |
           set -euo pipefail
@@ -247,7 +262,7 @@ jobs:
         if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full' || inputs.verification_scope == 'android-cleanup-only')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: desktop-android-verification
+          name: ${{ matrix.lane == 'diagnostic' && 'desktop-android-verification' || format('desktop-android-verification-{0}-{1}', matrix.lane, github.run_attempt) }}
           if-no-files-found: warn
           retention-days: 14
           path: |
@@ -282,13 +297,32 @@ jobs:
           runpy.run_path("scripts/ci/verification_hygiene.py", run_name="__main__")
 
       - name: Upload verification cleanup receipt
+        id: verification_cleanup
         if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full' || inputs.verification_scope == 'android-cleanup-only')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: verification-cleanup-${{ github.job }}
+          name: ${{ matrix.lane == 'diagnostic' && 'verification-cleanup-desktop-android' || format('verification-cleanup-desktop-android-{0}-{1}', matrix.lane, github.run_attempt) }}
           if-no-files-found: warn
           retention-days: 14
           path: ${{ runner.temp }}/parlor-verification-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-cleanup.json
+
+      - name: Bind Android lane reports and cleanup to source
+        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        env:
+          PARLOR_ANDROID_LANE: ${{ matrix.lane }}
+          PARLOR_ANDROID_CLEANUP_OUTCOME: ${{ steps.verification_cleanup.outcome }}
+          PARLOR_ANDROID_CLEANUP_ID: ${{ steps.verification_cleanup.outputs.artifact-id }}
+          PARLOR_ANDROID_CLEANUP_DIGEST: ${{ steps.verification_cleanup.outputs.artifact-digest }}
+        run: python3 -B -m scripts.ci.android_release_gate lane
+
+      - name: Upload Android lane certificate
+        if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-lane-certificate-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/lane.json
 
       - name: Observe Linux process access without a build
         id: linux_process_probe
@@ -332,13 +366,52 @@ jobs:
 
 
       - name: Save dependencies from trusted main only
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.dependency_cache.outputs.cache-hit != 'true'
+        if: success() && matrix.lane == 'common-and-package' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.dependency_cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper/dists
           key: ${{ steps.dependency_cache.outputs.cache-primary-key }}
+  android-release:
+    if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
+    name: Common, desktop, and Android release
+    needs: [desktop-android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Require successful Android verification producers
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: test "$PARLOR_ANDROID_PRODUCER_RESULT" = success
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download same-run Android lane certificates
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: android-lane-certificate-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/parlor-android-lanes
+          merge-multiple: false
+          digest-mismatch: error
+
+      - name: Require all three exact-source Android certificates
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: python3 -B -m scripts.ci.android_release_gate aggregate
+
+      - name: Upload Android aggregate receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-release-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/parlor-android-release.json
+
   desktop-linux-arm64:
     if: github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full'
     name: Desktop strict verification (Linux arm64)

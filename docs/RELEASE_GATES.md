@@ -28,7 +28,7 @@ remain separate evidence.
 | Host-independent aggregate | `./gradlew productionCheck` | Desktop/common, Android unit, repository-wide Detekt/static-analysis, shell-dispatch validation, and unsigned Android release gates (including lint warning verification) pass. Apple remains separate macOS jobs. |
 | Release automation security | `./gradlew productionReleaseAutomationCheck` | Candidate/provenance tampering tests, exact-tree/history tests, no-publication tests, workflow contracts, immutable Action pins, pinned ShellCheck/actionlint, and shell/YAML checks pass. |
 | Desktop host compatibility | `./gradlew productionDesktopCheck` on Linux x64, Linux arm64, macOS arm64, macOS x64, and Windows x64; the x64 macOS/Windows jobs also run `:composeApp:downloadKotlinNativeDistribution`, and Windows runs `:composeApp:processDebugResources` | Each supported host resolves and executes its real host-selected dependency graph under strict verification. Linux arm64 support is Desktop-only because Kotlin Native does not publish a Linux arm64 host distribution. |
-| Exact-candidate aggregate | Full verification: Linux runs `./gradlew productionCheck allTests`; independent macOS jobs run `./gradlew productionIosSimulatorRuntimeTests` and the complete Apple analysis/three-architecture Release fan-out, all with strict dependency verification | All six mandatory check groups and their nine build/test producers, including the Debug XCTest launch and unsigned Release wrapper/package inspection, pass in one full dispatch at the same recorded clean Git SHA. The focused protection diagnostic is skipped. No cross-run/SHA evidence stitching or duplicate common/desktop/Android aggregate on Apple. |
+| Exact-candidate aggregate | Full verification: Linux runs `./gradlew productionCheck allTests`; independent macOS jobs run `./gradlew productionIosSimulatorRuntimeTests` and the complete Apple analysis/three-architecture Release fan-out, all with strict dependency verification | All six mandatory check groups and their eleven build/test producers, including the Debug XCTest launch and unsigned Release wrapper/package inspection, pass in one full dispatch at the same recorded clean Git SHA. The focused protection diagnostic is skipped. No cross-run/SHA evidence stitching or duplicate common/desktop/Android aggregate on Apple. |
 | GitHub distribution packaging | `.github/workflows/github-distribution.yml`, rehearsal | Android Release APK, macOS arm64/x64 DMGs, Windows x64 MSI and Linux x64 DEB; installed-image/native-graphics/crypto probes, notices, checksums and source-bound attestations. Unsigned rehearsal output is not publishable. |
 | Public GitHub testing | `.github/workflows/github-test-release.yml` | Explicit build/publish dispatches; five native packages, isolated non-debuggable Android `.test` APK with disposable key and normal-install emulator smoke, exact-source six-job verification, closed test manifest and attestations. Public prereleases only, never Latest or signed-production acceptance. |
 
@@ -77,10 +77,12 @@ unit test.
 
 ## CI policy
 
-`.github/workflows/production-verification.yml` configures 13 job definitions:
-eight mandatory producers, the required Release join, and two opt-in diagnostics
-(`ios-protection-probe` and `darwin-host-capability`). The six full check identities
-below include the join; its three Release producers also must qualify. Neither
+`.github/workflows/production-verification.yml` configures 14 job definitions.
+The Android matrix runs three independent producers for full verification.
+Its join, the Apple Release join, and the Apple runtime join retain the original
+required check names. All eleven producers and the three joins must qualify.
+The workflow also defines two opt-in diagnostics (`ios-protection-probe` and
+`darwin-host-capability`). Neither
 diagnostic replaces full verification. The Darwin capability matrix expands to
 both standard macOS hosts only for its explicit focused dispatch.
 The six required check groups cover these full producers and joins:
