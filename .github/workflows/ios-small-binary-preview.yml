@@ -1,0 +1,107 @@
+name: iOS smallBinary cold Release wrapper
+
+on:
+  push:
+    branches: [perf/ios-release-small-binary]
+    paths:
+      - .github/workflows/ios-small-binary-preview.yml
+
+permissions:
+  contents: read
+
+jobs:
+  release-runtime:
+    runs-on: macos-15
+    timeout-minutes: 100
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      GRADLE_OPTS: >-
+        -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+        -Dorg.gradle.project.kotlin.native.binary.smallBinary=true
+        -Dorg.gradle.project.parlor.profileIosReleaseLink=true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: "21"
+          check-latest: false
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: dependencies
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: |
+            parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-
+      - name: Check exact source and provision a fresh simulator
+        shell: bash
+        env:
+          CACHE_KEY: ${{ steps.dependencies.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/preview-evidence
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD > build/preview-evidence/harness-sha.txt
+          git checkout --detach 66eaecd96d37cfb596d33feb354f95418f1e72fa
+          test "$(git rev-parse HEAD^{tree})" = 2fd0e210e945037a50fb9d211b17addcb949b545
+          test -z "$(git status --porcelain)"
+          test "$(uname -m)" = arm64
+          git rev-parse HEAD HEAD^{tree} > build/preview-evidence/source.txt
+          printf '%s\n' "$CACHE_KEY" > build/preview-evidence/dependency-cache-key.txt
+          xcodebuild -version | tee build/preview-evidence/xcode.txt
+          grep -Fx 'Xcode 26.3' build/preview-evidence/xcode.txt
+          grep -Fx 'Build version 17C529' build/preview-evidence/xcode.txt
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-18-5
+          xcrun simctl list --json runtimes > build/preview-evidence/runtimes.json
+          jq -e --arg runtime "$runtime" '.runtimes[]|select(.identifier==$runtime and .isAvailable)' build/preview-evidence/runtimes.json >/dev/null
+          xcrun simctl create "Parlor-release-runtime-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$runtime" | tee build/preview-evidence/simulator.txt
+      - name: Build and launch the exact optimized Release simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid="$(cat build/preview-evidence/simulator.txt)"
+          test ! -d composeApp/build/bin/iosSimulatorArm64/releaseFramework
+          SECONDS=0
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
+            -sdk iphonesimulator -destination "platform=iOS Simulator,id=$udid" \
+            -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
+            -destination-timeout 120 -derivedDataPath build/preview-derived \
+            -resultBundlePath build/preview-evidence/release-ui.xcresult -showBuildTimingSummary \
+            -only-testing:iosAppUITests/IOSAppLaunchUITests/testColdLaunchRendersComposeHomeWithoutUnexpectedAlert \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGN_IDENTITY=- test | tee build/preview-evidence/xcode.log
+          printf '%s\n' "$SECONDS" > build/preview-evidence/build-and-test-seconds.txt
+          grep -F ':composeApp:linkReleaseFrameworkIosSimulatorArm64' build/preview-evidence/xcode.log
+          grep -Fo -- '-Xbinary=smallBinary=true' build/preview-evidence/xcode.log >build/preview-evidence/compiler-option.txt
+          xcrun xcresulttool get test-results summary --path build/preview-evidence/release-ui.xcresult > build/preview-evidence/test-summary.json
+          jq -e '.passedTests==1 and .failedTests==0 and .skippedTests==0' build/preview-evidence/test-summary.json
+          app=build/preview-derived/Build/Products/Release-iphonesimulator/Parlor.app
+          binary="$app/Frameworks/ComposeApp.framework/ComposeApp"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = me.parlor.ios
+          xcrun lipo "$binary" -verify_arch arm64
+          stat -f "%z %N" "$app/Parlor" "$binary" >build/preview-evidence/release-binary-sizes.txt
+          shasum -a 256 "$app/Parlor" "$binary" > build/preview-evidence/release-binaries.sha256
+      - name: Retire the preview simulator and Gradle processes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s build/preview-evidence/simulator.txt ]]; then
+            udid="$(cat build/preview-evidence/simulator.txt)"
+            xcrun simctl shutdown "$udid" || true
+            xcrun simctl delete "$udid"
+          fi
+          ./gradlew --stop
+      - name: Retain exact source, timing, and Release runtime evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ios-release-small-binary-preview
+          path: build/preview-evidence/
+          if-no-files-found: error
+          retention-days: 14
