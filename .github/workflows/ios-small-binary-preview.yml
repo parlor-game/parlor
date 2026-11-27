@@ -19,6 +19,7 @@ jobs:
         -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
         -Dorg.gradle.project.kotlin.native.binary.smallBinary=true
         -Dorg.gradle.project.parlor.profileIosReleaseLink=true
+        -Dorg.gradle.project.kotlin.internal.compiler.arguments.log.level=warning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
