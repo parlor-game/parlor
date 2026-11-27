@@ -86,6 +86,20 @@ class AndroidReleaseGateTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "not qualified"):
                 gate.lane_identity(self.root, prefix, task, lane, cleanup_upload)
 
+    def test_cancelled_individual_lane_overrides_old_successful_certificates(self):
+        def job(lane, **changes):
+            return dict(dict(name=f"Android verification ({lane})", run_id=int(self.run),
+                             run_attempt=2, status="completed", conclusion="success"), **changes)
+
+        jobs = [job(lane) for lane in gate.LANES]
+        gate.verify_latest_jobs(dict(total_count=3, jobs=jobs), self.run, "2")
+        for substitute in (job("process-restart", conclusion="cancelled"), job("process-restart", run_attempt=1),
+                           job("process-restart", run_id=71), job("installed-runtime"), job("unreviewed")):
+            with self.subTest(substitute=substitute), self.assertRaises(RuntimeError):
+                gate.verify_latest_jobs(dict(total_count=3, jobs=jobs[:2] + [substitute]), self.run, "2")
+        with self.assertRaises(RuntimeError):
+            gate.verify_latest_jobs(dict(total_count=4, jobs=jobs), self.run, "2")
+
     def test_join_cannot_drop_a_lane_or_relax_failure_and_digest_guards(self):
         workflow = (contract.WORKFLOWS / "production-verification.yml").read_text()
         contract.verify_android_split(workflow)

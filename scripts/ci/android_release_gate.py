@@ -43,6 +43,25 @@ def lane_identity(root: Path, prefix: Path, task: dict, lane: str, cleanup_uploa
                 cleanup_id=cleanup_upload["artifact_id"], cleanup_sha256=cleanup_upload["artifact_digest"])
 
 
+def verify_latest_jobs(response: dict, run_id: str, attempt: str) -> None:
+    """Matrix-level needs may hide a cancelled member. Check each last execution."""
+    jobs = response.get("jobs")
+    if not isinstance(jobs, list) or response.get("total_count") != len(jobs) or len(jobs) > 100:
+        raise RuntimeError("Incomplete Android workflow jobs response")
+    expected = {f"Android verification ({lane})" for lane in LANES}
+    completed = set()
+    for job in jobs:
+        name = job.get("name")
+        if name in expected:
+            if (name in completed or str(job.get("run_id")) != run_id or
+                    str(job.get("run_attempt")) != attempt or
+                    job.get("status") != "completed" or job.get("conclusion") != "success"):
+                raise RuntimeError("Android verification lane has no successful latest job: " + name)
+            completed.add(name)
+    if completed != expected:
+        raise RuntimeError("Android workflow is missing a required individual job")
+
+
 def aggregate(receipts: Path, result: str, head: str, tree: str, run_id: str, attempt: str) -> dict:
     if result != "success" or not identifier(run_id) or not identifier(attempt):
         raise RuntimeError("Android verification producers did not pass")
@@ -91,6 +110,8 @@ def main() -> int:
         source = hygiene.source_identity(root)
         if hygiene.git(root, "status", "--porcelain").strip() or source["head"] != env["GITHUB_SHA"]:
             raise RuntimeError("Android aggregate checkout is not the clean triggering source")
+        verify_latest_jobs(read_json(destination / "parlor-android-jobs.json"),
+                           env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"])
         value = aggregate(destination / "parlor-android-lanes", env["PARLOR_ANDROID_PRODUCER_RESULT"],
                           source["head"], source["tree"], env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"])
         destination = destination / "parlor-android-release.json"
