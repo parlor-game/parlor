@@ -1,0 +1,131 @@
+name: Android Production join contract preview
+on:
+  push:
+    branches: [perf/android-production-contract]
+    paths: [.github/workflows/android-production-contract-preview.yml]
+permissions:
+  contents: read
+jobs:
+  contract:
+    name: Exact-source release automation checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          check-latest: false
+      - name: Verify the exact production candidate without application builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          harness=$(git rev-parse HEAD)
+          test "$harness" = "$GITHUB_SHA"
+          test "$harness" = "$GITHUB_WORKFLOW_SHA"
+          git checkout --detach HEAD^
+          test -z "$(git status --porcelain)"
+          mkdir -p build/ci-evidence
+          git rev-parse HEAD HEAD^{tree} | tee build/ci-evidence/source.txt
+          printf '%s\n' "$harness" >build/ci-evidence/harness-sha.txt
+          bash scripts/release/validate_release_system.sh 2>&1 | tee build/ci-evidence/contracts.log
+      - name: Retain source and release automation reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-production-contract-preview
+          if-no-files-found: error
+          path: build/ci-evidence/
+          retention-days: 14
+  desktop-android:
+    name: Fixture certificate (${{ matrix.lane }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [common-and-package, installed-runtime, process-restart]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Write a fixture certificate for the tested source
+        env:
+          LANE: ${{ matrix.lane }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach HEAD^
+          python3 -B - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+          from scripts.ci.android_release_gate import LANES
+          from scripts.ci.verification_hygiene import source_identity
+
+          env = os.environ
+          lane = env["LANE"]
+          index = LANES.index(lane)
+          attempt = int(env["GITHUB_RUN_ATTEMPT"])
+          base = attempt * 100 + index * 2
+          source = source_identity(Path.cwd())
+          receipt = dict(lane=lane, source_sha=source["head"], source_tree=source["tree"],
+                         run_id=env["GITHUB_RUN_ID"], run_attempt=str(attempt),
+                         evidence_id=str(base + 1), evidence_sha256="2" * 64,
+                         cleanup_id=str(base + 2), cleanup_sha256="3" * 64)
+          (Path(env["RUNNER_TEMP"]) / "lane.json").write_text(json.dumps(receipt))
+          PYCODE
+      - name: Upload fixture certificate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-lane-certificate-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/lane.json
+  android-release:
+    if: always() && (github.event_name != 'workflow_dispatch' || inputs.verification_scope == 'full')
+    name: Exercise the actual Android join with fixture certificates
+    needs: [desktop-android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Require successful Android verification producers
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: test "$PARLOR_ANDROID_PRODUCER_RESULT" = success
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Check out the exact candidate under review
+        run: git checkout --detach HEAD^
+
+      - name: Download same-run Android lane certificates
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: android-lane-certificate-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/parlor-android-lanes
+          merge-multiple: false
+          digest-mismatch: error
+
+      - name: Require all three exact-source Android certificates
+        env:
+          PARLOR_ANDROID_PRODUCER_RESULT: ${{ needs.desktop-android.result }}
+        run: GITHUB_SHA="$(git rev-parse HEAD)" python3 -B -m scripts.ci.android_release_gate aggregate
+
+      - name: Upload Android aggregate receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-release-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: ${{ runner.temp }}/parlor-android-release.json
