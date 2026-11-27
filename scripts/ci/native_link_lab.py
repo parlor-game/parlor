@@ -79,12 +79,11 @@ def compare_reports(baseline: dict, candidate: dict) -> dict:
             }}
 
 
-def konan_state(root: Path) -> dict:
-    home = Path.home() / ".konan"
-    if not home.is_dir():
+def konan_state(root: Path, data: Path) -> dict:
+    if not data.is_dir():
         return {"entries": [], "kib": 0}
-    return {"entries": sorted(path.name for path in home.iterdir()),
-            "kib": int(output(root, "du", "-sk", str(home)).split()[0])}
+    return {"entries": sorted(path.name for path in data.iterdir()),
+            "kib": int(output(root, "du", "-sk", str(data)).split()[0])}
 
 
 def run(args: argparse.Namespace) -> None:
@@ -102,13 +101,16 @@ def run(args: argparse.Namespace) -> None:
         raise RuntimeError(f"Unexpected Xcode build: {xcode}")
     if (root / FRAMEWORK).parent.exists():
         raise RuntimeError("Framework output must be cold")
+    native_data = args.native_data.resolve()
+    if native_data.exists():
+        raise RuntimeError("Each comparison role requires a clean Native data path")
     out.mkdir(parents=True, exist_ok=False)
     command = ["./gradlew", TASK, "--dependency-verification=strict", "--no-daemon",
                "--no-build-cache", "--no-configuration-cache", "--console=plain",
                "-Pparlor.profileIosReleaseLink=true",
-               "-Pkotlin.internal.compiler.arguments.log.level=warning"]
+               "-Pkotlin.internal.compiler.arguments.log.level=warning", f"-Pkonan.data.dir={native_data}"]
     command += ["--dry-run"] if args.mode == "plan" else ["--profile"]
-    konan_before = konan_state(root)
+    konan_before = konan_state(root, native_data)
     start = time.monotonic_ns()
     started_at = datetime.now(timezone.utc).isoformat()
     with (out / "gradle.log").open("wb") as log:
@@ -134,7 +136,7 @@ def run(args: argparse.Namespace) -> None:
               "dependency_cache_step_window_seconds": int(os.environ["PARLOR_LAB_CACHE_SECONDS"]),
               "dependency_cache_match": os.environ.get("PARLOR_LAB_CACHE_MATCH"),
               "dependency_cache_exact_hit": os.environ.get("PARLOR_LAB_CACHE_HIT") == "true",
-              "konan_before": konan_before, "konan_after": konan_state(root),
+              "konan_before": konan_before, "konan_after": konan_state(root, native_data),
               "gradle_task_output_cache": False, "gradle_configuration_cache": False,
               "command": command}
     try:
@@ -170,6 +172,7 @@ def main() -> None:
         return
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--native-data", type=Path, required=True)
     parser.add_argument("--expected-sha", required=True)
     parser.add_argument("--role", choices=("baseline", "candidate"), required=True)
     parser.add_argument("--mode", choices=("plan", "link"), required=True)
