@@ -29,9 +29,13 @@ def execution_evidence(log: str, mode: str) -> dict:
     if links != [(TASK, expected_status)]:
         raise RuntimeError(f"Expected exactly one {mode} link task, observed {links}")
     phase_start = log.index(f"> Task {TASK}\n") if mode == "link" else len(log)
-    phases = {name: int(ms) for name, ms in PHASE.findall(log[phase_start:])}
-    if mode == "link" and (phases.get("Compiler", 0) <= 0 or "Linker" not in phases):
-        raise RuntimeError("Missing real Kotlin/Native compiler or linker profile")
+    native = log[phase_start:]
+    phases = {name: int(ms) for name, ms in PHASE.findall(native)}
+    if mode == "link":
+        if not re.search(r"(?m)^\s*-opt[ \t]*$", native):
+            raise RuntimeError("The selected Kotlin/Native link did not run with optimization")
+        if phases.get("Compiler", 0) <= 0 or "Linker" not in phases:
+            raise RuntimeError("Missing real Kotlin/Native compiler or linker profile")
     return {"link_task": TASK, "mode": mode, "native_phase_ms": phases,
             "gradle_task_outcomes": {
                 status: len(re.findall(rf"(?m)^> Task [^\n]+ {status}$", log))

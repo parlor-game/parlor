@@ -14,6 +14,7 @@ class NativeLinkLabTest(unittest.TestCase):
         log = (
             "> Task :other:compile UP-TO-DATE\n"
             f"> Task {TASK}\n"
+            "Arguments = [\n\t-opt\n]\n"
             "RemoveRedundantCallsToStaticInitializersPhase: 1501692 msec\n"
             "Linker: 4088 msec\nCompiler: 2855198 msec\n"
         )
@@ -28,6 +29,7 @@ class NativeLinkLabTest(unittest.TestCase):
             f"{TASK} SKIPPED\n",
             f"> Task {TASK} FROM-CACHE\n",
             f"> Task {TASK}\n",
+            f"> Task {TASK}\nCompiler: 50 msec\nLinker: 5 msec\n",
             f"> Task :composeApp:linkReleaseFrameworkIosArm64\n> Task {TASK}\nCompiler: 50 msec\nLinker: 5 msec\n",
         ):
             with self.subTest(log=log), self.assertRaises(RuntimeError):
