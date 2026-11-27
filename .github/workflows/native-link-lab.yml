@@ -8,12 +8,12 @@ on:
         required: true
         type: string
       mode:
-        description: Plan checks the graph. Link executes one optimized Release link per revision.
+        description: Plan checks the graph. Link measures Release. Cache-probe checks Debug output relocation.
         type: choice
-        options: [plan, link]
+        options: [plan, link, cache-probe]
         default: plan
   push:
-    branches: [perf/native-link-lab]
+    branches: [perf/native-link-lab, perf/native-link-cache-probe]
     paths: ['.github/workflows/native-link-lab.yml', '.github/workflows/production-verification.yml', 'scripts/ci/native_link_lab.py', 'scripts/ci/android_release_gate.py', 'scripts/release/tests/test_native_link_lab.py', 'scripts/release/tests/test_android_release_gate.py']
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/perf/')
     name: Native ${{ inputs.mode }} (matched runner)
     runs-on: macos-15
-    timeout-minutes: ${{ inputs.mode == 'plan' && 12 || 160 }}
+    timeout-minutes: ${{ inputs.mode == 'plan' && 12 || (inputs.mode == 'cache-probe' && 35 || 160) }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
@@ -54,19 +54,23 @@ jobs:
         shell: bash
         env:
           BASELINE: ${{ inputs.baseline_sha }}
+          MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           [[ "$BASELINE" =~ ^[0-9a-f]{40}$ ]]
           test "$BASELINE" != "$GITHUB_SHA"
           test "$(git -C harness rev-parse HEAD)" = "$GITHUB_SHA"
           git -C harness merge-base --is-ancestor "$BASELINE" "$GITHUB_SHA"
+          candidate="$GITHUB_SHA"
+          if [[ "$MODE" == cache-probe ]]; then candidate="$BASELINE"; fi
           git -C harness worktree add --detach "$GITHUB_WORKSPACE/baseline" "$BASELINE"
-          git -C harness worktree add --detach "$GITHUB_WORKSPACE/candidate" "$GITHUB_SHA"
+          git -C harness worktree add --detach "$GITHUB_WORKSPACE/candidate" "$candidate"
           kotlin_version="$(python3 -c 'import tomllib; from pathlib import Path; print(tomllib.loads(Path("candidate/gradle/libs.versions.toml").read_text())["versions"]["kotlin"])')"
           [[ "$kotlin_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           grep -Fqx "kotlin = \"$kotlin_version\"" baseline/gradle/libs.versions.toml
           cmp baseline/gradle/wrapper/gradle-wrapper.properties candidate/gradle/wrapper/gradle-wrapper.properties
           printf 'kotlin_version=%s\n' "$kotlin_version" >> "$GITHUB_OUTPUT"
+          printf 'candidate_sha=%s\n' "$candidate" >> "$GITHUB_OUTPUT"
         id: revision
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
         with:
@@ -87,6 +91,7 @@ jobs:
       - name: Measure exactly one Apple target per revision with isolated build state
         env:
           BASELINE: ${{ inputs.baseline_sha }}
+          CANDIDATE: ${{ steps.revision.outputs.candidate_sha }}
           MODE: ${{ inputs.mode }}
           CACHE_STARTED_AT: ${{ steps.cache_start.outputs.epoch }}
           PARLOR_LAB_CACHE_MATCH: ${{ steps.dependencies.outputs.cache-matched-key }}
@@ -98,7 +103,7 @@ jobs:
           reports="$RUNNER_TEMP/native-link-lab"
           for role in baseline candidate; do
             source_sha="$BASELINE"
-            if [[ "$role" == candidate ]]; then source_sha="$GITHUB_SHA"; fi
+            if [[ "$role" == candidate ]]; then source_sha="$CANDIDATE"; fi
             role_gradle="$RUNNER_TEMP/native-link-gradle/$role"
             for cached in caches/modules-2 wrapper/dists; do
               mkdir -p "$role_gradle/$cached"
@@ -106,6 +111,17 @@ jobs:
                 rsync -a --exclude='*.lock' --exclude=gc.properties "$gradle_seed/$cached/" "$role_gradle/$cached/"
               fi
             done
+            if [[ "$MODE" == cache-probe && "$role" == candidate ]]; then
+              cache="caches/build-cache-1"
+              seed_cache="$RUNNER_TEMP/native-link-gradle/baseline/$cache"
+              seed_key="$(jq -er '.task_cache.key' "$reports/baseline/report.json")"
+              [[ "$seed_key" =~ ^[0-9a-f]{32}$ ]]
+              test -s "$seed_cache/$seed_key"
+              mkdir -p "$role_gradle/$cache"
+              started=$(date +%s)
+              rsync -a --exclude='*.lock' --exclude=gc.properties "$seed_cache/" "$role_gradle/$cache/"
+              export PARLOR_LAB_TASK_CACHE_TRANSFER_SECONDS="$(( $(date +%s) - started ))"
+            fi
             GRADLE_USER_HOME="$role_gradle" python3 -B harness/scripts/ci/native_link_lab.py \
               --source "$role" --report "$reports/$role" --native-data "$RUNNER_TEMP/native-link-konan/$role" \
               --expected-sha "$source_sha" --role "$role" --mode "$MODE"
