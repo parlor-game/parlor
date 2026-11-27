@@ -279,7 +279,10 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         self.assertIn("throw cancelled", failure)
         self.assertIn('"captureFailed=true"', failure)
         self.assertIn("$original; evidence=$evidence", failure)
-        self.assertNotIn("clearCache", ui)
+        self.assertNotIn("clearCache", failure)
+        self.assertEqual(ui.count(".clearCache()"), 1)
+        heading = ui.split("fun awaitHeading(", 1)[1].split("fun headingPresentNow", 1)[0]
+        self.assertIn(".clearCache()", heading)
         self.assertEqual(evidence.count(".clearCache()"), 1)
         self.assertLess(evidence.index("val composeBefore = composeState()"), evidence.index("val cached ="))
         self.assertLess(evidence.index("val cached ="), evidence.index(".clearCache()"))
@@ -365,9 +368,7 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         games = 'ui.clickDescription(if (fixture.language == "ar") "افتح مكتبة الألعاب." else "Open the game library.")'
         self.assertLess(prepare.index(settings), prepare.index(heading))
         refresh = "instrumentation.uiAutomation.clearCache()"
-        self.assertEqual(prepare.count(refresh), 2)
-        self.assertLess(prepare.index(settings), prepare.index(refresh))
-        self.assertLess(prepare.index(refresh), prepare.index(heading))
+        self.assertEqual(prepare.count(refresh), 1)
         for write in ("store.save(selected)", "store.save(sibling)", "secure.put(", "membership?.seed()"):
             self.assertLess(prepare.index(heading), prepare.index(write))
             self.assertLess(prepare.index(write), prepare.rindex(refresh))
@@ -378,7 +379,11 @@ class AndroidResumeProcessDriverTest(unittest.TestCase):
         self.assertIn(prefix + "AndroidRecoveryHeadingRuntimeTest.kt", driver.SOURCE_PATHS)
         ui = (driver.ROOT / (prefix + "AndroidPublicRecoveryUi.kt")).read_text()
         await_heading = ui.split("fun awaitHeading(", 1)[1].split("fun headingPresentNow", 1)[0]
-        self.assertIn("awaitNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }.recycle()", await_heading)
+        self.assertIn("awaitObservation {", await_heading)
+        read = "findNode(resolveClickOwner = false) { androidRecoveryHeading(it, text) }"
+        self.assertIn("if (instrumentation.uiAutomation.clearCache()) {", await_heading)
+        self.assertLess(await_heading.index("clearCache()"), await_heading.index(read))
+        self.assertIn("}.recycle()", await_heading)
         self.assertNotIn("performAction", await_heading)
         self.assertIn("node.isHeading && node.text?.toString() == text", ui)
         self.assertIn("OBSERVATION_TIMEOUT_MILLIS = 10_000L", ui)

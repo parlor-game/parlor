@@ -87,8 +87,6 @@ class AndroidResumeProcessPhases : InstrumentationTestCase() {
             // leave Home's recovery effect on the old, empty inventory. Observe
             // the real destination BEFORE writing external test fixtures.
             instrumentation.waitForIdleSync()
-            // The observer can still retain the library tree after Settings renders.
-            instrumentation.uiAutomation.clearCache()
             ui.awaitHeading(if (fixture.language == "ar") "الإعدادات" else "Settings")
             if (membership == null) assertEquals(EmptyOk, store.save(selected))
             assertEquals(EmptyOk, store.save(sibling))
