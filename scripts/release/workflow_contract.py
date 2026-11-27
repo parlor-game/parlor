@@ -21,11 +21,13 @@ EXPECTED = {
     "production-promotion.yml",
     "ios-input-investigation.yml",
     "native-link-lab.yml",
+    "android-runtime-benchmark.yml",
 }
 # Exact reviewed evidence-only workflow. Adding it never widens the generic
 # security contract: changed privileges, runners, triggers or uploads fail closed.
 INPUT_INVESTIGATION_SHA256 = "c28af012df60dc989d9b5ae0e22c1b2b85b977d33c6d7a4877068eadec8cd3de"
 NATIVE_LINK_LAB_SHA256 = "a1ad461a717a2631cb52c026705d1eaaf672a446bca06d3de10f6b24dc5eee8a"
+ANDROID_RUNTIME_BENCHMARK_SHA256 = "755c0afaa590e164c19a368975d63c5c72c95c815059b454864467ef04d27f3c"
 STORE_WORKFLOWS = {"testing-candidate.yml", "testing-external-promotion.yml", "production-promotion.yml"}
 PROMOTION_WORKFLOWS = {"testing-external-promotion.yml", "production-promotion.yml"}
 FREE_APPLE_RELEASE_RUNNER = "${{ inputs.apple_release_runner == 'intel' && 'macos-15-intel' || 'macos-15' }}"
@@ -2112,6 +2114,8 @@ def main() -> int:
     verify_input_investigation(files["ios-input-investigation.yml"])
     if hashlib.sha256(files["native-link-lab.yml"].encode("utf-8")).hexdigest() != NATIVE_LINK_LAB_SHA256:
         fail("Native link lab must retain the reviewed read-only benchmark workflow")
+    if hashlib.sha256(files["android-runtime-benchmark.yml"].encode("utf-8")).hexdigest() != ANDROID_RUNTIME_BENCHMARK_SHA256:
+        fail("Android runtime benchmark must retain the reviewed read-only benchmark workflow")
     for name in STORE_WORKFLOWS:
         verify_store_workflow(name, files[name])
     verify_store_serialization(files)
