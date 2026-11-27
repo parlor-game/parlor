@@ -238,18 +238,22 @@ private class PlaylistWire(private val games: List<GameProtocolRef>) : RoomTrans
         members.value = listOf(members.value.single().copy(connected = connected))
     }
 
-    suspend fun announceRejoin() = events.emit(PeerEvent.PeerReconnected(guestId, "Guest"))
+    fun announceRejoin() {
+        check(events.tryEmit(PeerEvent.PeerReconnected(guestId, "Guest")))
+    }
 
-    suspend fun markGuestReady() {
+    fun markGuestReady() {
         val current = checkNotNull(latest)
         val frame = PeerMessage.PartySetReady(
             PartyProtocolHeader(PARTY_WIRE_VERSION, party, "playlist-ready-test", 0), guestId,
             current.nextExpectedClientSequence, current.revision, true,
         )
-        hostInput.send(codec.decode(codec.encode(frame)))
+        check(hostInput.trySend(codec.decode(codec.encode(frame))).isSuccess)
     }
 
-    suspend fun deliver(message: HostMessage) = guestInput.send(codec.decode(codec.encode(message)))
+    fun deliver(message: HostMessage) {
+        check(guestInput.trySend(codec.decode(codec.encode(message))).isSuccess)
+    }
 
     private inner class Side(override val isHost: Boolean) : LocalRoom {
         override val info = MutableStateFlow(RoomInfo("ABCDEF", "Host", hostId,
