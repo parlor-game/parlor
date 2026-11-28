@@ -1,0 +1,59 @@
+name: Party scoring focused preview
+on:
+  push:
+    branches: [test/smart-lobby-native-ui]
+    paths: [.github/workflows/party-score-preview.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  scoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CANDIDATE: '026c71c4066c30131bcfec33c72d7a918b2fc97f'
+      CANDIDATE_TREE: '26312ceacc40ac7776141e3eb9ef8bc4dca5b002'
+      GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.CANDIDATE }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+      - name: Run exact-source Word Impostor and Party regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CANDIDATE_TREE"
+          mkdir -p build/party-score
+          printf '%s\n' "$CANDIDATE" "$CANDIDATE_TREE" > build/party-score/source.txt
+          python3 scripts/generate_review_inventory.py --check
+          ./gradlew --dependency-verification=strict --no-daemon --console=plain \
+            :game-modes:word-impostor:desktopTest :shared:session:desktopTest \
+            :composeApp:desktopTest --tests '*PartyPlaylistJourneyTest' --tests '*PartyLobbyRenderingTest' \
+            staticAnalysis 2>&1 | tee build/party-score/verification.log
+      - name: Retain reports and source identity
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: party-score-${{ env.CANDIDATE }}
+          path: |
+            build/party-score/
+            game-modes/word-impostor/build/test-results/desktopTest/
+            shared/session/build/test-results/desktopTest/
+            composeApp/build/test-results/desktopTest/
+            build/reports/detekt/
+          if-no-files-found: error
+          retention-days: 7
