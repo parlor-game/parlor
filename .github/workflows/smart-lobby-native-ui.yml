@@ -30,6 +30,7 @@ jobs:
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       reuse_standings_android: ${{ steps.plan.outputs.reuse_standings_android }}
       build_only: ${{ steps.plan.outputs.build_only }}
+      reuse_party_recovery: ${{ steps.plan.outputs.reuse_party_recovery }}
       reuse_party_integration: ${{ steps.plan.outputs.reuse_party_integration }}
       reuse_pr356: ${{ steps.plan.outputs.reuse_pr356 }}
       reuse_pr355: ${{ steps.plan.outputs.reuse_pr355 }}
@@ -140,7 +141,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ui-test-actions/ui-test-actions
-          ref: 1c0d90debd7319c7580279bcbe2fb5ab19d6feea
+          ref: e22f6c35fe6ca50a83890f54e4a6ec29ef0e2951 # v4.1.0
           persist-credentials: false
           path: ui-client
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -259,18 +260,36 @@ jobs:
           path: ${{ runner.temp }}/parlor-package
       - name: Verify and extract the retained UI candidate package
         if: >-
-          needs.plan.outputs.reuse_party_integration == 'true' ||
+          needs.plan.outputs.reuse_party_recovery == 'true' || needs.plan.outputs.reuse_party_integration == 'true' ||
           needs.plan.outputs.reuse_pr355 == 'true' || needs.plan.outputs.reuse_pr356 == 'true' || needs.plan.outputs.reuse_playlist_edit == 'true' ||
           (matrix.target == 'android' && needs.plan.outputs.reuse_standings_android == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           SHARED_SHELL_PACKAGE: ${{ needs.plan.outputs.reuse_pr356 }}
           PLAYLIST_EDIT_PACKAGE: ${{ needs.plan.outputs.reuse_playlist_edit }}
+          PARTY_RECOVERY_PACKAGE: ${{ needs.plan.outputs.reuse_party_recovery }}
           PARTY_INTEGRATION_PACKAGE: ${{ needs.plan.outputs.reuse_party_integration }}
           STANDINGS_ANDROID_PACKAGE: ${{ needs.plan.outputs.reuse_standings_android }}
         run: |
           retained=repos/parlor-game/parlor/actions
-          if [[ "$PARTY_INTEGRATION_PACKAGE" == true ]]; then
+          if [[ "$PARTY_RECOVERY_PACKAGE" == true ]]; then
+            producer=46143735680
+            harness=d5e105d8f142fae4dbc5f67b39a69ffc556245cd
+            tree=ee90b682bd70b35bfc376f7f855ca2973b39962a
+            if [[ "$TARGET" == android ]]; then
+              job=140975211329
+              name='build (android, ubuntu-24.04)'
+              artifact=15262464730
+              digest=4639aaa8b32324e1352f8242d5e072ecb4de0e33ad679b77d5fb253a3e417f06
+              package_digest=a8d453e4f47708d3a4c33f14edfc7f7d548f0de7d23f11c0b91ce2b06867e126
+            else
+              job=140975211286
+              name='build (ios, macos-26)'
+              artifact=15262204520
+              digest=8dc16209d03717aa2125b48a8d1f937c400e36df08d5bc7273c4fe62d2b82f49
+              package_digest=ccd6c6c5cadf1aa9782879435115f8a7d86289f228e50e7c5a82bed3221523a1
+            fi
+          elif [[ "$PARTY_INTEGRATION_PACKAGE" == true ]]; then
             producer=46078287769
             harness=a44d6dbb88c5b0170947e3f150dd63435cf213d1
             tree=acb493d348e8ca27b7dd045080f76b1ad9111f9c

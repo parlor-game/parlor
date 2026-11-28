@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
 DURATION = os.environ.get("PARLOR_UI_DURATION", "80")
-CONTROLLER_PIN = "1c0d90debd7319c7580279bcbe2fb5ab19d6feea"
+CONTROLLER_PIN = "e22f6c35fe6ca50a83890f54e4a6ec29ef0e2951"
 RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
 DUAL_IOS_SOURCE = "0438fc6ff53780e87fa111f68352b15dd44a3ec3"
 DUAL_IOS_PRODUCER = 45121464371
@@ -82,6 +82,10 @@ def plan():
         and pairing == "mixed" and not reuse_candidate and observe_reconnect
     )
     reuse_standings_android = payload.get("reuse_standings_android") is True
+    reuse_party_recovery = (
+        candidate == PARTY_RECOVERY_CANDIDATE and pairing == "mixed" and reuse_candidate and observe_reconnect
+        and not visible_ios and payload.get("require_native_ios") is True
+    )
     standings_mixed = fresh_playlist and visible_ios
     standings_android_pair = (
         pairing == "android" and len(digests) == 2 and reuse_candidate and not observe_reconnect and not visible_ios
@@ -116,7 +120,7 @@ def plan():
     if extended_match and not fresh_playlist and (pairing != "mixed" or not reuse_candidate or
                            not observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The extended match requires the exact retained mixed-platform builds")
-    if observe_reconnect and not (fresh_playlist or reuse_playlist_edit or exact_pr355 or exact_pr356 or party_integration_pair) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
+    if observe_reconnect and not (reuse_party_recovery or fresh_playlist or reuse_playlist_edit or exact_pr355 or exact_pr356 or party_integration_pair) and (pairing != "mixed" or reuse_candidate != (extended_match or reuse_party_night) or
                               candidate == RETAINED_CANDIDATE):
         raise ValueError("Reconnect observations require a verified mixed pair")
     if staged_ios_pair and (pairing != "ios" or len(digests) != 2 or not reuse_candidate or
@@ -150,6 +154,7 @@ def plan():
         print(f"extended_match={str(extended_match).lower()}", file=stream)
         print(f"ios_retained_run={DUAL_IOS_PRODUCER if staged_ios_pair else 45082889009}", file=stream)
         print(f"retained_party_night_run={PARTY_NIGHT_PRODUCER if reuse_party_night else ''}", file=stream)
+        print(f"reuse_party_recovery={str(reuse_party_recovery).lower()}", file=stream)
         print(f"reuse_party_integration={str(party_integration_pair).lower()}", file=stream)
         print(f"build_only={str(build_only).lower()}", file=stream)
         print(f"reuse_pr356={str(exact_pr356 and reuse_candidate).lower()}", file=stream)
@@ -307,6 +312,9 @@ def start_one(temp, index, device, digest, pairing):
         "UI_TEST_APP_IDS": package,
         "UI_TEST_DEEPLINK_SCHEMES": "parlor",
         "UI_TEST_ANDROID_IME": "0",
+        "UI_TEST_ANDROID_A11Y_DAEMON": "1",
+        "UI_TEST_DEVICE_ISOLATION": "1",
+        "UI_TEST_AGENT_ID": f"parlor-{target}-{index}",
         "UI_TEST_IOS_AXE": (temp / "parlor-axe-path").read_text().strip()
         if target == "ios" and os.environ.get("VISIBLE_IOS_WINDOW") != "true" else "",
         "UI_TEST_LAUNCH": f"xcrun simctl launch {device} me.parlor.ios.debug"
