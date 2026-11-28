@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      CANDIDATE: '026c71c4066c30131bcfec33c72d7a918b2fc97f'
-      CANDIDATE_TREE: '26312ceacc40ac7776141e3eb9ef8bc4dca5b002'
+      CANDIDATE: '2cafa111b5f4f302e0c3a3239ebd721c9c80c2ca'
+      CANDIDATE_TREE: 'e9401d8bfe6c1dda1d749756eddfb8d1a77deb7a'
       GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -31,7 +31,7 @@ jobs:
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper/dists
           key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
-      - name: Run exact-source Word Impostor and Party regression suites
+      - name: Run exact-source Mafia and Party regression suites
         shell: bash
         run: |
           set -euo pipefail
@@ -41,7 +41,7 @@ jobs:
           printf '%s\n' "$CANDIDATE" "$CANDIDATE_TREE" > build/party-score/source.txt
           python3 scripts/generate_review_inventory.py --check
           ./gradlew --dependency-verification=strict --no-daemon --console=plain \
-            :game-modes:word-impostor:desktopTest :shared:session:desktopTest \
+            :game-modes:mafia:desktopTest :shared:session:desktopTest \
             :composeApp:desktopTest --tests '*PartyPlaylistJourneyTest' --tests '*PartyLobbyRenderingTest' \
             staticAnalysis 2>&1 | tee build/party-score/verification.log
       - name: Retain reports and source identity
@@ -51,7 +51,7 @@ jobs:
           name: party-score-${{ env.CANDIDATE }}
           path: |
             build/party-score/
-            game-modes/word-impostor/build/test-results/desktopTest/
+            game-modes/mafia/build/test-results/desktopTest/
             shared/session/build/test-results/desktopTest/
             composeApp/build/test-results/desktopTest/
             build/reports/detekt/
