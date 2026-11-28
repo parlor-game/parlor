@@ -127,7 +127,7 @@ jobs:
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
       VISIBLE_IOS_WINDOW: ${{ needs.plan.outputs.visible_ios_window }}
-      PARLOR_UI_DURATION: ${{ (needs.plan.outputs.extended_match == 'true' || needs.plan.outputs.reuse_party_integration == 'true') && '150' || (needs.plan.outputs.reuse_playlist_edit == 'true' && '40' || '80') }}
+      PARLOR_UI_DURATION: ${{ needs.plan.outputs.extended_match == 'true' && '150' || needs.plan.outputs.reuse_party_integration == 'true' && '45' || (needs.plan.outputs.reuse_playlist_edit == 'true' && '40' || '80') }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
     defaults:
@@ -140,7 +140,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ui-test-actions/ui-test-actions
-          ref: 0c818c5d72e8c30c59bd1287c330a40392bf8e89
+          ref: 1c0d90debd7319c7580279bcbe2fb5ab19d6feea
           persist-credentials: false
           path: ui-client
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065

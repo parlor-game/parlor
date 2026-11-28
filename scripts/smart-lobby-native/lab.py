@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 CONFIG = Path("scripts/smart-lobby-native/dispatch.json")
 DURATION = os.environ.get("PARLOR_UI_DURATION", "80")
-CONTROLLER_PIN = "0c818c5d72e8c30c59bd1287c330a40392bf8e89"
+CONTROLLER_PIN = "1c0d90debd7319c7580279bcbe2fb5ab19d6feea"
 RETAINED_CANDIDATE = "e4e2b73a6286212c9f8c19ec3e421238fbbf4deb"
 DUAL_IOS_SOURCE = "0438fc6ff53780e87fa111f68352b15dd44a3ec3"
 DUAL_IOS_PRODUCER = 45121464371
