@@ -1,0 +1,13 @@
+1ca7adec3a3f092f9cdebf612d0c36d1c4698d2b	refs/heads/archive/branches-2026-11-20
+c62fdc739ec1fb1f9663abbe7524b472a627e0ae	refs/heads/diagnostic/ios-input-probe-2026-10-29
+91eec0eceff4cef067e472b6d2523aaa753af47b	refs/heads/diagnostic/ios-original-host-runtime-2026-10-29
+b6f14919d69dee8d056cfc944ffa9a2fe2f3f7f4	refs/heads/diagnostic/ios-xcresult-review-2026-10-29
+febe91cef00a5f7f63c1560cc9757e711844c166	refs/heads/diagnostic/xcode-worker-inventory-2026-10-29
+ecb4c9f7544ec37886fc877c14e3d442cc4ca494	refs/heads/feat/party-host-recovery
+458a63e7901de7a2661a7c042a41f1693c09c97c	refs/heads/fix/input-diagnostic-integration-2026-10-29
+7d4907ecea59741c3e81e1bdf4a897c64118501a	refs/heads/fix/ios-complete-protection-readback-2026-11-04
+c2483cbe7bcd316b3abdd3bbf82b8e6747190f67	refs/heads/main
+3eb814963333f31910d18d6a36b6517d4bd78722	refs/heads/perf/native-link-lab-preflight
+bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	refs/heads/release
+d5e105d8f142fae4dbc5f67b39a69ffc556245cd	refs/heads/test/smart-lobby-native-ui
+bc6043c9d0acb9e9441e17b2be6bbb2fb094fbe3	refs/heads/testing
