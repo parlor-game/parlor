@@ -45,9 +45,9 @@ def mark(side, action):
         log.write(json.dumps(item)+"\n")
     print(item["utc"], side, action, flush=True)
 
-def observe(side):
+def observe(side, *, fresh=False):
     start=time.monotonic()
-    state=result(clients[side].inspect(format="compact",limit=350,force_refresh=False),f"{side} compact snapshot")
+    state=result(clients[side].inspect(format="compact",limit=350,force_refresh=fresh),f"{side} compact snapshot")
     metrics[side]["compact_ms"].append(round((time.monotonic()-start)*1000,1))
     metrics[side]["compact_bytes"].append(len(state["text"].encode()))
     return state
@@ -82,7 +82,7 @@ def tap(side, node, label):
 def wait(side, pattern, seconds=24):
     deadline=time.monotonic()+seconds
     while time.monotonic()<deadline:
-        state=observe(side)
+        state=observe(side,fresh=True)
         if node:=find(state,pattern):
             return node
     raise RuntimeError(f"{side} did not show expected control {pattern}")
@@ -244,10 +244,10 @@ def recover(resume=False):
         remaining={r"1 of 2 matches completed",r"Next game · Egyptian Dominoes",
                    re.escape(f"{winner} · Points: 1 · Played: 1"),
                    re.escape(f"{loser} · Points: 0 · Played: 1")}
-        for _ in range(2):
-            scroll(side,False)
-        for _ in range(6):
-            state=observe(side)
+        command(side,"element.scroll_to_start",{"selector":{"role":"scrollarea"},
+                "direction":"vertical","max_scrolls":7})
+        for _ in range(8):
+            state=observe(side,fresh=True)
             remaining={pattern for pattern in remaining if not find(state,pattern)}
             if not remaining:
                 return
@@ -270,6 +270,10 @@ def recover(resume=False):
         (out/"host-process.json").write_text(json.dumps({"before":before,"after":new})+"\n")
         press("android","Party room|Open Party room",scrolls=4)
         permission("android")
+        wait("android","Party room|Restore hosted party|Your player name")
+        command("android","element.scroll_to_start",{"selector":{"role":"scrollarea"},
+                "direction":"vertical","max_scrolls":6})
+        wait("android","Restore hosted party",30)
         press("android","Restore hosted party","Restored the original hosting checkpoint")
     else:
         timeline=[json.loads(line) for line in (out/"journey.jsonl").read_text().splitlines()]
