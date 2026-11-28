@@ -213,6 +213,8 @@ private fun ByteArray.decodeUtf8StrictForSnapshot(): String = try {
  */
 interface SnapshotFileSystem {
     suspend fun read(name: String): ByteArray?
+    /** Reads only authenticated bytes. Host authority must never enter through legacy migration. */
+    suspend fun readAuthenticated(name: String): ByteArray? = throw SnapshotProtectionException()
     suspend fun write(name: String, bytes: ByteArray)
     suspend fun delete(name: String)
     suspend fun list(): List<String>

@@ -291,6 +291,7 @@
     <string name="party_create">Create party</string>
     <string name="party_join">Request to join</string>
     <string name="party_resume">Resume saved party</string>
+    <string name="party_restore_host">Restore hosted party</string>
     <string name="party_connected">Connected</string>
     <string name="party_waiting">Waiting for the host</string>
     <string name="party_host">Host</string>

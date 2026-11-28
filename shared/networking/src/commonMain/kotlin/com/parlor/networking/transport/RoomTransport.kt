@@ -66,6 +66,12 @@ interface RoomTransport {
         selection: ResumableSessionSelection,
     ): Result<LocalRoom, NetError> = Result.Failure(NetError.IncompatibleProtocol)
 
+    /** Separate from the guest's resumable membership. The ID grants no authority. */
+    suspend fun resumableHostedPartyId(): Result<PartyId?, NetError> = Result.Success(null)
+
+    suspend fun restoreHostedParty(expected: PartyId): Result<LocalRoom, NetError> =
+        Result.Failure(NetError.NotConnected)
+
     /** Resume the last protected membership on a fresh physical connection. */
     suspend fun resumeLastSession(): Result<LocalRoom, NetError> =
         Result.Failure(NetError.NotConnected)

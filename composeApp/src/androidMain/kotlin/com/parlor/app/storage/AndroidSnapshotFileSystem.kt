@@ -61,6 +61,11 @@ class AndroidSnapshotFileSystem(
         readProtectedOrMigrate(name)
     }
 
+    override suspend fun readAuthenticated(name: String): ByteArray? = withContext(ioDispatcher) {
+        requireSafeSnapshotFileName(name)
+        readProtectedOrMigrate(name, allowLegacy = false)
+    }
+
     override suspend fun write(name: String, bytes: ByteArray) {
         withContext(ioDispatcher) {
             requireSafeSnapshotFileName(name)
@@ -98,7 +103,7 @@ class AndroidSnapshotFileSystem(
             ?.filter { it.endsWith(FileBackedSnapshotStore.SUFFIX) }
             ?.toList()
             .orEmpty()
-        migrateSnapshotRecordsIndependently(legacyNames, ::readProtectedOrMigrate)
+        migrateSnapshotRecordsIndependently(legacyNames) { readProtectedOrMigrate(it) }
 
         val protectedNames = requireSnapshotDirectoryListing(baseDir.listFiles())
             .asSequence()
@@ -110,18 +115,18 @@ class AndroidSnapshotFileSystem(
         (legacyNames + protectedNames).distinct()
     }
 
-    private fun readProtectedOrMigrate(name: String): ByteArray? {
+    private fun readProtectedOrMigrate(name: String, allowLegacy: Boolean = true): ByteArray? {
         val file = File(baseDir, name)
-        if (!file.exists()) return migrateLegacy(name)
+        if (!file.exists()) return if (allowLegacy) migrateLegacy(name) else null
         if (!file.isFile || file.length() > MAX_PROTECTED_SNAPSHOT_BYTES) {
             throw SnapshotProtectionException()
         }
         val protectedBytes = file.readBytes()
         return when {
             protectedBytes.hasMagic() -> decrypt(name, protectedBytes).also {
-                deleteLegacy(name)
+                if (allowLegacy) deleteLegacy(name)
             }
-            protectedBytes.looksLikeLegacyJson() -> {
+            allowLegacy && protectedBytes.looksLikeLegacyJson() -> {
                 // One-way migration for snapshots written by pre-protection
                 // builds. The plaintext bytes exist only long enough to return
                 // this read and are atomically replaced before it completes.

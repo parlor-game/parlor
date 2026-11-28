@@ -1,0 +1,50 @@
+name: Party host recovery preview
+on:
+  push:
+    branches: [feat/party-host-recovery]
+
+permissions:
+  contents: read
+concurrency:
+  group: party-host-recovery-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GRADLE_OPTS: -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: parlor-deps-v2-${{ runner.os }}-${{ runner.arch }}-jdk21-gradle8.13-kotlin2.4.10-xcode26.3-${{ hashFiles('gradle/libs.versions.toml', 'gradle/verification-metadata.xml', 'gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle.kts') }}
+      - name: Run the session and transport suites and compile the application
+        shell: bash
+        run: |
+          # Required CI remains in Production verification.
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          ./gradlew --dependency-verification=strict --no-daemon --console=plain \
+            :shared:session:desktopTest :shared:transport-p2p:desktopTest \
+            :composeApp:compileKotlinDesktop :composeApp:compileDebugKotlinAndroid staticAnalysis
+      - name: Retain focused test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: party-host-recovery-${{ github.sha }}
+          path: |
+            shared/session/build/test-results/desktopTest/
+            shared/transport-p2p/build/test-results/desktopTest/
+            build/reports/detekt/
+          if-no-files-found: warn
+          retention-days: 7

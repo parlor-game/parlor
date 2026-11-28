@@ -23,6 +23,7 @@ import com.parlor.app.resources.party_approval_pending
 import com.parlor.app.resources.party_name
 import com.parlor.app.resources.party_open
 import com.parlor.app.resources.party_resume
+import com.parlor.app.resources.party_restore_host
 import com.parlor.app.resources.party_room_name
 import com.parlor.app.resources.party_settings_game
 import com.parlor.app.resources.party_network_settings
@@ -30,6 +31,7 @@ import com.parlor.app.permissions.rememberP2pPermissionGate
 import com.parlor.app.shell.game.multiplayer.roomGameError
 import com.parlor.app.shell.profile.LocalPreferredDisplayName
 import com.parlor.core.result.Result
+import com.parlor.core.ids.PartyId
 import com.parlor.designsystem.components.AdmissionCountdown
 import com.parlor.designsystem.components.ParlorButtonVariant
 import com.parlor.designsystem.components.ParlorTextField
@@ -66,6 +68,7 @@ internal fun PartyEntry(
     var problem by remember { mutableStateOf<NetError?>(null) }
     var approval by remember { mutableStateOf<ApprovalWait?>(null) }
     var saved by remember { mutableStateOf<ResumablePartySessionInfo?>(null) }
+    var hosted by remember { mutableStateOf<PartyId?>(null) }
     val preferredName = LocalPreferredDisplayName.current
     var name by remember { mutableStateOf(preferredName.orEmpty()) }
     var roomName by remember { mutableStateOf("") }
@@ -94,6 +97,7 @@ internal fun PartyEntry(
     }
     LaunchedEffect(transport) {
         saved = (transport.resumablePartySession() as? Result.Success)?.data
+        hosted = (transport.resumableHostedPartyId() as? Result.Success)?.data
     }
     LaunchedEffect(backRequest) { if (backRequest > 0) leave() }
 
@@ -107,6 +111,9 @@ internal fun PartyEntry(
     PartyScaffold {
         PartyHeading(stringResource(if (invitation == null) Res.string.party_open else Res.string.party_invitation))
         PartyDetail(stringResource(Res.string.party_entry_detail))
+        hosted?.takeIf { invitation == null }?.let { pending ->
+            PartyButton(Res.string.party_restore_host, enabled = !waiting) { open(false) { owner.restoreHostedParty(pending, catalog) } }
+        }
         saved?.takeIf { invitation == null }?.let { pending ->
             PartyButton(Res.string.party_resume, enabled = !waiting) { open(false) { owner.resume(pending, catalog) } }
         }

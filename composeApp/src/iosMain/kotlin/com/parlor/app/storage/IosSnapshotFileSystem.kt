@@ -138,6 +138,11 @@ internal class IosSnapshotFileSystem(
         readProtectedOrMigrate(name)
     }
 
+    override suspend fun readAuthenticated(name: String): ByteArray? = withContext(dispatcher) {
+        requireSafeSnapshotFileName(name)
+        readProtectedOrMigrate(name, allowLegacy = false)
+    }
+
     override suspend fun write(name: String, bytes: ByteArray) {
         withContext(dispatcher) {
             requireSafeSnapshotFileName(name)
@@ -176,16 +181,16 @@ internal class IosSnapshotFileSystem(
         } else {
             emptyList()
         }
-        migrateSnapshotRecordsIndependently(legacyNames, ::readProtectedOrMigrate)
+        migrateSnapshotRecordsIndependently(legacyNames) { readProtectedOrMigrate(it) }
         val protectedNames = listDirectory(basePath).filter(::isSafeSnapshotFileName)
         (legacyNames + protectedNames).distinct()
     }
 
-    private fun readProtectedOrMigrate(name: String): ByteArray? {
-        excludeLegacyDirectoryFromBackup()
+    private fun readProtectedOrMigrate(name: String, allowLegacy: Boolean = true): ByteArray? {
+        if (allowLegacy) excludeLegacyDirectoryFromBackup()
         val path = filePath(name)
         // Only confirmed absence permits legacy fallback; unavailable lookup is opaque IO.
-        if (!pathInspector(path)) return migrateLegacy(name)
+        if (!pathInspector(path)) return if (allowLegacy) migrateLegacy(name) else null
 
         val protectedBytes = readBytes(path, MAX_PROTECTED_SNAPSHOT_BYTES)
         return when {
@@ -195,10 +200,10 @@ internal class IosSnapshotFileSystem(
                 // Keep the already backup-excluded copy on failure/cancellation
                 // until a successful read or an explicit Discard can remove it.
                 val plaintext = decrypt(name, protectedBytes)
-                deleteLegacy(name)
+                if (allowLegacy) deleteLegacy(name)
                 plaintext
             }
-            protectedBytes.looksLikeLegacyJson() -> {
+            allowLegacy && protectedBytes.looksLikeLegacyJson() -> {
                 if (protectedBytes.size > MAX_PLAINTEXT_SNAPSHOT_BYTES) {
                     throw SnapshotProtectionException()
                 }

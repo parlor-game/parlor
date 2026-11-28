@@ -88,6 +88,7 @@ actual val p2pTransportModule: Module = module {
             scope = get(qualifier = named("p2pTransport")),
             kitFactory = get(),
             secureStorage = get(),
+            hostedPartyFiles = get(),
             diagnostics = get(),
         )
     }

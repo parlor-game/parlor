@@ -15,6 +15,8 @@ import com.parlor.networking.protocol.PublicPartyPlaylist
 import com.parlor.networking.protocol.PublicPartySeat
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
+import com.parlor.networking.room.HostedPartyCheckpoint
+import com.parlor.networking.room.HostedPartyCursor
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,15 +41,20 @@ internal data class PartyReadyReceipt(
 internal class PartyHostCoordinator(
     initial: PartyLobby,
     private val matchAdmission: PartyMatchAdmission? = null,
+    initialCursors: List<HostedPartyCursor> = emptyList(),
 ) {
     init { require(matchAdmission == null || matchAdmission.partyId == initial.id) }
 
     private val mutations = Mutex()
     private val lobby = MutableStateFlow(initial)
-    private val nextByPlayer = mutableMapOf<PlayerId, Long>()
+    private val nextByPlayer = initialCursors.associate { it.player to it.nextSequence }.toMutableMap()
     val state = lobby.asStateFlow()
 
     suspend fun admit(seat: PartySeat) = mutate { it.admit(seat) }
+    suspend fun saveCurrent(): Result<Unit, NetError> = mutations.withLock {
+        matchAdmission?.saveCheckpoint(lobby.value.checkpoint()) ?: Result.Success(Unit)
+    }
+
     suspend fun configurePlaylist(games: List<PartyGame>) = mutate { it.configurePlaylist(games) }
     suspend fun selectGame(game: PartyGame): Result<PartyLobby, PartyRejection> = mutations.withLock {
         val previous = lobby.value
@@ -56,7 +63,8 @@ internal class PartyHostCoordinator(
             return@withLock apply(selected)
         }
         val switched = withContext(NonCancellable) {
-            matchAdmission.selectGame(previous.game.protocol, game.protocol, game.playerCounts.last, previous.seats.keys - previous.host)
+            matchAdmission.selectGame(previous.game.protocol, game.protocol, game.playerCounts.last,
+                previous.seats.keys - previous.host, selected.data.checkpoint())
         }
         if (switched is Result.Failure) return@withLock Result.Failure(switched.error.toPartyRejection())
         apply(selected)
@@ -70,7 +78,8 @@ internal class PartyHostCoordinator(
         // Publish the host attempt before acquiring its room lease. If the
         // freeze fails, roll back through a new revision so its ID cannot be reused.
         lobby.value = start.data
-        val frozen = withContext(NonCancellable) { matchAdmission.freezeMatch(match.id, match.roster - previous.host) }
+        val fence = start.data.checkpoint()
+        val frozen = withContext(NonCancellable) { matchAdmission.freezeMatch(match.id, match.roster - previous.host, fence) }
         if (frozen is Result.Failure) {
             apply(start.data.returnToLobby(match.id))
             return@withLock Result.Failure(frozen.error.toPartyRejection())
@@ -85,13 +94,13 @@ internal class PartyHostCoordinator(
     ): Result<PartyLobby, PartyRejection> = mutations.withLock {
         val returned = lobby.value.returnToLobby(match, completed, winners)
         if (returned !is Result.Success || matchAdmission == null) return@withLock apply(returned)
-        val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match) }
+        val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match, returned.data.checkpoint()) }
         if (reopened is Result.Failure) return@withLock Result.Failure(reopened.error.toPartyRejection())
         apply(returned)
     }
 
     suspend fun removeSeat(player: PlayerId): Result<PartyLobby, PartyRejection> = mutations.withLock {
-        apply(lobby.value.removeSeat(player)).also { result ->
+        commit(lobby.value.removeSeat(player)).also { result ->
             if (result is Result.Success) nextByPlayer.remove(player)
         }
     }
@@ -140,7 +149,7 @@ internal class PartyHostCoordinator(
     suspend fun ready(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt =
         mutations.withLock { processReady(actor, command) }
 
-    private fun processReady(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt {
+    private suspend fun processReady(actor: PlayerId, command: PartyReadyCommand): PartyReadyReceipt {
         val current = lobby.value
         val expected = nextByPlayer[actor] ?: FIRST_SEQUENCE
         val status = when {
@@ -149,27 +158,57 @@ internal class PartyHostCoordinator(
             current.seats[actor]?.member?.connected != true -> CommandStatus.Unauthorized
             command.sequence < FIRST_SEQUENCE -> CommandStatus.Unauthorized
             command.sequence < expected -> CommandStatus.Duplicate
-            command.sequence > expected || expected == Long.MAX_VALUE -> CommandStatus.SequenceGap
+            command.sequence > expected || expected >= Long.MAX_VALUE - 1 -> CommandStatus.SequenceGap
             else -> acceptOrderedReadiness(actor, command, expected)
         }
         return PartyReadyReceipt(status, lobby.value.revision, nextByPlayer[actor] ?: FIRST_SEQUENCE)
     }
 
-    private fun acceptOrderedReadiness(actor: PlayerId, command: PartyReadyCommand, expected: Long): CommandStatus {
-        val result = apply(lobby.value.setReady(actor, command.ready, command.expectedRevision))
-        nextByPlayer[actor] = expected + 1
-        return when (result) {
-            is Result.Success -> CommandStatus.Applied
-            is Result.Failure -> when (result.error) {
-                PartyRejection.StaleRevision -> CommandStatus.StaleRevision
-                PartyRejection.InvalidPhase -> CommandStatus.InvalidAction
-                else -> CommandStatus.Unauthorized
+    private suspend fun acceptOrderedReadiness(actor: PlayerId, command: PartyReadyCommand, expected: Long): CommandStatus {
+        val previous = lobby.value
+        val result = previous.setReady(actor, command.ready, command.expectedRevision)
+        val proposed = (result as? Result.Success)?.data ?: previous
+        return withContext(NonCancellable) {
+            if (!save(proposed.checkpoint(cursors = nextByPlayer + (actor to expected + 1)))) {
+                return@withContext CommandStatus.InvalidAction
+            }
+            apply(result)
+            nextByPlayer[actor] = expected + 1
+            when (result) {
+                is Result.Success -> CommandStatus.Applied
+                is Result.Failure -> when (result.error) {
+                    PartyRejection.StaleRevision -> CommandStatus.StaleRevision
+                    PartyRejection.InvalidPhase -> CommandStatus.InvalidAction
+                    else -> CommandStatus.Unauthorized
+                }
             }
         }
     }
 
+    private suspend fun save(checkpoint: HostedPartyCheckpoint): Boolean =
+        matchAdmission?.saveCheckpoint(checkpoint) !is Result.Failure
+
+    private fun PartyLobby.checkpoint(cursors: Map<PlayerId, Long> = nextByPlayer): HostedPartyCheckpoint {
+        val public = publicLobby()
+        // A process cannot recover the private in-flight engine. Fence its match ID
+        // and revision, then recover the already committed lobby progress.
+        val safeLobby = public.copy(phase = PartyLobbyPhase.Lobby, activeMatchId = null,
+            members = public.members.map { it.copy(ready = false, inActiveMatch = false) })
+        return HostedPartyCheckpoint(revision, safeLobby, cursors.mapNotNull { (player, next) ->
+            if (player != host && player in seats) HostedPartyCursor(player, next) else null
+        })
+    }
+
     private suspend fun mutate(change: (PartyLobby) -> Result<PartyLobby, PartyRejection>) =
-        mutations.withLock { apply(change(lobby.value)) }
+        mutations.withLock { commit(change(lobby.value)) }
+
+    private suspend fun commit(result: Result<PartyLobby, PartyRejection>): Result<PartyLobby, PartyRejection> =
+        withContext(NonCancellable) {
+            if (result is Result.Success && result.data !== lobby.value && !save(result.data.checkpoint())) {
+                return@withContext Result.Failure(PartyRejection.StorageUnavailable)
+            }
+            apply(result)
+        }
 
     private fun apply(result: Result<PartyLobby, PartyRejection>): Result<PartyLobby, PartyRejection> =
         result.also { if (it is Result.Success) lobby.value = it.data }
@@ -217,5 +256,6 @@ private fun NetError.toPartyRejection(): PartyRejection = when (this) {
     NetError.NotConnected, NetError.RoomFull -> PartyRejection.IneligibleCount
     NetError.StaleRoom -> PartyRejection.StaleRevision
     NetError.CommandInFlight -> PartyRejection.WaitingForReadiness
+    NetError.SecureStorageUnavailable -> PartyRejection.StorageUnavailable
     else -> PartyRejection.InvalidPhase
 }

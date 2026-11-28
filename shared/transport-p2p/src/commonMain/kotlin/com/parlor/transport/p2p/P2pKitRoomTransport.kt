@@ -29,6 +29,8 @@ import com.parlor.networking.room.DiscoveredRoomSelection
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.LobbyAdvertisement
 import com.parlor.networking.room.ForegroundConnectionValidator
+import com.parlor.networking.room.HostedPartyCheckpoint
+import com.parlor.networking.protocol.PublicPartySeat
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
 import com.parlor.networking.room.PendingAdmission
@@ -53,6 +55,7 @@ import com.parlor.networking.transport.TransportCapability
 import com.parlor.networking.security.SecureHashes
 import com.parlor.networking.security.SecureIds
 import com.parlor.storage.secure.SecureStorage
+import com.parlor.storage.snapshot.SnapshotFileSystem
 import dev.p2pkit.core.AppId
 import dev.p2pkit.core.ConnectionState
 import dev.p2pkit.core.NetworkPathStatus
@@ -151,6 +154,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     // the first slow dial makes a still-advertised host ineligible for retry.
     // A missing timestamp is accepted on the strength of the current snapshot.
     private val peerFreshnessWindowMs: Long,
+    private val hostedPartyStore: HostedPartyStore?,
 ) : RoomTransport {
     /** Public constructor retained without exposing the internal diagnostics contract. */
     constructor(
@@ -173,6 +177,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         privateMarker = Unit,
         joinTimeoutMs = joinTimeoutMs,
         peerFreshnessWindowMs = peerFreshnessWindowMs,
+        hostedPartyStore = null,
     )
 
     /** Production/test wiring with a privacy-safe recorder. */
@@ -186,6 +191,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         codec: RoomMessageCodec = RoomMessageCodec(),
         joinTimeoutMs: Long = DEFAULT_JOIN_TIMEOUT_MS,
         peerFreshnessWindowMs: Long = DEFAULT_PEER_FRESHNESS_WINDOW_MS,
+        hostedPartyFiles: SnapshotFileSystem? = null,
     ) : this(
         appId = appId,
         deviceName = deviceName,
@@ -197,6 +203,7 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         privateMarker = Unit,
         joinTimeoutMs = joinTimeoutMs,
         peerFreshnessWindowMs = peerFreshnessWindowMs,
+        hostedPartyStore = hostedPartyFiles?.let(::HostedPartyStore),
     )
 
     private val credentialStore = ResumableCredentialStore(secureStorage)
@@ -350,17 +357,44 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
         return retained + current.values
     }
 
-    override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> {
+    override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = openHost(config)
+
+    override suspend fun resumableHostedPartyId(): Result<PartyId?, NetError> =
+        when (val saved = hostedPartyStore?.load()) {
+            is Result.Failure -> saved
+            is Result.Success -> Result.Success(saved.data?.takeIf { it.canRestoreAt(nowMillis()) }?.partyId)
+            null -> Result.Success(null)
+        }
+
+    override suspend fun restoreHostedParty(expected: PartyId): Result<LocalRoom, NetError> {
+        val saved = when (val loaded = hostedPartyStore?.load()) {
+            is Result.Failure -> return loaded
+            is Result.Success -> loaded.data
+            null -> null
+        } ?: return Result.Failure(NetError.NotConnected)
+        if (saved.partyId != expected) return Result.Failure(NetError.StaleRoom)
+        if (!saved.canRestoreAt(nowMillis())) return Result.Failure(NetError.RejoinExpired)
+        val lobby = saved.checkpoint.lobby
+        val config = HostConfig(
+            hostDisplayName = lobby.members.first().displayName,
+            maxRemotePlayers = saved.maxRemotePlayers,
+            partyProtocol = HostedPartyProtocol(saved.partyId,
+                HostedGameProtocol(lobby.selectedGame.gameId, lobby.selectedGame.gameVersion), lobby.seatLimit),
+        )
+        return openHost(config, saved)
+    }
+
+    private suspend fun openHost(config: HostConfig, saved: StoredHostedParty? = null): Result<LocalRoom, NetError> {
         val hostDisplayName = RoomInputPolicy.normalizeDisplayName(config.hostDisplayName)
         if (!RoomInputPolicy.isValidDisplayName(hostDisplayName)) {
             return Result.Failure(NetError.InvalidInput)
         }
-        val advertisedDeviceName = hostAdvertisement(config.gameProtocol, config.partyProtocol)
+        val advertisedDeviceName = hostAdvertisement(config.gameProtocol, config.partyProtocol, saved?.roomTag)
             ?: return Result.Failure(NetError.InvalidInput)
         _localNetworkAccess.value = LocalNetworkAccess.Attempting
         diagnostics.event(P2pDiagnosticEventName.SESSION_CREATE_STARTED, P2pDiagnosticRole.HOST)
         return try {
-            val roomCode = generateRoomCode()
+            val roomCode = saved?.roomCode ?: generateRoomCode()
             val lifecycleRegistrationId = SecureIds.id128()
             val kit = kitFactory.createKit(
                 appId = appId,
@@ -373,8 +407,11 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
             var ownershipTransferred = false
             try {
                 kit.start()
-                checkNotNull(kit.localFingerprint) {
+                val localFingerprint = checkNotNull(kit.localFingerprint) {
                     "P2pKit authenticated identity is unavailable"
+                }
+                if (saved != null && (saved.host.raw != kit.localPeerId.value || saved.hostFingerprint != localFingerprint.value)) {
+                    return Result.Failure(NetError.Unauthorized)
                 }
                 // Construct the room first so its incomingSessions collector is
                 // subscribed before the service becomes discoverable. Otherwise a
@@ -387,13 +424,16 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
                     maxRemotePlayers = config.maxRemotePlayers,
                     gameProtocol = config.gameProtocol,
                     partyProtocol = config.partyProtocol,
+                    roomId = saved?.roomId ?: RoomId(SecureIds.id128()),
                     roomTag = advertisedRoomTag(advertisedDeviceName),
+                    hostedPartyStore = hostedPartyStore?.takeIf { config.partyProtocol != null },
+                    restoredParty = saved,
                     scope = scope,
                     codec = codec,
                     diagnostics = diagnostics,
                     onClosed = { roomClosed(lifecycleRegistrationId) },
                 )
-                kit.startAdvertising()
+                if (saved == null) kit.startAdvertising()
                 _localNetworkAccess.value = LocalNetworkAccess.Operational
                 val hostedRoom = checkNotNull(room)
                 registerLifecycleRoom(lifecycleRegistrationId, hostedRoom)
@@ -1711,9 +1751,9 @@ class P2pKitRoomTransport @Suppress("LongParameterList") private constructor(
     private inline fun nowMillis(): Long =
         kotlin.time.Clock.System.now().toEpochMilliseconds()
 
-    private fun hostAdvertisement(game: HostedGameProtocol?, party: HostedPartyProtocol?): String? {
+    private fun hostAdvertisement(game: HostedGameProtocol?, party: HostedPartyProtocol?, restoredTag: String?): String? {
         if (game == null && party == null) return "$P2P_ROOM_PREFIX$deviceName"
-        val roomTag = SecureIds.randomCharacters(
+        val roomTag = restoredTag ?: SecureIds.randomCharacters(
             length = LobbyAdvertisement.ROOM_TAG_LENGTH,
             alphabet = RoomInputPolicy.ROOM_CODE_ALPHABET,
         )
@@ -2096,6 +2136,8 @@ internal class HostP2pRoom(
     private val roomId: RoomId = RoomId(SecureIds.id128()),
     roomTag: String? = null,
     private val partyProtocol: HostedPartyProtocol? = null,
+    private val hostedPartyStore: HostedPartyStore? = null,
+    restoredParty: StoredHostedParty? = null,
 ) : LocalRoom, AppLifecycleAwareRoom {
 
     init {
@@ -2131,6 +2173,21 @@ internal class HostP2pRoom(
     override val partyMatches: PartyMatchAdmission? = partyId?.let { identity ->
         object : PartyMatchAdmission {
             override val partyId: PartyId = identity
+            override val restoredCheckpoint: HostedPartyCheckpoint? = restoredParty?.checkpoint
+
+            override suspend fun saveCheckpoint(checkpoint: HostedPartyCheckpoint): Result<Unit, NetError> =
+                stateMutex.withLock {
+                    if (left) return@withLock Result.Failure(NetError.NotConnected)
+                    persistHostedParty(checkpoint)
+                }
+
+            override suspend fun activateRestoredHost(): Result<Unit, NetError> = activateRecovery()
+
+            override suspend fun discardCheckpoint(): Result<Unit, NetError> = stateMutex.withLock {
+                val result = hostedPartyStore?.discard(identity) ?: Result.Success(Unit)
+                if (result is Result.Success) durableLobby = null
+                result
+            }
 
             override suspend fun selectGame(
                 expected: GameProtocolRef,
@@ -2139,10 +2196,23 @@ internal class HostP2pRoom(
                 expectedMembers: Set<PlayerId>,
             ) = selectPartyGame(expected, next, seatLimit, expectedMembers)
 
+            override suspend fun selectGame(
+                expected: GameProtocolRef,
+                next: GameProtocolRef,
+                seatLimit: Int,
+                expectedMembers: Set<PlayerId>,
+                checkpoint: HostedPartyCheckpoint,
+            ) = selectPartyGame(expected, next, seatLimit, expectedMembers, checkpoint)
+
             override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>) =
                 freezePartyMatch(id, expectedPeers)
 
+            override suspend fun freezeMatch(id: SessionId, expectedPeers: Set<PlayerId>, checkpoint: HostedPartyCheckpoint) =
+                freezePartyMatch(id, expectedPeers, checkpoint)
+
             override suspend fun reopenMatch(id: SessionId) = reopenAfterPartyMatch(id)
+
+            override suspend fun reopenMatch(id: SessionId, checkpoint: HostedPartyCheckpoint) = reopenAfterPartyMatch(id, checkpoint)
         }
     }
 
@@ -2281,8 +2351,22 @@ internal class HostP2pRoom(
     // room's own notifications/cleanup must also run only once. Every access
     // is serialized by stateMutex, so no cross-platform @Volatile is needed.
     private var left = false
+    private var recoveryPending = restoredParty != null
+    private var durableLobby = restoredParty?.checkpoint
 
     init {
+        restoredParty?.memberships?.forEach { saved ->
+            val player = saved.player
+            membersByPlayer[player] = RoomMember(player, saved.displayName, connected = false, partySupportedGames = saved.games)
+            credentialsByPlayer[player] = HostCredential(
+                saved.digest.hexToByteArray(), saved.generation, saved.fingerprint, saved.offerId, saved.expiresAtEpochMillis,
+                saved.previousDigest?.hexToByteArray(), saved.previousGeneration,
+            )
+            previouslySeenPlayerIds += player
+            rejoinDeadlineByPlayer[player] = minOf(saved.expiresAtEpochMillis,
+                saved.disconnectedUntil ?: (nowMillis() + P2pKitRoomTransport.REJOIN_GRACE_MS))
+        }
+        publishMembers()
         sessionScope.launch { reapExpiredApprovals() }
         sessionScope.launch(start = CoroutineStart.UNDISPATCHED) {
             kit.incomingSessions.collect { session ->
@@ -2307,7 +2391,7 @@ internal class HostP2pRoom(
         val trackingDecision = stateMutex.withLock {
             when {
                 session in trackedSessions -> null
-                left || connectionRetention.isBackgrounded ||
+                left || recoveryPending || connectionRetention.isBackgrounded ||
                     when (_lifecycle.value) {
                         RoomLifecycleState.Active,
                         is RoomLifecycleState.Resuming -> false
@@ -2644,6 +2728,7 @@ internal class HostP2pRoom(
                                 rejoinDeadlineByPlayer[playerId] =
                                     kotlin.time.Clock.System.now().toEpochMilliseconds() +
                                         P2pKitRoomTransport.REJOIN_GRACE_MS
+                                persistHostMembership()
                                 publishMembers()
                                 true
                             } else {
@@ -3015,7 +3100,7 @@ internal class HostP2pRoom(
             return
         }
 
-        val commit = stateMutex.withLock {
+        val commit = withContext(NonCancellable) { stateMutex.withLock {
             val pending = pendingByPlayer[playerId]
             val previousCredential = credentialsByPlayer[playerId]
             val previousMember = membersByPlayer[playerId] ?: return@withLock null
@@ -3028,14 +3113,8 @@ internal class HostP2pRoom(
             ) {
                 null
             } else {
-                admissionReservations.remove(playerId)
-                pendingByPlayer.remove(playerId)
-                publishPendingAdmissions()
-                val oldSession = sessionsByPlayer[playerId]?.takeIf { it !== session }
-                sessionsByPlayer[playerId] = session
-                membersByPlayer[playerId] = previousMember.copy(connected = true)
-                rejoinDeadlineByPlayer.remove(playerId)
-                credentialsByPlayer[playerId] = HostCredential(
+                val resumedMember = previousMember.copy(connected = true)
+                val resumedCredential = HostCredential(
                     digest = SecureHashes.sha256Utf8(transaction.offer.secret),
                     generation = transaction.offer.generation,
                     peerFingerprint = pending.peerFingerprint,
@@ -3044,6 +3123,18 @@ internal class HostP2pRoom(
                     previousDigest = prepared.matchedDigest.copyOf(),
                     previousGeneration = prepared.matchedGeneration,
                 )
+                if (!persistHostMembership(resumedMember, resumedCredential)) {
+                    resumedCredential.wipe()
+                    return@withLock null
+                }
+                admissionReservations.remove(playerId)
+                pendingByPlayer.remove(playerId)
+                publishPendingAdmissions()
+                val oldSession = sessionsByPlayer[playerId]?.takeIf { it !== session }
+                sessionsByPlayer[playerId] = session
+                membersByPlayer[playerId] = resumedMember
+                rejoinDeadlineByPlayer.remove(playerId)
+                credentialsByPlayer[playerId] = resumedCredential
                 val readyBarrier = ResumeReadyBarrier(
                     session = session,
                     offerId = transaction.offer.offerId,
@@ -3053,7 +3144,7 @@ internal class HostP2pRoom(
                 publishMembers()
                 AdmissionCommit(oldSession, previousCredential, readyBarrier)
             }
-        } ?: run {
+        } } ?: run {
             prepared.matchedDigest.fill(0)
             rollbackAdmission(playerId, session)
             attemptCleanup(diagnostics, P2pDiagnosticRole.HOST) { session.close() }
@@ -3175,8 +3266,12 @@ internal class HostP2pRoom(
         val obsolete = stateMutex.withLock {
             credentialsByPlayer[playerId]?.takeIf {
                 it.offerId == acknowledgement.offerId &&
-                    it.generation == acknowledgement.generation
+                    it.generation == acknowledgement.generation && it.previousDigest != null
             }?.let { credential ->
+                val member = checkNotNull(membersByPlayer[playerId])
+                if (!persistHostMembership(member, credential.copy(previousDigest = null, previousGeneration = null))) {
+                    return@withLock null
+                }
                 credential.previousDigest.also {
                     credential.previousDigest = null
                     credential.previousGeneration = null
@@ -3225,6 +3320,7 @@ internal class HostP2pRoom(
         next: GameProtocolRef,
         seatLimit: Int,
         expectedMembers: Set<PlayerId>,
+        checkpoint: HostedPartyCheckpoint? = null,
     ): Result<Unit, NetError> = stateMutex.withLock {
         if (partyId == null || !next.isValid() || seatLimit !in 2..(maxRemotePlayers + 1)) {
             return@withLock Result.Failure(NetError.InvalidInput)
@@ -3238,6 +3334,9 @@ internal class HostP2pRoom(
         if (partyGame != expected) return@withLock Result.Failure(NetError.StaleRoom)
         if (membersByPlayer.keys != expectedMembers) return@withLock Result.Failure(NetError.NotConnected)
         if (membersByPlayer.size >= seatLimit) return@withLock Result.Failure(NetError.RoomFull)
+        if (checkpoint != null && persistHostedParty(checkpoint) is Result.Failure) {
+            return@withLock Result.Failure(NetError.SecureStorageUnavailable)
+        }
         partyGame = next
         remoteSeatLimit = seatLimit - 1
         Result.Success(Unit)
@@ -3251,6 +3350,7 @@ internal class HostP2pRoom(
     internal suspend fun freezePartyMatch(
         id: SessionId,
         expectedRemotePlayers: Set<PlayerId>,
+        checkpoint: HostedPartyCheckpoint? = null,
     ): Result<List<RoomMember>, NetError> {
         if (partyId == null) return Result.Failure(NetError.Unauthorized)
         val (members, pending) = stateMutex.withLock {
@@ -3272,6 +3372,9 @@ internal class HostP2pRoom(
             if (connected.map(RoomMember::playerId).toSet() != expectedRemotePlayers) {
                 return Result.Failure(NetError.NotConnected)
             }
+            if (checkpoint != null && persistHostedParty(checkpoint) is Result.Failure) {
+                return Result.Failure(NetError.SecureStorageUnavailable)
+            }
             matchAdmission = FrozenPartyMatch(id, connected)
             admissionsClosed = true
             val pending = pendingByPlayer.values.toList()
@@ -3283,11 +3386,17 @@ internal class HostP2pRoom(
         return Result.Success(members)
     }
 
-    internal suspend fun reopenAfterPartyMatch(id: SessionId): Result<Unit, NetError> = stateMutex.withLock {
+    internal suspend fun reopenAfterPartyMatch(
+        id: SessionId,
+        checkpoint: HostedPartyCheckpoint? = null,
+    ): Result<Unit, NetError> = stateMutex.withLock {
         if (partyId == null) return@withLock Result.Failure(NetError.Unauthorized)
         if (left || !acceptsLocalGameCommands) return@withLock Result.Failure(NetError.SessionSuspended)
         when (matchAdmission?.id) {
             id -> {
+                if (checkpoint != null && persistHostedParty(checkpoint) is Result.Failure) {
+                    return@withLock Result.Failure(NetError.SecureStorageUnavailable)
+                }
                 matchAdmission = null
                 lastReopenedMatch = id
                 admissionsClosed = false
@@ -3386,6 +3495,10 @@ internal class HostP2pRoom(
                 }
                 playerId !in previouslySeenPlayerIds -> {
                     failure = NetError.NotConnected
+                    null
+                }
+                !persistHostMembership(removing = playerId) -> {
+                    failure = NetError.SecureStorageUnavailable
                     null
                 }
                 else -> {
@@ -3561,7 +3674,7 @@ internal class HostP2pRoom(
             return Result.Failure(NetError.Timeout)
         }
 
-        val commit = stateMutex.withLock {
+        val commit = withContext(NonCancellable) { stateMutex.withLock {
             val pending = pendingByPlayer[playerId]
             if (
                 playerId !in admissionReservations ||
@@ -3571,26 +3684,29 @@ internal class HostP2pRoom(
             ) {
                 null
             } else {
+                val member = RoomMember(
+                    playerId, displayName, connected = true, partySupportedGames = pending.partySupportedGames,
+                )
+                val credential = HostCredential(
+                    digest = SecureHashes.sha256Utf8(transaction.offer.secret),
+                    generation = transaction.offer.generation,
+                    peerFingerprint = pending.peerFingerprint,
+                    offerId = transaction.offer.offerId,
+                    expiresAtEpochMillis = transaction.offer.expiresAtEpochMillis,
+                )
+                if (!persistHostMembership(member, credential)) {
+                    credential.wipe()
+                    return@withLock null
+                }
                 admissionReservations.remove(playerId)
                 pendingByPlayer.remove(playerId)
                 publishPendingAdmissions()
                 val old = sessionsByPlayer[playerId]?.takeIf { it !== session }
                 sessionsByPlayer[playerId] = session
-                membersByPlayer[playerId] = RoomMember(
-                    playerId, displayName, connected = true, partySupportedGames = pending.partySupportedGames,
-                )
+                membersByPlayer[playerId] = member
                 previouslySeenPlayerIds += playerId
                 rejoinDeadlineByPlayer.remove(playerId)
-                val oldCredential = credentialsByPlayer.put(
-                    playerId,
-                    HostCredential(
-                        digest = SecureHashes.sha256Utf8(transaction.offer.secret),
-                        generation = transaction.offer.generation,
-                        peerFingerprint = pending.peerFingerprint,
-                        offerId = transaction.offer.offerId,
-                        expiresAtEpochMillis = transaction.offer.expiresAtEpochMillis,
-                    ),
-                )
+                val oldCredential = credentialsByPlayer.put(playerId, credential)
                 val readyBarrier = AdmissionReadyBarrier(
                     session = session,
                     offerId = transaction.offer.offerId,
@@ -3604,7 +3720,7 @@ internal class HostP2pRoom(
                     admissionReadyBarrier = readyBarrier,
                 )
             }
-        } ?: run {
+        } } ?: run {
             rollbackAdmission(playerId, session)
             attemptCleanup(diagnostics, P2pDiagnosticRole.HOST) { session.close() }
             return Result.Failure(NetError.NotConnected)
@@ -3795,6 +3911,69 @@ internal class HostP2pRoom(
         _members.value = membersByPlayer.values.toList()
     }
 
+    private suspend fun activateRecovery(): Result<Unit, NetError> {
+        val activate = stateMutex.withLock {
+            if (left) return Result.Failure(NetError.NotConnected)
+            recoveryPending.also { recoveryPending = false }
+        }
+        if (!activate) return Result.Success(Unit)
+        return try {
+            startRoomAdvertising()
+            Result.Success(Unit)
+        } catch (@Suppress("TooGenericExceptionCaught") failure: Exception) {
+            failure.rethrowIfCancellation()
+            Result.Failure(NetError.TransportFailure("Party advertising failed"))
+        }
+    }
+
+    /** stateMutex owns both the lobby checkpoint and the membership used to seal it. */
+    private suspend fun persistHostedParty(
+        checkpoint: HostedPartyCheckpoint,
+        changed: RoomMember? = null,
+        credential: HostCredential? = null,
+        removing: PlayerId? = null,
+    ): Result<Unit, NetError> {
+        val store = hostedPartyStore ?: return Result.Success(Unit)
+        val identity = checkNotNull(partyId)
+        val prior = durableLobby
+        if (prior != null && checkpoint.revision < prior.revision) return Result.Failure(NetError.StaleRoom)
+        val roster = membersByPlayer.toMutableMap()
+        if (removing != null) roster.remove(removing)
+        if (changed != null) roster[changed.playerId] = changed
+        val credentials = roster.values.map { member ->
+            val current = if (member.playerId == changed?.playerId) checkNotNull(credential)
+                else credentialsByPlayer.getValue(member.playerId)
+            StoredHostedPartyMember(
+                member.playerId, member.displayName, member.partySupportedGames, current.peerFingerprint,
+                current.offerId, current.generation, current.digest.toHexString(), current.expiresAtEpochMillis,
+                current.previousGeneration, current.previousDigest?.toHexString(),
+                rejoinDeadlineByPlayer[member.playerId].takeUnless { member.connected },
+            )
+        }
+        val persisted = checkpoint.copy(
+            lobby = checkpoint.lobby.copy(members = listOf(PublicPartySeat(hostPlayerId, hostDisplayName,
+                connected = true, ready = false, inActiveMatch = false)) + roster.values.map { member ->
+                PublicPartySeat(member.playerId, member.displayName, connected = false, ready = false, inActiveMatch = false)
+            }),
+            cursors = checkpoint.cursors.filter { it.player in roster },
+        )
+        val record = StoredHostedParty(
+            identity, roomId, roomCode, checkNotNull(_info.value.roomTag), hostPlayerId,
+            checkNotNull(kit.localFingerprint).value, maxRemotePlayers, persisted, credentials, nowMillis(),
+        )
+        return store.save(record).also { if (it is Result.Success) durableLobby = persisted }
+    }
+
+    private suspend fun persistHostMembership(
+        member: RoomMember? = null,
+        credential: HostCredential? = null,
+        removing: PlayerId? = null,
+    ): Boolean {
+        if (hostedPartyStore == null) return true
+        val checkpoint = durableLobby ?: return false
+        return persistHostedParty(checkpoint, member, credential, removing) is Result.Success
+    }
+
     private suspend fun reapExpiredApprovals() {
         while (true) {
             val (expired, nextDelayMs) = stateMutex.withLock {
@@ -3837,7 +4016,8 @@ internal class HostP2pRoom(
 
     private suspend fun startRoomAdvertising() = advertisingMutex.withLock {
         val mayStart = stateMutex.withLock {
-            !left && (_lifecycle.value == RoomLifecycleState.Active || _lifecycle.value is RoomLifecycleState.Resuming)
+            !left && !recoveryPending &&
+                (_lifecycle.value == RoomLifecycleState.Active || _lifecycle.value is RoomLifecycleState.Resuming)
         }
         if (mayStart) kit.startAdvertising()
     }
@@ -4094,7 +4274,7 @@ internal class HostP2pRoom(
         session: P2pSession,
     ) {
         val removed = stateMutex.withLock {
-            if (sessionsByPlayer[playerId] !== session) {
+            if (sessionsByPlayer[playerId] !== session || !persistHostMembership(removing = playerId)) {
                 false
             } else {
                 sessionsByPlayer.remove(playerId)
