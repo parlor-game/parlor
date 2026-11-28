@@ -25,6 +25,7 @@ PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
 PLAYLIST_EDIT_CANDIDATE = "eddc1b1f773be8499e05464e08e2b51937f3957a"
 STANDINGS_CANDIDATE = "dec09061e310b84054a6bebb23f9532e8e66c398"
 PARTY_INTEGRATION_CANDIDATE = "a357b16cdf4034b22ffbbc8968526363f8c530cd"
+PARTY_RECOVERY_CANDIDATE = "ecb4c9f7544ec37886fc877c14e3d442cc4ca494"
 
 
 def configuration():
@@ -77,7 +78,7 @@ def plan():
     if reuse_party_night and (pairing != "mixed" or not observe_reconnect or extended_match):
         raise ValueError("The retained Party Night builds require the mixed reconnect topology")
     fresh_playlist = (
-        candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE, STANDINGS_CANDIDATE}
+        candidate in {PRESETS_CANDIDATE, PLAYLIST_EDIT_CANDIDATE, STANDINGS_CANDIDATE, PARTY_RECOVERY_CANDIDATE}
         and pairing == "mixed" and not reuse_candidate and observe_reconnect
     )
     reuse_standings_android = payload.get("reuse_standings_android") is True
