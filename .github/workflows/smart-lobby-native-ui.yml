@@ -116,7 +116,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.lab) }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: ${{ needs.plan.outputs.extended_match == 'true' && 170 || 100 }}
+    timeout-minutes: ${{ (needs.plan.outputs.extended_match == 'true' || needs.plan.outputs.reuse_party_integration == 'true') && 170 || 100 }}
     env:
       TARGET: ${{ matrix.target }}
       PAIRING: ${{ inputs.pairing }}
@@ -127,7 +127,7 @@ jobs:
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
       VISIBLE_IOS_WINDOW: ${{ needs.plan.outputs.visible_ios_window }}
-      PARLOR_UI_DURATION: ${{ needs.plan.outputs.extended_match == 'true' && '150' || (needs.plan.outputs.reuse_playlist_edit == 'true' && '40' || '80') }}
+      PARLOR_UI_DURATION: ${{ (needs.plan.outputs.extended_match == 'true' || needs.plan.outputs.reuse_party_integration == 'true') && '150' || (needs.plan.outputs.reuse_playlist_edit == 'true' && '40' || '80') }}
       LAN_UI_DIR: ${{ github.workspace }}/ui-client
       PYTHONPATH: ${{ github.workspace }}/ui-client
     defaults:

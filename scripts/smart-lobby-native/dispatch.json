@@ -2,8 +2,8 @@
   "candidate": "a357b16cdf4034b22ffbbc8968526363f8c530cd",
   "pairing": "mixed",
   "token_digests": [
-    "793704bc1848895d2fabaacdb778db5de4af5ce6b0889efea78fb9d09c974d3f",
-    "31a133a61d61abbf61adecc49585548870ecd849f6cfad7df62b24c82bb36ef9"
+    "af5cf75e8a2e640b508dba68f3da008a6f1904f91e3d6278d4bf136270eb10bf",
+    "b837050a8377cd2c6ac22e0e4961c586594f9fb1338fcce22ea73c4bd5da9cf6"
   ],
   "reuse_candidate": true,
   "observe_reconnect": true,
