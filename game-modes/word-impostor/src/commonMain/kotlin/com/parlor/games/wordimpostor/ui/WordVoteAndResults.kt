@@ -176,9 +176,8 @@ internal fun WordResults(
 ) {
     val result = checkNotNull(state.public.result)
     val matchFinished = state.phase == WordImpostorPhase.MatchResult
-    val highScore = state.public.scores.values.max()
-    if (matchFinished) {
-        val winners = state.players.filter { state.public.scores.getValue(it.id) == highScore }.map { it.id }.toSet()
+    val winners = state.matchWinners()
+    if (winners != null) {
         WordTitle(stringResource(Res.string.wi_champions, state.names(winners)))
     } else {
         WordTitle(stringResource(Res.string.wi_result))
@@ -243,7 +242,7 @@ internal fun WordResults(
                     ),
                     score = playerScore,
                     maximum = state.public.settings.rounds,
-                    highlight = matchFinished && playerScore == highScore && highScore > 0,
+                    highlight = playerScore > 0 && winners?.contains(player.id) == true,
                 )
             }
         }

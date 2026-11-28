@@ -95,4 +95,13 @@ data class WordImpostorState(
     val hostOnly: WordImpostorHostOnly,
     override val phase: WordImpostorPhase,
     override val players: List<Player>,
-) : GameState
+) : GameState {
+    /** Every player tied for the highest score shares the completed match win. */
+    fun matchWinners(): Set<PlayerId>? {
+        if (phase != WordImpostorPhase.MatchResult) return null
+        val topScore = public.scores.values.maxOrNull() ?: return null
+        return players.mapNotNullTo(mutableSetOf()) { player ->
+            player.id.takeIf { public.scores[it] == topScore }
+        }
+    }
+}
