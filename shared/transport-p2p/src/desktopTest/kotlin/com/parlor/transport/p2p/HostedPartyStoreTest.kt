@@ -98,7 +98,8 @@ class HostedPartyStoreTest {
         val originalSession = FakeP2pSession(peer)
         val secret = try {
             assertEquals(Result.Success(Unit), requireNotNull(initial.partyMatches).saveCheckpoint(emptyLobby))
-            attach(prior, originalSession)
+            prior.incomingSessionsFlow.emit(originalSession)
+            originalSession.incomingFlow.subscriptionCount.first { it > 0 }
             originalSession.incomingFlow.emit(P2pMessage.Binary(codec.encode(PeerMessage.AdmissionRequest(
                 protocol = PARTY_WIRE_VERSION, actor = seat, roomCode = info.code,
                 displayName = peer.name, party = PartyAdmissionContext(party, listOf(game)), expectedRoomId = info.roomId,
@@ -124,7 +125,8 @@ class HostedPartyStoreTest {
                 displayName = peer.name, secret = secret, generation = 1L, roomId = info.roomId, partyId = party,
             )
             val impostor = FakeP2pSession(peer, peerIdentity = PeerIdentity(peer.id, PeerFingerprint("p2f1-" + "a".repeat(52))))
-            attach(next, impostor)
+            next.incomingSessionsFlow.emit(impostor)
+            impostor.incomingFlow.subscriptionCount.first { it > 0 }
             impostor.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
             runCurrent()
             assertTrue(impostor.sent.filterIsInstance<P2pMessage.Binary>().map { codec.decode(it.bytes) }
@@ -132,7 +134,8 @@ class HostedPartyStoreTest {
             assertFalse(reopened.members.value.single().connected)
 
             val returning = FakeP2pSession(peer)
-            attach(next, returning)
+            next.incomingSessionsFlow.emit(returning)
+            returning.incomingFlow.subscriptionCount.first { it > 0 }
             returning.incomingFlow.emit(P2pMessage.Binary(codec.encode(request)))
             runCurrent()
             assertEquals(seat, reopened.members.value.single().playerId)
@@ -144,11 +147,6 @@ class HostedPartyStoreTest {
         } finally {
             reopened.leave()
         }
-    }
-
-    private suspend fun attach(kit: FakeP2pKit, session: FakeP2pSession) {
-        kit.incomingSessionsFlow.emit(session)
-        session.incomingFlow.subscriptionCount.first { it > 0 }
     }
 
     @Test
