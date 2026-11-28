@@ -1,0 +1,12 @@
+branch	exact_tip
+refs/heads/capture/native-screens-2026-11-22	e693b0cdb10e0b5947774c695faafeb431c56ac6
+refs/heads/ci/android-production-lanes	21ea3c8dc13e27384e529d365663365accb10216
+refs/heads/docs/smart-lobby-architecture-source	cc42947cfa785e3d7db66dd96c77e872b1b2d04c
+refs/heads/fix/android-instrumentation-retirement-2026-11-06	21b2221686a3dd36bbb15aa938349d3c73c76644
+refs/heads/fix/android-restart-settings-observer	f5ef21e67dea54f6a00bcaa568ec3a271b25725b
+refs/heads/ux/neon-compose-integration	f750e14fee41b954ffe6e51126496bf59f4eafde
+refs/heads/ux/obsidian-game-modes-ui	47f1dd0ca44875cbaad4381c23d5d746c9408e02
+refs/heads/wip/smart-lobby-party-runtime	997096d96366d83fa8fe25638264d0d55224fb52
+refs/heads/work/party-authoritative-completion	0b13c7892fd84dae800a095985a6db6b321a2281
+refs/heads/work/pr355-lobby-integration	effb07ffffc6455a9d00c9107eb2e89864c8bea2
+refs/heads/work/pr356-lobby-integration	fefa586bce405d725d12dbd1b089c0044d4a7579
