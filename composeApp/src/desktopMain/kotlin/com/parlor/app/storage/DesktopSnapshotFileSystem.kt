@@ -47,19 +47,23 @@ class DesktopSnapshotFileSystem(
         Files.createDirectories(baseDir)
     }
 
-    override suspend fun read(name: String): ByteArray? = read(name, allowLegacy = true)
+    override suspend fun read(name: String): ByteArray? = withContext(ioDispatcher) {
+        readProtectedOrMigrate(name, allowLegacy = true)
+    }
 
-    override suspend fun readAuthenticated(name: String): ByteArray? = read(name, allowLegacy = false)
+    override suspend fun readAuthenticated(name: String): ByteArray? = withContext(ioDispatcher) {
+        readProtectedOrMigrate(name, allowLegacy = false)
+    }
 
-    private suspend fun read(name: String, allowLegacy: Boolean): ByteArray? = withContext(ioDispatcher) {
+    private fun readProtectedOrMigrate(name: String, allowLegacy: Boolean): ByteArray? {
         requireSafeSnapshotFileName(name)
         val path = baseDir.resolve(name)
-        if (!Files.exists(path)) return@withContext null
+        if (!Files.exists(path)) return null
         if (!Files.isRegularFile(path) || Files.size(path) > MAX_PROTECTED_SNAPSHOT_BYTES) {
             throw SnapshotProtectionException()
         }
         val protectedBytes = Files.readAllBytes(path)
-        when {
+        return when {
             protectedBytes.hasMagic() -> decrypt(name, protectedBytes)
             allowLegacy && protectedBytes.looksLikeLegacyJson() -> {
                 if (protectedBytes.size > MAX_PLAINTEXT_SNAPSHOT_BYTES) {
