@@ -17,6 +17,7 @@ import com.parlor.networking.protocol.PublicPartyScoredSeat
 import com.parlor.networking.protocol.RoomMessage
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
+import com.parlor.networking.room.HostedPartyCheckpoint
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
 import com.parlor.networking.room.PeerEvent
@@ -311,6 +312,57 @@ class PartyHostRoomBindingTest {
         return id
     }
 
+    @Test
+    fun new_host_owner_replays_each_committed_score_once_and_keeps_guest_cursor() = runTest {
+        val room = HostRoom()
+        val remote = RoomMember(playerId, "Peer", connected = true, partySupportedGames = games.toList())
+        val host = ProcessPartySession.Host(room, mafia, setOf(mafia, word), backgroundScope, roomName = null)
+        room.members.value = listOf(remote)
+        runCurrent()
+        assertEquals(Result.Success(Unit), host.prepareHosting())
+        assertEquals(Result.Success(Unit), host.configurePlaylist(listOf(mafia, word)))
+        val first = startPlaylistMatch(host, room, sequence = 1, winners = setOf(playerId))
+        assertEquals(Result.Success(Unit), host.returnToLobby(first))
+        val recorded = requireNotNull(host.playlist).results.single()
+        val checkpoint = requireNotNull(room.savedCheckpoint)
+        host.closeUninstalled()
+
+        val reopened = HostRoom().apply {
+            savedCheckpoint = checkpoint
+            members.value = listOf(remote.copy(connected = false))
+        }
+        val transport = object : RoomTransport {
+            override val capability = TransportCapability(false, 0, 16_384)
+            override suspend fun host(config: HostConfig): Result<LocalRoom, NetError> = error("Must not create another party")
+            override suspend fun join(code: String, displayName: String): Result<LocalRoom, NetError> = error("Must restore as host")
+            override suspend fun restoreHostedParty(expected: PartyId): Result<LocalRoom, NetError> {
+                assertEquals(party, expected)
+                return Result.Success(reopened)
+            }
+        }
+        val recovering = ProcessPartySessionOwner(transport, backgroundScope)
+        val restored = assertIs<ProcessPartySession.Host>(
+            assertIs<Result.Success<ProcessPartySession>>(recovering.restoreHostedParty(party, setOf(mafia, word))).data,
+        )
+        try {
+            assertEquals(listOf(recorded), restored.playlist?.results)
+            assertEquals(word, restored.playlist?.nextGame)
+            assertEquals(Result.Success(Unit), restored.returnToLobby(first))
+            assertEquals(listOf(recorded), restored.playlist?.results)
+            reopened.members.value = listOf(remote)
+            runCurrent()
+            val snapshot = reopened.sent.filterIsInstance<HostMessage.PartySnapshot>().last()
+            assertTrue(snapshot.revision > checkpoint.revision)
+            assertEquals(2L, snapshot.nextExpectedClientSequence)
+            reopened.messages.send(ready(1, snapshot.revision))
+            runCurrent()
+            assertEquals(CommandStatus.Duplicate, reopened.sent.filterIsInstance<HostMessage.PartyCommandResult>().last().status)
+        } finally {
+            recovering.leave(restored)
+        }
+        assertNull(reopened.savedCheckpoint)
+    }
+
     private class CompletionRuntime : RetainedMultiplayerRuntime {
         override val runtimeKind = "completion-test"
         override var isMatchCompleted = false
@@ -347,9 +399,21 @@ class PartyHostRoomBindingTest {
         var frozen: SessionId? = null
         var leaveCount = 0
         var reopenFailures = 0
+        var savedCheckpoint: HostedPartyCheckpoint? = null
         val reopenAttempts = mutableListOf<SessionId>()
         override val partyMatches: PartyMatchAdmission = object : PartyMatchAdmission {
             override val partyId = identity
+            override val restoredCheckpoint: HostedPartyCheckpoint? get() = savedCheckpoint
+
+            override suspend fun saveCheckpoint(checkpoint: HostedPartyCheckpoint): Result<Unit, NetError> {
+                savedCheckpoint = checkpoint
+                return Result.Success(Unit)
+            }
+
+            override suspend fun discardCheckpoint(): Result<Unit, NetError> {
+                savedCheckpoint = null
+                return Result.Success(Unit)
+            }
 
             override suspend fun selectGame(
                 expected: GameProtocolRef,
@@ -378,6 +442,9 @@ class PartyHostRoomBindingTest {
                 frozen = null
                 return Result.Success(Unit)
             }
+
+            override suspend fun reopenMatch(id: SessionId, checkpoint: HostedPartyCheckpoint): Result<Unit, NetError> =
+                reopenMatch(id).also { if (it is Result.Success) savedCheckpoint = checkpoint }
         }
 
         override suspend fun send(target: SendTarget, message: HostMessage): Result<Unit, NetError> {

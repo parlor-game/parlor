@@ -299,6 +299,7 @@
     <string name="party_create">أنشئ غرفة</string>
     <string name="party_join">اطلب الانضمام</string>
     <string name="party_resume">استأنف الغرفة المحفوظة</string>
+    <string name="party_restore_host">استعد الغرفة التي تستضيفها</string>
     <string name="party_connected">متصل</string>
     <string name="party_waiting">في انتظار المضيف</string>
     <string name="party_host">المضيف</string>

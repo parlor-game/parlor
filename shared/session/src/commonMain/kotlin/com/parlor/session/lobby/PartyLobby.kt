@@ -8,6 +8,7 @@ import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PublicPartyMatchScore
 import com.parlor.networking.protocol.PublicPartyScoredSeat
+import com.parlor.networking.room.HostedPartyCheckpoint
 import com.parlor.networking.room.RoomMember
 
 data class PartyGame(val protocol: GameProtocolRef, val playerCounts: IntRange) {
@@ -68,6 +69,7 @@ enum class PartyRejection {
     WaitingForReadiness,
     StaleRevision,
     StaleMatch,
+    StorageUnavailable,
 }
 
 @ConsistentCopyVisibility
@@ -221,6 +223,35 @@ internal data class PartyLobby private constructor(
         mapValues { (_, seat) -> seat.copy(ready = false) }
 
     companion object {
+        fun restore(
+            id: PartyId,
+            host: PartySeat,
+            catalog: Set<PartyGame>,
+            remote: List<RoomMember>,
+            checkpoint: HostedPartyCheckpoint,
+        ): PartyLobby? {
+            val saved = checkpoint.lobby
+            val known = catalog.associateBy(PartyGame::protocol)
+            val game = known[saved.selectedGame]?.takeIf { it.playerCounts.last == saved.seatLimit } ?: return null
+            val members = listOf(host.member) + remote
+            if (saved.members.map { it.playerId to it.displayName } != members.map { it.playerId to it.displayName }) return null
+            if (remote.any { game.protocol !in it.partySupportedGames }) return null
+            val seats = mapOf(host.member.playerId to host.copy(ready = false)) + remote.associate { member ->
+                member.playerId to PartySeat(member.copy(connected = false), member.partySupportedGames.toSet())
+            }
+            val playlist = saved.playlist?.let { progress ->
+                val games = progress.games.map { known[it] ?: return null }
+                val scores = progress.scores.associateBy(PublicPartyMatchScore::matchId)
+                val results = progress.completedMatchIds.mapIndexed { index, match ->
+                    if (!match.raw.startsWith("${id.raw}-")) return null
+                    PartyMatchResult(match, games[index].protocol, scores[match])
+                }
+                PartyPlaylist(games, results)
+            }
+            return PartyLobby(id, host.member.playerId, game, seats, checkpoint.revision + 1,
+                saved.matchOrdinal, PartyPhase.Lobby, saved.roomName, playlist)
+        }
+
         fun open(id: PartyId, host: PartySeat, game: PartyGame, roomName: String? = null): PartyLobby {
             require(host.member.connected && game.protocol in host.capabilities)
             return PartyLobby(

@@ -674,8 +674,11 @@ failures remain failed; #267/#276 stay open; PR #282 stays draft/unmerged.
   Candidate/promotion workflows remain disabled; no Store publication.
 - **Physical recovery:** #251/#252/#253 Android/iOS admission, selected-seat
   restoration/deletion, locked storage, calls/lock/Wi-Fi/process death,
-  simultaneous recovery and CPU/RAM/battery/thermal. Host death ends the room;
-  no host migration or indefinite iOS LAN hosting.
+  simultaneous recovery and CPU/RAM/battery/thermal. Standalone host death
+  ends the room. A Party host can restore the original room from its protected
+  checkpoint on the same installation. Guests rejoin with their existing
+  credentials while those credentials and their rejoin windows remain valid.
+  An interrupted match returns to the Party lobby with earlier committed results.
 - **Six games/UX:** #259/#260 physical LAN/gameplay/accessibility, hidden-information
   isolation, large text/RTL and full resource matrices. No real-device claim.
 - **Native/tooling:** #267/#276 input causality/failed-only pipeline/full 60-journey

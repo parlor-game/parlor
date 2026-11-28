@@ -15,6 +15,7 @@ import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.room.LocalRoom
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.RoomInputPolicy
+import com.parlor.networking.room.RoomMember
 import com.parlor.networking.security.SecureIds
 import com.parlor.networking.transport.ApprovalWait
 import com.parlor.networking.transport.HostConfig
@@ -70,9 +71,40 @@ class ProcessPartySessionOwner(private val transport: RoomTransport, private val
             )
             when (val result = transport.host(config)) {
                 is Result.Failure -> result
-                is Result.Success -> Result.Success(ProcessPartySession.Host(result.data, initial, games, scope, roomName))
+                is Result.Success -> installHost(result.data, initial, games, roomName)
             }
         }
+
+    suspend fun restoreHostedParty(saved: PartyId, games: Set<PartyGame>): Result<ProcessPartySession, NetError> = open {
+        if (!games.hasValidCatalog()) return@open Result.Failure(NetError.InvalidInput)
+        when (val result = transport.restoreHostedParty(saved)) {
+            is Result.Failure -> result
+            is Result.Success -> {
+                val room = result.data
+                val restored = room.partyMatches?.restoredCheckpoint?.let { checkpoint ->
+                    PartyLobby.restore(saved, PartySeat(RoomMember(room.selfPlayerId, room.info.value.hostDisplayName, true),
+                        games.protocols()), games, room.members.value, checkpoint)
+                }
+                if (restored != null) installHost(room, restored.game, games, restored.roomName, restored)
+                else withContext(NonCancellable) { room.leave(); Result.Failure(NetError.IncompatibleProtocol) }
+            }
+        }
+    }
+
+    private suspend fun installHost(
+        room: LocalRoom, initial: PartyGame, games: Set<PartyGame>, roomName: String?, restored: PartyLobby? = null,
+    ): Result<ProcessPartySession, NetError> {
+        val hosted = ProcessPartySession.Host(room, initial, games, scope, roomName, restored)
+        var installed = false
+        try {
+            return when (val ready = hosted.prepareHosting()) {
+                is Result.Failure -> ready
+                is Result.Success -> Result.Success(hosted).also { installed = true }
+            }
+        } finally {
+            if (!installed) withContext(NonCancellable) { hosted.closeUninstalled() }
+        }
+    }
 
     suspend fun join(
         displayName: String,
@@ -134,9 +166,10 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         private val games: Set<PartyGame>,
         parentScope: CoroutineScope,
         roomName: String?,
+        restored: PartyLobby? = null,
     ) : ProcessPartySession(physical) {
         private val scope = CoroutineScope(parentScope.coroutineContext + Job(parentScope.coroutineContext[Job]))
-        private val owner = PartyHostRoomBinding(physical, initial, games.protocols(), scope, roomName = roomName)
+        private val owner = PartyHostRoomBinding(physical, initial, games.protocols(), scope, roomName = roomName, restored = restored)
         private val transition = Mutex()
         private val playing = MutableStateFlow<ProcessMultiplayerSession?>(null)
         private val completedGame = MutableStateFlow<GameId?>(null)
@@ -148,6 +181,13 @@ sealed class ProcessPartySession private constructor(room: LocalRoom) {
         override val match = playing.asStateFlow()
         val approvals = owner.pending
         val lastCompletedGame = completedGame.asStateFlow()
+
+        internal suspend fun prepareHosting(): Result<Unit, NetError> = owner.prepareHosting()
+
+        internal suspend fun closeUninstalled() {
+            scope.cancel()
+            physical.leave()
+        }
 
         /** Progress belongs to the live host and survives peers rejoining that host. */
         val playlist: PartyPlaylist? get() = owner.state.value.playlist

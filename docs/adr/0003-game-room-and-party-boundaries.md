@@ -24,7 +24,9 @@ Related: [Smart Lobby specification](../planning/SMART_LOBBY.md)
    game-room admission remains on 4.3. A party admission and capability
    declaration never substitutes for an exact game-room admission. Close party
    admissions during active matches. Reject a game switch if the current
-   membership cannot play it. Host departure ends the party.
+   membership cannot play it. Explicit host closure ends the party. A stopped
+   host process may restore its own party from a protected checkpoint. Another
+   installation never takes over host authority.
 4. Keep v1 adverts immutable and public-data-only. Exclude display names,
    capacity and availability probes from the first version. Refresh or expire
    rows using discovery lifecycle signals.
@@ -36,6 +38,25 @@ Related: [Smart Lobby specification](../planning/SMART_LOBBY.md)
 6. Profile prefill is local and clearable. A cosmetic name grants no access
    and supplies no recovery authority. Treat durable outcomes and scoring as
    separate consumers of the qualified match lifecycle.
+
+## Host process recovery
+
+Seal the original Party ID, Room ID, code, discovery tag, host identity,
+admitted credential digests and committed lobby state in one atomically
+replaced, device-protected file. The checkpoint is local and preserves wire
+5.2. Restore checks the original host peer ID and fingerprint before opening
+admission. Peers still prove the current credential and authenticated identity
+on their original seats. The unprotected legacy snapshot reader cannot load a
+host checkpoint.
+
+Persist a completed match and its playlist position before reopening admission
+or publishing the result. Store the host revision and per-seat readiness
+cursors with that state. Recover the lobby with a newer revision and all remote
+seats disconnected and unready. If the host dies during a match, its private
+engine state is unavailable. Restore previously committed results, abandon
+the interrupted attempt, and issue a fresh match ID. The existing guest
+rejoin windows and credential expiration still apply. Explicit host closure
+removes the checkpoint before publishing the terminal lobby.
 
 ## Verification
 

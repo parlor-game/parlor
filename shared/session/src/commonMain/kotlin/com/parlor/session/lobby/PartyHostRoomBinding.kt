@@ -32,6 +32,7 @@ internal class PartyHostRoomBinding(
     parentScope: CoroutineScope,
     private val messageId: () -> String = SecureIds::id128,
     roomName: String? = null,
+    restored: PartyLobby? = null,
 ) {
     private val admissions = checkNotNull(room.partyMatches)
     private val hostId = room.selfPlayerId
@@ -45,13 +46,14 @@ internal class PartyHostRoomBinding(
     private val publishing = Mutex()
     private var broadcastRevision = 0L
     private val host = PartyHostCoordinator(
-        initial = PartyLobby.open(
+        initial = restored ?: PartyLobby.open(
             admissions.partyId,
             PartySeat(RoomMember(hostId, room.info.value.hostDisplayName, connected = true), supportedGames),
             initialGame,
             roomName,
         ),
         matchAdmission = admissions,
+        initialCursors = admissions.restoredCheckpoint?.cursors.orEmpty(),
     )
     private val inbox = PartyRoomInbox(admissions.partyId, hostId, true, room.incoming, scope)
     private var active: Pair<SessionId, PartyMatchRoom>? = null
@@ -88,6 +90,11 @@ internal class PartyHostRoomBinding(
         else Result.Failure(NetError.SessionStarted)
 
     suspend fun reject(player: PlayerId): Result<Unit, NetError> = room.rejectAdmission(player)
+
+    suspend fun prepareHosting(): Result<Unit, NetError> = when (val saved = host.saveCurrent()) {
+        is Result.Failure -> saved
+        is Result.Success -> admissions.activateRestoredHost()
+    }
 
     suspend fun configurePlaylist(games: List<PartyGame>): Result<PartyLobby, PartyRejection> = transactions.withLock {
         if (!room.acceptsLocalGameCommands) return@withLock Result.Failure(PartyRejection.InvalidPhase)
@@ -139,6 +146,8 @@ internal class PartyHostRoomBinding(
         transactions.withLock {
             withContext(NonCancellable) {
                 if (state.value.phase != PartyPhase.Ended) {
+                    val discarded = admissions.discardCheckpoint()
+                    if (discarded is Result.Failure) return@withContext discarded
                     host.close()
                     publishTerminal()
                 }
