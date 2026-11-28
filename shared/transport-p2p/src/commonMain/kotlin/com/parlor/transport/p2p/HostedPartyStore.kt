@@ -19,6 +19,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Required
 import kotlinx.serialization.json.Json
 
 /** This envelope is installation-private. A checkpoint never contains a guest rejoin secret. */
@@ -34,8 +35,8 @@ internal data class StoredHostedParty(
     val checkpoint: HostedPartyCheckpoint,
     val memberships: List<StoredHostedPartyMember>,
     val savedAtEpochMillis: Long,
-    val protocol: ProtocolVersion = PARTY_WIRE_VERSION,
-    val schema: Int = 1,
+    @Required val protocol: ProtocolVersion = PARTY_WIRE_VERSION,
+    @Required val schema: Int = 1,
 ) {
     fun requireValid(): StoredHostedParty = apply {
         require(schema == 1 && protocol == PARTY_WIRE_VERSION)

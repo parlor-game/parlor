@@ -37,6 +37,8 @@ jobs:
           ./gradlew --dependency-verification=strict --no-daemon --console=plain \
             :shared:session:desktopTest :shared:transport-p2p:desktopTest \
             :composeApp:compileKotlinDesktop :composeApp:compileDebugKotlinAndroid staticAnalysis
+          ./gradlew --dependency-verification=strict --no-daemon --console=plain \
+            :composeApp:desktopTest --tests '*DesktopSnapshotFileSystemTest'
       - name: Retain focused test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -45,6 +47,7 @@ jobs:
           path: |
             shared/session/build/test-results/desktopTest/
             shared/transport-p2p/build/test-results/desktopTest/
+            composeApp/build/test-results/desktopTest/
             build/reports/detekt/
           if-no-files-found: warn
           retention-days: 7

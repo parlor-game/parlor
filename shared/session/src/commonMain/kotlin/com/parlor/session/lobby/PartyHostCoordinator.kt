@@ -62,12 +62,13 @@ internal class PartyHostCoordinator(
         if (selected !is Result.Success || matchAdmission == null || selected.data === previous) {
             return@withLock apply(selected)
         }
-        val switched = withContext(NonCancellable) {
-            matchAdmission.selectGame(previous.game.protocol, game.protocol, game.playerCounts.last,
-                previous.seats.keys - previous.host, selected.data.checkpoint())
+        withContext(NonCancellable) {
+            when (val switched = matchAdmission.selectGame(previous.game.protocol, game.protocol, game.playerCounts.last,
+                previous.seats.keys - previous.host, selected.data.checkpoint())) {
+                is Result.Failure -> Result.Failure(switched.error.toPartyRejection())
+                is Result.Success -> apply(selected)
+            }
         }
-        if (switched is Result.Failure) return@withLock Result.Failure(switched.error.toPartyRejection())
-        apply(selected)
     }
     suspend fun presence(player: PlayerId, connected: Boolean) = mutate { it.updatePresence(player, connected) }
     suspend fun prepareMatch(): Result<PartyLobby, PartyRejection> = mutations.withLock {
