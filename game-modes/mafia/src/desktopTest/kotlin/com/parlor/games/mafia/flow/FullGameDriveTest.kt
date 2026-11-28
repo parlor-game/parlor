@@ -29,10 +29,13 @@ import com.parlor.games.mafia.domain.state.MafiaPeerSnapshotValidator
 import com.parlor.games.mafia.domain.state.MafiaState
 import com.parlor.games.mafia.domain.state.Role
 import com.parlor.games.mafia.domain.state.Team
+import com.parlor.games.mafia.domain.state.partyMatchWinners
+import com.parlor.games.mafia.domain.state.team
 import com.parlor.games.mafia.snapshot.isValidRecoveryState
 import kotlin.time.Instant
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -91,6 +94,9 @@ class FullGameDriveTest {
             "canonical Mafia state is not recoverable in ${state.phase}",
         )
         val publicState = MafiaProjectionPolicy.toPublic(state).state
+        if (state.phase != MafiaPhase.PostGame) {
+            assertNull(state.partyMatchWinners())
+        }
         state.players.forEach { player ->
             val ownPrivate = MafiaProjectionPolicy.toPlayer(state, player.id)
                 .state
@@ -153,6 +159,9 @@ class FullGameDriveTest {
         }
         assertThat(state.public.winner).isEqualTo(Team.Mafia)
         assertThat(state.phase).isEqualTo(MafiaPhase.PostGame)
+        val expected = state.hostOnly.fullRoleMap.filterValues { it == Role.Mafia }.keys
+        assertThat(state.partyMatchWinners()).isEqualTo(expected)
+        assertThat(MafiaProjectionPolicy.toPublic(state).state.partyMatchWinners()).isEqualTo(expected)
     }
 
     @Test
@@ -195,6 +204,9 @@ class FullGameDriveTest {
         assertThat(state.public.winner).isEqualTo(Team.Town)
         // 5-player preset is 1 mafia → killing them ends the game in PostGame.
         assertThat(state.phase).isEqualTo(MafiaPhase.PostGame)
+        val expected = state.hostOnly.fullRoleMap.filterValues { it.team == Team.Town }.keys
+        assertThat(state.partyMatchWinners()).isEqualTo(expected)
+        assertThat(MafiaProjectionPolicy.toPublic(state).state.partyMatchWinners()).isEqualTo(expected)
     }
 
     @Test

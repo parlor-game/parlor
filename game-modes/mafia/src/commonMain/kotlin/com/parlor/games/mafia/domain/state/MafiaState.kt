@@ -29,6 +29,16 @@ data class MafiaState(
 internal val MafiaState.completedPartyMatch: Boolean
     get() = phase == MafiaPhase.PostGame && public.winner != null && public.droppedPlayers.isEmpty()
 
+/** Every member of the winning team shares the result, including eliminated players. */
+internal fun MafiaState.partyMatchWinners(): Set<PlayerId>? {
+    val winner = public.winner?.takeIf { completedPartyMatch } ?: return null
+    return buildSet {
+        for (slot in public.roster) {
+            if (slot.revealedRole?.team == winner) add(slot.playerId)
+        }
+    }
+}
+
 @Serializable
 data class MafiaPublic(
     val settings: MafiaSettings,

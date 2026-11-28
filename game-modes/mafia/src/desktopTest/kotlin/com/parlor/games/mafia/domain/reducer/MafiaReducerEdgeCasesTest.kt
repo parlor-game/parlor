@@ -31,11 +31,13 @@ import com.parlor.games.mafia.domain.state.Role
 import com.parlor.games.mafia.domain.state.Team
 import com.parlor.games.mafia.domain.state.VoteOutcome
 import com.parlor.games.mafia.domain.state.completedPartyMatch
+import com.parlor.games.mafia.domain.state.partyMatchWinners
 import com.parlor.games.mafia.domain.state.team
 import com.parlor.games.mafia.snapshot.isValidRecoveryState
 import kotlin.time.Instant
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
+import kotlin.test.assertNull
 
 /**
  * Production-readiness edge cases for [MafiaReducer]. The existing
@@ -465,6 +467,7 @@ class MafiaReducerEdgeCasesTest {
         var state = initialState(7)
         state = MafiaReducer.reduce(state, MafiaAction.EndGame, ctx()).newState
         assertThat(state.phase).isEqualTo(MafiaPhase.PostGame)
+        assertNull(state.partyMatchWinners())
         // Second EndGame must not crash and must keep us in PostGame.
         state = MafiaReducer.reduce(state, MafiaAction.EndGame, ctx()).newState
         assertThat(state.phase).isEqualTo(MafiaPhase.PostGame)
@@ -489,6 +492,8 @@ class MafiaReducerEdgeCasesTest {
         assertThat(dropped in ended.public.droppedPlayers).isTrue()
         assertThat(ended.completedPartyMatch).isFalse()
         assertThat(ended.copy(public = ended.public.copy(winner = Team.Town)).completedPartyMatch).isFalse()
+        assertNull(ended.partyMatchWinners())
+        assertNull(ended.copy(public = ended.public.copy(winner = Team.Town)).partyMatchWinners())
         for (slot in ended.public.roster) {
             assertThat(slot.revealedRole).isEqualTo(ended.hostOnly.fullRoleMap[slot.playerId])
         }
