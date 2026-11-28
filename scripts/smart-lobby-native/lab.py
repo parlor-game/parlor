@@ -25,6 +25,7 @@ PRESETS_CANDIDATE = "0b13c7892fd84dae800a095985a6db6b321a2281"
 PLAYLIST_EDIT_CANDIDATE = "eddc1b1f773be8499e05464e08e2b51937f3957a"
 STANDINGS_CANDIDATE = "dec09061e310b84054a6bebb23f9532e8e66c398"
 PARTY_INTEGRATION_CANDIDATE = "a357b16cdf4034b22ffbbc8968526363f8c530cd"
+WORD_SCORING_CANDIDATE = "026c71c4066c30131bcfec33c72d7a918b2fc97f"
 PARTY_RECOVERY_CANDIDATE = "ecb4c9f7544ec37886fc877c14e3d442cc4ca494"
 
 
@@ -64,6 +65,13 @@ def plan():
         or pairing != "android" or len(digests) != 5 or reuse_candidate or observe_reconnect
     ):
         raise ValueError("The rules restore trial requires five Android installs of the exact candidate")
+    word_scoring_android = payload.get("word_scoring_android") is True
+    if word_scoring_android and (
+        candidate != WORD_SCORING_CANDIDATE or pairing != "android" or len(digests) != 3
+        or reuse_candidate or observe_reconnect
+    ):
+        raise ValueError("Word Impostor scoring requires three fresh Android installs of the exact candidate")
+    fresh_android = rules_restore_android or word_scoring_android
     reuse_presets_android = payload.get("reuse_exact_presets_android") is True
     if reuse_presets_android and (
         candidate != PRESETS_CANDIDATE or pairing != "android" or len(digests) != 2 or not reuse_candidate
@@ -127,7 +135,7 @@ def plan():
                             observe_reconnect or candidate != DUAL_IOS_SOURCE):
         raise ValueError("The staged simulator pair requires the pinned two-iOS build")
     if candidate != RETAINED_CANDIDATE and not (
-        observe_reconnect or staged_ios_pair or reuse_presets_android or rules_restore_android or reuse_standings_android
+        observe_reconnect or staged_ios_pair or reuse_presets_android or fresh_android or reuse_standings_android
         or party_integration_packages
     ):
         raise ValueError("An alternate candidate is only used for the reconnect experiment")
@@ -136,7 +144,7 @@ def plan():
     runners = {"android": "ubuntu-24.04", "ios": ios_runner}
     builds = [
         {"target": target, "runner": runners[target]} for target in targets
-        if target == "ios" or ((observe_reconnect or rules_restore_android or party_integration_packages) and not reuse_standings_android)
+        if target == "ios" or ((observe_reconnect or fresh_android or party_integration_packages) and not reuse_standings_android)
     ]
     labs = [
         {"target": target, "runner": runners[target], "pairing": pairing, "count": 1 if pairing == "mixed" else len(digests)}
@@ -147,6 +155,7 @@ def plan():
         print(f"lab={json.dumps(labs, separators=(',', ':'))}", file=stream)
         print(f"reuse_standings_android={str(reuse_standings_android).lower()}", file=stream)
         print(f"rules_restore_android={str(rules_restore_android).lower()}", file=stream)
+        print(f"fresh_android={str(fresh_android).lower()}", file=stream)
         print(f"reuse_presets_android={str(reuse_presets_android).lower()}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)

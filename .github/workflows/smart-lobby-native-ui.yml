@@ -26,6 +26,7 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       lab: ${{ steps.plan.outputs.lab }}
       rules_restore_android: ${{ steps.plan.outputs.rules_restore_android }}
+      fresh_android: ${{ steps.plan.outputs.fresh_android }}
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       reuse_standings_android: ${{ steps.plan.outputs.reuse_standings_android }}
@@ -150,7 +151,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: >-
           matrix.target == 'android' && needs.plan.outputs.observe_reconnect != 'true' &&
-          needs.plan.outputs.reuse_presets_android != 'true' && needs.plan.outputs.rules_restore_android != 'true' &&
+          needs.plan.outputs.reuse_presets_android != 'true' && needs.plan.outputs.fresh_android != 'true' &&
           needs.plan.outputs.reuse_standings_android != 'true'
         with:
           github-token: ${{ github.token }}
@@ -217,7 +218,7 @@ jobs:
         if: >-
           needs.plan.outputs.reuse_candidate != 'true' &&
           (matrix.target != 'android' || needs.plan.outputs.reuse_standings_android != 'true') &&
-          (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios' || needs.plan.outputs.rules_restore_android == 'true')
+          (needs.plan.outputs.observe_reconnect == 'true' || matrix.target == 'ios' || needs.plan.outputs.fresh_android == 'true')
         with:
           name: candidate-${{ matrix.target }}-1
           path: ${{ runner.temp }}/parlor-package
