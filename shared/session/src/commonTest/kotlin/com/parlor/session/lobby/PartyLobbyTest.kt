@@ -8,6 +8,7 @@ import com.parlor.core.result.Result
 import com.parlor.networking.protocol.CommandStatus
 import com.parlor.networking.protocol.GameProtocolRef
 import com.parlor.networking.protocol.HostMessage
+import com.parlor.networking.protocol.MAX_PARTY_PLAYLIST_MATCHES
 import com.parlor.networking.protocol.PARTY_WIRE_VERSION
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
@@ -81,6 +82,49 @@ class PartyLobbyTest {
         assertEquals(Result.Failure(PartyRejection.IncompatibleGame), full.selectGame(word))
         assertEquals(Result.Failure(PartyRejection.DuplicatePlayer), full.admit(seat(peer)))
         assertEquals(word, full.removeSeat(peer).value().selectGame(word).value().game)
+    }
+
+    @Test
+    fun a_playlist_is_bounded_and_requires_compatible_games_for_the_current_party() {
+        val incompatible = partyWithPeer(capabilities = setOf(mafia.protocol))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), incompatible.configurePlaylist(listOf(mafia, word)))
+        val large = partyWithPeer().admit(seat(other)).value()
+        assertEquals(Result.Failure(PartyRejection.IneligibleCount), large.configurePlaylist(listOf(mafia, small)))
+        val party = partyWithPeer()
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame), party.configurePlaylist(emptyList()))
+        assertEquals(Result.Failure(PartyRejection.IncompatibleGame),
+            party.configurePlaylist(List(MAX_PARTY_PLAYLIST_MATCHES + 1) { mafia }))
+
+        val games = mutableListOf(mafia, mafia, word)
+        val configured = party.configurePlaylist(games).value()
+        games.clear()
+        assertEquals(listOf(mafia, mafia, word), configured.playlist?.games)
+    }
+
+    @Test
+    fun an_unplayed_playlist_can_be_reordered_but_recorded_progress_is_protected() {
+        val configured = partyWithPeer().configurePlaylist(listOf(mafia, word)).value()
+        val ready = configured.setReady(peer, true, configured.revision).value()
+        assertEquals(Result.Success(ready), ready.configurePlaylist(listOf(mafia, word)))
+
+        val nextOrder = listOf(word, mafia)
+        val revised = ready.configurePlaylist(nextOrder).value()
+        assertEquals(word, revised.playlist?.nextGame)
+        assertEquals(ready.revision + 1, revised.revision)
+        assertFalse(revised.seats.getValue(peer).ready)
+
+        val selected = revised.selectGame(word).value()
+        val starting = selected.setReady(peer, true, selected.revision).value().prepareMatch().value()
+        val match = assertIs<PartyPhase.Starting>(starting.phase).match
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), starting.configurePlaylist(listOf(mafia)))
+        val playing = starting.commitMatch(match.id).value()
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), playing.configurePlaylist(listOf(mafia)))
+
+        val canceled = playing.returnToLobby(match.id).value()
+        assertEquals(mafia, canceled.configurePlaylist(listOf(mafia)).value().playlist?.nextGame)
+        val completed = playing.returnToLobby(match.id, completed = true).value()
+        assertEquals(Result.Failure(PartyRejection.InvalidPhase), completed.configurePlaylist(listOf(mafia)))
+        assertEquals(listOf(PartyMatchResult(match.id, word.protocol)), completed.playlist?.results)
     }
 
     @Test

@@ -30,6 +30,7 @@ import com.parlor.games.mafia.domain.state.MafiaState
 import com.parlor.games.mafia.domain.state.Role
 import com.parlor.games.mafia.domain.state.Team
 import com.parlor.games.mafia.domain.state.VoteOutcome
+import com.parlor.games.mafia.domain.state.completedPartyMatch
 import com.parlor.games.mafia.domain.state.team
 import com.parlor.games.mafia.snapshot.isValidRecoveryState
 import kotlin.time.Instant
@@ -454,6 +455,7 @@ class MafiaReducerEdgeCasesTest {
 
         assertThat(state.phase).isEqualTo(MafiaPhase.PostGame)
         assertThat(state.public.winner).isEqualTo(Team.Mafia)
+        assertThat(state.completedPartyMatch).isTrue()
         assertThat(requireNotNull(state.public.lastVote).eliminatedPlayerId).isEqualTo(townTarget)
         assertThat(state.isValidRecoveryState()).isTrue()
     }
@@ -485,6 +487,8 @@ class MafiaReducerEdgeCasesTest {
 
         assertThat(ended.phase).isEqualTo(MafiaPhase.PostGame)
         assertThat(dropped in ended.public.droppedPlayers).isTrue()
+        assertThat(ended.completedPartyMatch).isFalse()
+        assertThat(ended.copy(public = ended.public.copy(winner = Team.Town)).completedPartyMatch).isFalse()
         for (slot in ended.public.roster) {
             assertThat(slot.revealedRole).isEqualTo(ended.hostOnly.fullRoleMap[slot.playerId])
         }

@@ -406,6 +406,7 @@ internal fun App(settings: SettingsStore, onPaletteApplied: ((isLight: Boolean) 
                                     owner = partyOwner,
                                     transport = roomTransport,
                                     registry = gameShellRegistry,
+                                    settings = settings,
                                     invitation = navigator.partyInvitation,
                                     privateContentCovered = visibility.privateContentCovered,
                                     backRequest = gameBackRequest.id,

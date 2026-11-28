@@ -77,6 +77,7 @@ import com.parlor.games.whodunit.domain.reducer.WhodunitReducerContext
 import com.parlor.games.whodunit.domain.state.VoteState
 import com.parlor.games.whodunit.domain.state.WhodunitState
 import com.parlor.games.whodunit.domain.state.WhodunitStateValidator
+import com.parlor.games.whodunit.domain.state.completedPartyMatch
 import com.parlor.games.whodunit.snapshot.WHODUNIT_SNAPSHOT_ENGINE_VERSION
 import com.parlor.games.whodunit.ui.components.HideScreen
 import com.parlor.games.whodunit.ui.screens.peer.PeerWaitingForHostScreen
@@ -1165,9 +1166,11 @@ fun WhodunitMultiplayerHostFlow(
                     session = session,
                     scope = scope,
                     onBackToLibrary = {
-                        val reason = if (onPartyEnd != null && state.phase == WhodunitPhase.PostGame) {
-                            SessionEndReason.Completed
-                        } else SessionEndReason.HostLeft
+                        val reason = when {
+                            onPartyEnd == null || state.phase != WhodunitPhase.PostGame -> SessionEndReason.HostLeft
+                            state.completedPartyMatch -> SessionEndReason.Completed
+                            else -> SessionEndReason.Cancelled
+                        }
                         exitToLibrary(reason)
                     },
                     modifier = Modifier.fillMaxSize(),

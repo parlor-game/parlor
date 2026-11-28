@@ -7,6 +7,7 @@ import com.parlor.core.ids.ModeId
 import com.parlor.core.ids.PlayerId
 import com.parlor.engine.state.GameState
 import com.parlor.engine.state.Player
+import com.parlor.games.whodunit.domain.event.KillerWinCause
 import com.parlor.games.whodunit.domain.event.Verdict
 import com.parlor.games.whodunit.domain.phase.WhodunitPhase
 import kotlinx.serialization.Serializable
@@ -24,6 +25,13 @@ data class WhodunitState(
     override val phase: WhodunitPhase,
     override val players: List<Player>,
 ) : GameState
+
+internal val WhodunitState.completedPartyMatch: Boolean
+    get() = phase == WhodunitPhase.PostGame && when (val verdict = public.verdict) {
+        is Verdict.PlayersWin -> true
+        is Verdict.KillerWins -> verdict.cause != KillerWinCause.GameEndedEarly
+        null -> false
+    }
 
 /** Public — visible to everyone in the room. */
 @Serializable

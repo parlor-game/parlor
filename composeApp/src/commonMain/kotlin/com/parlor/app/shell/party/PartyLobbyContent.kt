@@ -37,6 +37,9 @@ import com.parlor.app.resources.party_open
 import com.parlor.app.resources.party_pending
 import com.parlor.app.resources.party_play_again
 import com.parlor.app.resources.party_player_line
+import com.parlor.app.resources.party_playlist_choose_next
+import com.parlor.app.resources.party_playlist_edit
+import com.parlor.app.resources.party_playlist_editor
 import com.parlor.app.resources.party_ready
 import com.parlor.app.resources.party_roster
 import com.parlor.app.resources.party_rules_back
@@ -70,6 +73,7 @@ internal class PartyLobbyCommands(
     val setReady: (Boolean) -> Unit,
     val viewRules: () -> Unit,
     val invite: () -> Unit,
+    val editPlaylist: () -> Unit,
 )
 
 @Composable
@@ -101,14 +105,12 @@ internal fun PartyLobbyContent(
         }
         if (match != null && !ended) PartyButton(Res.string.party_view_match, onClick = onViewMatch)
         if (lobby != null && !ended) {
+            if (lobby.phase == PartyLobbyPhase.Lobby) lobby.playlist?.let { PartyPlaylistScoreboard(it, titles) }
             PartySeats(lobby, info.hostPlayerId)
             if (session is ProcessPartySession.Host && lobby.phase == PartyLobbyPhase.Lobby) {
                 HostPartyControls(session, lobby, titles, selected, connected && !waiting, commands)
             } else if (session is ProcessPartySession.Peer && lobby.phase == PartyLobbyPhase.Lobby) {
-                val ready = lobby.members.firstOrNull { it.playerId == session.selfPlayerId }?.ready == true
-                PartyButton(if (ready) Res.string.party_not_ready else Res.string.party_ready, enabled = connected && !waiting) {
-                    commands.setReady(!ready)
-                }
+                PartyReadyButton(lobby, session.selfPlayerId, connected && !waiting, commands.setReady)
             }
         } else if (!ended) {
             PartyDetail(stringResource(Res.string.party_waiting))
@@ -119,6 +121,16 @@ internal fun PartyLobbyContent(
         error?.let { PartyError(it) }
         PartyButton(Res.string.party_leave, enabled = !waiting, variant = ParlorButtonVariant.Secondary, onClick = onLeave)
     }
+}
+
+@Composable
+private fun PartyReadyButton(lobby: PublicPartyLobby, self: PlayerId, enabled: Boolean, onReady: (Boolean) -> Unit) {
+    val ready = lobby.members.firstOrNull { it.playerId == self }?.ready == true
+    val next = lobby.playlist?.nextGame
+    PartyButton(
+        if (ready) Res.string.party_not_ready else Res.string.party_ready,
+        enabled = enabled && (next == null || next == lobby.selectedGame),
+    ) { onReady(!ready) }
 }
 
 @Composable
@@ -179,17 +191,35 @@ private fun HostPartyControls(
     val needsReady = lobby.members.any { it.playerId != info.hostPlayerId && it.connected && !it.ready }
     val supportsCount = selected?.playerCounts?.contains(playerCount) == true
     val completedGame by host.lastCompletedGame.collectAsState()
-    val start = if (lobby.selectedGame.gameId == completedGame) Res.string.party_play_again else Res.string.party_start
-    PartyButton(start, enabled = enabled && pending.isEmpty() && supportsCount && !needsReady, onClick = commands.start)
-    if (selected != null && !supportsCount) {
+    val playlist = lobby.playlist
+    val next = playlist?.nextGame
+    val canStartSelected = next == null || next == lobby.selectedGame
+    val start = if (next == null && lobby.selectedGame.gameId == completedGame) Res.string.party_play_again
+    else Res.string.party_start
+    val canChange = enabled && pending.isEmpty()
+    if (canStartSelected) {
+        PartyButton(start, enabled = canChange && supportsCount && !needsReady, onClick = commands.start)
+    } else {
+        titles.keys.firstOrNull { it.protocol == next }?.let { game ->
+            PartyButton(Res.string.party_playlist_choose_next, enabled = canChange) { commands.selectGame(game) }
+        }
+    }
+    if (canStartSelected && selected != null && !supportsCount) {
         PartyDetail(stringResource(
             Res.string.party_cant_start_count, selected.playerCounts.first.toString(), selected.playerCounts.last.toString(),
         ))
-    } else if (needsReady) {
+    } else if (canStartSelected && needsReady) {
         PartyDetail(stringResource(Res.string.party_cant_start_ready))
     }
-    PartyHeading(stringResource(Res.string.party_change_game))
-    PartyGameOptions(titles, selected, enabled && pending.isEmpty(), commands.selectGame)
+    if (next == null || playlist?.completedMatchIds?.isEmpty() == true) {
+        val editorLabel = if (next == null) Res.string.party_playlist_editor else Res.string.party_playlist_edit
+        PartyButton(editorLabel, enabled = canChange,
+            variant = ParlorButtonVariant.Secondary, onClick = commands.editPlaylist)
+    }
+    if (next == null) {
+        PartyHeading(stringResource(Res.string.party_change_game))
+        PartyGameOptions(titles, selected, canChange, commands.selectGame)
+    }
 }
 
 @Composable

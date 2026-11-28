@@ -11,6 +11,7 @@ import com.parlor.networking.protocol.PartyLobbyPhase
 import com.parlor.networking.protocol.PartyProtocolHeader
 import com.parlor.networking.protocol.PeerMessage
 import com.parlor.networking.protocol.PublicPartyLobby
+import com.parlor.networking.protocol.PublicPartyPlaylist
 import com.parlor.networking.protocol.PublicPartySeat
 import com.parlor.networking.room.NetError
 import com.parlor.networking.room.PartyMatchAdmission
@@ -47,6 +48,7 @@ internal class PartyHostCoordinator(
     val state = lobby.asStateFlow()
 
     suspend fun admit(seat: PartySeat) = mutate { it.admit(seat) }
+    suspend fun configurePlaylist(games: List<PartyGame>) = mutate { it.configurePlaylist(games) }
     suspend fun selectGame(game: PartyGame): Result<PartyLobby, PartyRejection> = mutations.withLock {
         val previous = lobby.value
         val selected = previous.selectGame(game)
@@ -78,8 +80,10 @@ internal class PartyHostCoordinator(
 
     suspend fun commitMatch(match: SessionId) = mutate { it.commitMatch(match) }
 
-    suspend fun returnToLobby(match: SessionId): Result<PartyLobby, PartyRejection> = mutations.withLock {
-        val returned = lobby.value.returnToLobby(match)
+    suspend fun returnToLobby(
+        match: SessionId, completed: Boolean = false, winners: Set<PlayerId>? = null,
+    ): Result<PartyLobby, PartyRejection> = mutations.withLock {
+        val returned = lobby.value.returnToLobby(match, completed, winners)
         if (returned !is Result.Success || matchAdmission == null) return@withLock apply(returned)
         val reopened = withContext(NonCancellable) { matchAdmission.reopenMatch(match) }
         if (reopened is Result.Failure) return@withLock Result.Failure(reopened.error.toPartyRejection())
@@ -199,6 +203,13 @@ internal fun PartyLobby.publicLobby(): PublicPartyLobby {
         activeMatchId = match?.id,
         matchOrdinal = matchOrdinal,
         roomName = roomName,
+        playlist = playlist?.let { progress ->
+            PublicPartyPlaylist(
+                progress.games.map(PartyGame::protocol),
+                progress.results.map(PartyMatchResult::matchId),
+                progress.results.mapNotNull(PartyMatchResult::score),
+            )
+        },
     )
 }
 

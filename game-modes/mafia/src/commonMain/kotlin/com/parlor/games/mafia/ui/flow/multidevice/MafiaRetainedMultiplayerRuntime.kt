@@ -16,6 +16,7 @@ import com.parlor.games.mafia.domain.action.MafiaAction
 import com.parlor.games.mafia.domain.event.MafiaEvent
 import com.parlor.games.mafia.session.MafiaReadinessGate
 import com.parlor.games.mafia.domain.state.MafiaState
+import com.parlor.games.mafia.domain.state.completedPartyMatch
 import com.parlor.networking.protocol.HostMessage
 import com.parlor.networking.protocol.SessionEndReason
 import com.parlor.networking.protocol.SessionProtocol
@@ -112,6 +113,9 @@ internal class MafiaHostRuntime(
     fun beginExit() {
         _startGate.value = _startGate.value.beginExit()
     }
+
+    override val isMatchCompleted: Boolean
+        get() = rawSession.canonicalState.value.completedPartyMatch
 
     override suspend fun terminate(reason: SessionEndReason) {
         bridge.terminate(reason)

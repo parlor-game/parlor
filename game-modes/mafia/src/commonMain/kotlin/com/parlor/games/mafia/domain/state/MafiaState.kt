@@ -26,6 +26,9 @@ data class MafiaState(
     override val players: List<Player>,
 ) : GameState
 
+internal val MafiaState.completedPartyMatch: Boolean
+    get() = phase == MafiaPhase.PostGame && public.winner != null && public.droppedPlayers.isEmpty()
+
 @Serializable
 data class MafiaPublic(
     val settings: MafiaSettings,

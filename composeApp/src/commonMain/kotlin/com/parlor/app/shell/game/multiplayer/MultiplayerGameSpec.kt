@@ -28,6 +28,7 @@ internal interface MultiplayerGameSpec<S : GameState, A : GameAction, E : GameEv
     fun disconnected(state: S): Set<PlayerId>
     fun isAborted(state: S): Boolean
     fun isCompleted(state: S): Boolean = false
+    fun partyMatchWinners(state: S): Set<PlayerId>? = null
     fun isRematch(action: A): Boolean = false
     fun disconnectedAction(id: PlayerId): A
     fun reconnectedAction(id: PlayerId): A
