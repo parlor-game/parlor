@@ -27,6 +27,7 @@ jobs:
       lab: ${{ steps.plan.outputs.lab }}
       rules_restore_android: ${{ steps.plan.outputs.rules_restore_android }}
       fresh_android: ${{ steps.plan.outputs.fresh_android }}
+      reuse_word_scoring: ${{ steps.plan.outputs.reuse_word_scoring }}
       reuse_presets_android: ${{ steps.plan.outputs.reuse_presets_android }}
       reuse_candidate: ${{ steps.plan.outputs.reuse_candidate }}
       reuse_standings_android: ${{ steps.plan.outputs.reuse_standings_android }}
@@ -125,6 +126,7 @@ jobs:
       DIGESTS: ${{ inputs.token_digests }}
       CANDIDATE: ${{ needs.plan.outputs.candidate }}
       DEVELOPER_DIR: ${{ matrix.target == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
+      PARLOR_SERIAL_WIFI: ${{ needs.plan.outputs.reuse_word_scoring }}
       LAN_KEEP: '1'
       LAN_FAULTS: ${{ needs.plan.outputs.observe_reconnect == 'true' && '1' || '0' }}
       STAGED_IOS_PAIR: ${{ needs.plan.outputs.staged_ios_pair }}
@@ -157,6 +159,33 @@ jobs:
           github-token: ${{ github.token }}
           repository: parlor-game/parlor
           run-id: '45075164525'
+          name: candidate-android-1
+          path: ${{ runner.temp }}/parlor-package
+      - name: Verify the original Word Impostor Android package producer
+        if: needs.plan.outputs.reuse_word_scoring == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          retained=repos/parlor-game/parlor/actions
+          gh api "$retained/runs/46172975912/attempts/1" | jq -e '
+            .id == 46172975912 and .workflow_id == 427081574 and .run_attempt == 1 and
+            .head_repository.full_name == "parlor-game/parlor" and
+            .head_branch == "test/smart-lobby-native-ui" and
+            .head_sha == "9ade3e1a5d437c27aaaca2c6b2e693cc67c68de4" and .status == "completed"' >/dev/null
+          gh api "$retained/jobs/141065399206" | jq -e '
+            .run_id == 46172975912 and .run_attempt == 1 and .conclusion == "success" and
+            .name == "build (android, ubuntu-24.04)"' >/dev/null
+          gh api "$retained/artifacts/15273779254" | jq -e '
+            .name == "candidate-android-1" and .expired == false and
+            .digest == "sha256:7f2e07f1739f3ed89e114d1469699a7122ba7bd3d16f274a27cb2c0e7b8efe35" and
+            .workflow_run.id == 46172975912 and
+            .workflow_run.head_sha == "9ade3e1a5d437c27aaaca2c6b2e693cc67c68de4"' >/dev/null
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.plan.outputs.reuse_word_scoring == 'true'
+        with:
+          github-token: ${{ github.token }}
+          repository: parlor-game/parlor
+          run-id: '46172975912'
           name: candidate-android-1
           path: ${{ runner.temp }}/parlor-package
       - name: Verify the original exact presets Android build

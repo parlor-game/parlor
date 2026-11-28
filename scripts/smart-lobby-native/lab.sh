@@ -72,6 +72,7 @@ boot_android_group() {
   IFS=. read -r major minor _ < <(sed -n 's/^Pkg.Revision *= *//p' "$ANDROID_HOME/emulator/source.properties")
   (( major > 36 || (major == 36 && minor >= 5) ))
   local memory_mib=2048 cpu_cores=2 gpu=swiftshader_indirect
+  if [[ "${PARLOR_SERIAL_WIFI:-false}" == true ]]; then cpu_cores=1; fi
   local display=()
   if (( DEVICE_COUNT > 3 )); then
     # Bound guest CPU pressure on the four-core Linux runner. The last

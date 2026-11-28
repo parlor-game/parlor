@@ -68,7 +68,7 @@ def plan():
     word_scoring_android = payload.get("word_scoring_android") is True
     if word_scoring_android and (
         candidate != WORD_SCORING_CANDIDATE or pairing != "android" or len(digests) != 3
-        or reuse_candidate or observe_reconnect
+        or observe_reconnect
     ):
         raise ValueError("Word Impostor scoring requires three fresh Android installs of the exact candidate")
     fresh_android = rules_restore_android or word_scoring_android
@@ -156,6 +156,7 @@ def plan():
         print(f"reuse_standings_android={str(reuse_standings_android).lower()}", file=stream)
         print(f"rules_restore_android={str(rules_restore_android).lower()}", file=stream)
         print(f"fresh_android={str(fresh_android).lower()}", file=stream)
+        print(f"reuse_word_scoring={str(word_scoring_android and reuse_candidate).lower()}", file=stream)
         print(f"reuse_presets_android={str(reuse_presets_android).lower()}", file=stream)
         print(f"reuse_candidate={str(reuse_candidate).lower()}", file=stream)
         print(f"observe_reconnect={str(observe_reconnect).lower()}", file=stream)
@@ -280,7 +281,18 @@ def wifi():
     devices = (temp / "parlor-devices").read_text().splitlines()
     evidence = temp / "parlor-proof"
     for attempt in (1, 2):
-        addresses = wait_for_wifi_addresses(devices)
+        try:
+            addresses = wait_for_wifi_addresses(devices)
+        except ValueError as error:
+            cause = type(error.__cause__).__name__ if error.__cause__ else type(error).__name__
+            (evidence / f"wifi-address-failure-{attempt}.json").write_text(
+                json.dumps({"phase": "address readiness", "attempt": attempt, "cause": cause}, indent=2) + "\n"
+            )
+            if attempt != 1:
+                raise
+            print("Wi-Fi address readiness failed; reassociating the owned guests once", flush=True)
+            reassociate_wifi(devices)
+            continue
         probes = probe_wifi(addresses)
         missing = sorted({probe["to"] for probe in probes if probe["received"] != 3})
         report = evidence / ("shared-wifi.json" if not missing else f"shared-wifi-incomplete-{attempt}.json")
