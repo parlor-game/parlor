@@ -48,6 +48,7 @@ class WordImpostorScoringTest {
                     // Do not confirm a role or the word through early score updates.
                     assertEquals(null, state.public.result)
                     assertTrue(state.public.scores.values.all { it == 0 })
+                    assertNull(state.matchWinners())
                 }
             }
             assertEquals(WordImpostorPhase.MatchResult, state.phase)
@@ -74,6 +75,7 @@ class WordImpostorScoringTest {
         assertEquals(1, state.public.scores[correctVoter])
         assertEquals(1, state.public.scores[impostor])
         assertEquals(2, state.public.scores.values.sum())
+        assertEquals(setOf(correctVoter, impostor), state.matchWinners())
         verify(state)
         val wrongAward = state.copy(public = state.public.copy(result = result.copy(correctVoters = emptySet())))
         assertFalse(WordImpostorValidation.publicState(wrongAward))
@@ -103,6 +105,7 @@ class WordImpostorScoringTest {
             val forged = own.copy(privatePerPlayer = mapOf(ownId to own.privatePerPlayer.getValue(ownId).copy(vote = ordinary.last())))
             assertFalse(WordImpostorValidation.playerState(forged, ownId))
             if (round < 2) {
+                assertNull(state.matchWinners())
                 val next = WordImpostorAction.NextRound(state.public.token)
                 state = reducer.apply(state, next)
                 assertEquals(state, reducer.apply(state, next))
@@ -110,7 +113,9 @@ class WordImpostorScoringTest {
                 assertEquals(null, state.public.result)
             }
         }
+        assertEquals(expected.filterValues { it == expected.values.max() }.keys, state.matchWinners())
         state = reducer.apply(state, WordImpostorAction.Rematch(state.public.token))
+        assertNull(state.matchWinners())
         assertTrue(state.public.scores.values.all { it == 0 })
         assertTrue(state.hostOnly.votes.isEmpty() && state.hostOnly.guesses.isEmpty())
         verify(state)
